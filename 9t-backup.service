@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up 9t data
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/9t
+EnvironmentFile=/home/ubuntu/9t/.env.production
+ExecStart=/usr/bin/node /home/ubuntu/9t/scripts/backup.mjs

@@ -1,0 +1,10 @@
+[Unit]
+Description=9t expiry and trash cleanup
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/9t
+EnvironmentFile=/home/ubuntu/9t/.env.production
+ExecStart=/usr/bin/node /home/ubuntu/9t/scripts/maintenance.mjs

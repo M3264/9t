@@ -4,7 +4,7 @@ Paused: 2026-09-16
 
 ## Current state
 
-The functional single-user release is built and deployed at `http://193.122.5.91:3265`. It runs through the enabled `9t.service` systemd unit and restarts automatically. First-run setup is awaiting the owner and is protected by `NINE_T_SETUP_TOKEN` in `.env.production`.
+The functional single-user release is deployed at `https://9t.kennyy.xyz`. Nginx terminates HTTPS, direct public access to port 3265 is blocked, and the enabled `9t.service` unit restarts automatically.
 
 ## Completed in source
 
@@ -18,7 +18,7 @@ The functional single-user release is built and deployed at `http://193.122.5.91
 - Search, filters, pinning, snippet copy, link open, and file download.
 - Soft deletion, Trash, restore, and permanent deletion.
 - Module and upload-size settings.
-- Port 3265 and all-interface binding; UFW TCP 3265 rule is open.
+- Local port 3265 binding behind Nginx; UFW allows only public HTTP/HTTPS access.
 
 ## Validation completed
 
@@ -36,28 +36,24 @@ The functional single-user release is built and deployed at `http://193.122.5.91
 
 ## Next sequence
 
-1. Complete owner setup in the browser using the server setup key.
-2. Add a domain and HTTPS reverse proxy. Set `NINE_T_HTTPS=true` after TLS works so cookies use the Secure flag.
-3. Review desktop and mobile layouts with real owner content.
-4. Continue the remaining white-paper work below.
+1. Review desktop and mobile layouts with real owner content.
+2. Build the deployment/configuration milestone described below.
 
 ## Important notes
 
 - Authentication is mandatory because this instance is internet-exposed.
-- Until HTTPS exists, cookies cannot use the Secure flag; the code gates it on `NINE_T_HTTPS=true`.
+- HTTPS and Secure cookies are active in production.
 - Local atomic storage is the initial single-user release. PostgreSQL remains planned.
 
 ## Remaining white-paper work
 
-- Password-protected handoffs and QR handoff.
-- Scheduled idempotent trash-retention sweep (object expiry is implemented and swept on access).
 - PostgreSQL repository and migrations.
-- CLI: setup, push, list, get, share, trash, restore.
+- CLI setup/configure wizard (daily object commands are implemented).
 - DNS validation and Caddy HTTPS automation.
 - Hybrid LAN/public trust handling.
 - S3-compatible storage.
 - Config import/export and validated raw editor.
-- Backup/restore tooling and external security review.
+- External security review.
 
 ## Compaction handoff — 2026-09-16
 
@@ -103,17 +99,21 @@ The functional single-user release is built and deployed at `http://193.122.5.91
 
 The current product stores and organizes objects, but both devices still need to open the website manually. Build these next:
 
+Completed 2026-09-16:
+
 1. Authenticated CLI with `9t push`, `list`, `get`, `share`, `trash`, and `restore`.
 2. Stable authenticated object URLs and individual object pages.
-3. QR handoff from every object and share dialog.
+3. QR handoff on object pages, share creation, and public handoffs.
 4. Installable PWA with mobile share-target support.
-5. One-click clipboard retrieval and clearer copy confirmation.
+5. Clear copy confirmation and direct retrieval actions.
 6. Scheduled, idempotent expiry/trash-retention worker.
-7. Automated backup and tested restore flow.
+7. Automated backup and verified restore flow.
+8. Password-protected public handoffs.
+
+The interface was also reduced to a quieter single-accent visual system: flatter surfaces, fewer decorative codes and gradients, consistent geometry, and a calmer desktop width.
 
 ### Remaining platform work
 
-- Password-protected shares.
 - LAN/Public/Hybrid exposure switching with enforced auth coupling.
 - Domain and DNS configuration from the setup/settings interface.
 - PostgreSQL repository, schema, and migrations.
@@ -123,6 +123,10 @@ The current product stores and organizes objects, but both devices still need to
 - Multi-user ownership boundaries.
 - External security review before making security claims.
 - Client-side encryption and native clients remain long-term work.
+
+### Next milestone
+
+Build the deployment/configuration layer: validated config import/export, Docker Compose installation, exposure/domain diagnostics, and then replace JSON persistence with a PostgreSQL repository and migrations. S3 and multi-user boundaries follow after the repository abstraction is stable.
 
 ### Product direction
 

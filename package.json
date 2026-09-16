@@ -2,21 +2,28 @@
   "name": "9t",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "9t": "bin/9t.mjs"
+  },
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3265",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3265",
-    "lint": "next lint"
+    "lint": "next lint",
+    "cleanup": "node scripts/maintenance.mjs",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "lucide-react": "0.468.0",
     "next": "^16.3.5",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "3.23.8"
   },
   "devDependencies": {
     "@types/node": "22.7.4",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "typescript": "5.6.2"

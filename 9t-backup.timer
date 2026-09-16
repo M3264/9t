@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up 9t data daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

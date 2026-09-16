@@ -1,132 +1,1570 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, ArrowRight, ArrowUpRight, Check, Clock3, Code2, Copy, File, FileText, Infinity as InfinityIcon, Link2, LogOut, Monitor, Moon, Move, Paperclip, PanelRight, Pin, Plus, Radio, Search, Settings, Share2, ShieldCheck, Sun, Trash2, Upload, X } from "lucide-react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import QRCode from "qrcode";
+import {
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  Clock3,
+  Code2,
+  Copy,
+  File,
+  FileText,
+  Infinity as InfinityIcon,
+  Link2,
+  LogOut,
+  Monitor,
+  Moon,
+  Move,
+  Paperclip,
+  PanelRight,
+  Pin,
+  Plus,
+  Radio,
+  Search,
+  Settings,
+  Share2,
+  ShieldCheck,
+  Sun,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 
-type ObjectType="snippet"|"file"|"link";
-type Obj={id:string;type:ObjectType;name:string;content?:string;language?:string;url?:string;mimeType?:string;sizeBytes?:number;pinned:boolean;createdAt:string;updatedAt:string;deletedAt?:string;expiresAt?:string;board?:{x:number;y:number}};
-type Theme="system"|"light"|"dark";
-type Config={initialized:boolean;modules:{snippets:boolean;files:boolean;links:boolean;board:boolean};exposure:string;theme:Theme;maxSizeMb:number;trashRetentionDays:number};
-type Share={id:string;token:string;objectId:string;createdAt:string;expiresAt?:string;accessCount:number;object:Obj};
-type View="all"|ObjectType|"board"|"shares"|"trash";
+type ObjectType = "snippet" | "file" | "link";
+type Obj = {
+  id: string;
+  type: ObjectType;
+  name: string;
+  content?: string;
+  language?: string;
+  url?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  expiresAt?: string;
+  board?: { x: number; y: number };
+};
+type Theme = "system" | "light" | "dark";
+type Config = {
+  initialized: boolean;
+  modules: {
+    snippets: boolean;
+    files: boolean;
+    links: boolean;
+    board: boolean;
+  };
+  exposure: string;
+  theme: Theme;
+  maxSizeMb: number;
+  trashRetentionDays: number;
+};
+type Share = {
+  id: string;
+  token: string;
+  objectId: string;
+  createdAt: string;
+  expiresAt?: string;
+  accessCount: number;
+  object: Obj;
+};
+type View = "all" | ObjectType | "board" | "shares" | "trash";
 
-const api=async(url:string,init?:RequestInit)=>{const r=await fetch(url,init),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Something went wrong");return d};
-const ago=(s:string)=>{const n=(Date.now()-new Date(s).getTime())/1000;return n<60?"now":n<3600?`${Math.floor(n/60)}m`:n<86400?`${Math.floor(n/3600)}h`:`${Math.floor(n/86400)}d`};
-const until=(s:string)=>{const n=(new Date(s).getTime()-Date.now())/1000;return n<=0?"due":n<3600?`${Math.ceil(n/60)}m`:n<86400?`${Math.ceil(n/3600)}h`:`${Math.ceil(n/86400)}d`};
-const bytes=(n=0)=>n<1024?`${n}B`:n<1048576?`${(n/1024).toFixed(1)}KB`:`${(n/1048576).toFixed(1)}MB`;
-const iconFor={snippet:Code2,file:FileText,link:Link2};
+const api = async (url: string, init?: RequestInit) => {
+  const r = await fetch(url, init),
+    d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Something went wrong");
+  return d;
+};
+const ago = (s: string) => {
+  const n = (Date.now() - new Date(s).getTime()) / 1000;
+  return n < 60
+    ? "now"
+    : n < 3600
+      ? `${Math.floor(n / 60)}m`
+      : n < 86400
+        ? `${Math.floor(n / 3600)}h`
+        : `${Math.floor(n / 86400)}d`;
+};
+const until = (s: string) => {
+  const n = (new Date(s).getTime() - Date.now()) / 1000;
+  return n <= 0
+    ? "due"
+    : n < 3600
+      ? `${Math.ceil(n / 60)}m`
+      : n < 86400
+        ? `${Math.ceil(n / 3600)}h`
+        : `${Math.ceil(n / 86400)}d`;
+};
+const bytes = (n = 0) =>
+  n < 1024
+    ? `${n}B`
+    : n < 1048576
+      ? `${(n / 1024).toFixed(1)}KB`
+      : `${(n / 1048576).toFixed(1)}MB`;
+const iconFor = { snippet: Code2, file: FileText, link: Link2 };
 
-export default function Home(){
-  const [phase,setPhase]=useState<"loading"|"setup"|"login"|"desk">("loading");
-  const [config,setConfig]=useState<Config|null>(null),[username,setUsername]=useState(""),[objects,setObjects]=useState<Obj[]>([]),[shares,setShares]=useState<Share[]>([]);
-  const [view,setView]=useState<View>("all"),[query,setQuery]=useState(""),[selected,setSelected]=useState<Obj|null>(null),[modal,setModal]=useState<null|"create"|"share"|"settings"|"commands">(null),[toast,setToast]=useState("");
-  const [resolvedTheme,setResolvedTheme]=useState<"light"|"dark">("light");
-  const searchRef=useRef<HTMLInputElement>(null);
-  const flash=(message:string)=>{setToast(message);window.setTimeout(()=>setToast(""),2200)};
-  const refresh=useCallback(async()=>{const s=await api("/api/status");setConfig(s.config);setUsername(s.username||"");if(!s.initialized)return setPhase("setup");if(!s.authenticated)return setPhase("login");setPhase("desk");const [items,links]=await Promise.all([api(`/api/objects${view==="trash"?"?trash=true":""}`),api("/api/shares")]);setObjects(items.objects);setShares(links.shares)},[view]);
-  useEffect(()=>{refresh().catch(()=>setPhase("login"))},[refresh]);
-  useEffect(()=>{if(!config)return;const media=matchMedia("(prefers-color-scheme: dark)"),apply=()=>{const resolved=config.theme==="system"?(media.matches?"dark":"light"):config.theme;document.documentElement.dataset.theme=resolved;setResolvedTheme(resolved);localStorage.setItem("9t-theme",config.theme)};apply();media.addEventListener("change",apply);return()=>media.removeEventListener("change",apply)},[config]);
-  useEffect(()=>{const keys=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();setModal("commands")}else if(e.key==="/"&&!modal){e.preventDefault();searchRef.current?.focus()}else if(e.key.toLowerCase()==="n"&&!modal&&!(["INPUT","TEXTAREA"].includes((e.target as HTMLElement).tagName)))setModal("create")};addEventListener("keydown",keys);return()=>removeEventListener("keydown",keys)},[modal]);
-  const visible=useMemo(()=>objects.filter(o=>(view==="all"||view==="board"||view==="trash"||o.type===view)&&(o.name+" "+(o.content||"")+" "+(o.url||"")).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||+new Date(b.updatedAt)-+new Date(a.updatedAt)),[objects,view,query]);
-  const counts={all:objects.length,snippet:objects.filter(o=>o.type==="snippet").length,file:objects.filter(o=>o.type==="file").length,link:objects.filter(o=>o.type==="link").length};
-  const patch=async(o:Obj,body:Record<string,unknown>)=>{await api(`/api/objects/${o.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});setObjects(items=>items.map(x=>x.id===o.id?{...x,...body,updatedAt:new Date().toISOString()}:x));setSelected(s=>s?.id===o.id?{...s,...body}:s)};
-  const remove=async(o:Obj,permanent=false)=>{await api(`/api/objects/${o.id}${permanent?"?permanent=true":""}`,{method:"DELETE"});setObjects(items=>items.filter(x=>x.id!==o.id));setSelected(null);flash(permanent?"Item deleted":"Moved to Trash")};
-  const setTheme=async(theme:Theme)=>{await api("/api/config",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({theme})});setConfig(c=>c?{...c,theme}:c)};
-  if(phase==="loading")return <Boot/>;
-  if(phase==="setup")return <Setup done={refresh}/>;
-  if(phase==="login")return <Login done={refresh}/>;
-  return <div className="desk">
-    <header className="mast">
-      <Logo/><div className="mast-rule"/><div className="server-signal"><i/>Server online</div>
-      <button className="command-trigger" onClick={()=>setModal("commands")}><Search/>Search or run a command <kbd>⌘K</kbd></button>
-      <div className="identity"><span>{username}</span><button title="Toggle theme" onClick={()=>setTheme(resolvedTheme==="dark"?"light":"dark")}>{resolvedTheme==="dark"?<Sun/>:<Moon/>}</button><button title="Settings" onClick={()=>setModal("settings")}><Settings/></button><button title="Sign out" onClick={async()=>{await api("/api/auth/logout",{method:"POST"});setPhase("login")}}><LogOut/></button></div>
-    </header>
-    <nav className="channel-strip">
-      <button className="capture" onClick={()=>setModal("create")}><Plus/> Add <kbd>N</kbd></button>
-      <Channel code="00" label="Everything" count={counts.all} active={view==="all"} onClick={()=>setView("all")}/>
-      {config?.modules.snippets && (
-        <Channel code="01" label="Code" count={counts.snippet} active={view==="snippet"} onClick={()=>setView("snippet")}/>
+export default function Home() {
+  const [phase, setPhase] = useState<"loading" | "setup" | "login" | "desk">(
+    "loading",
+  );
+  const [config, setConfig] = useState<Config | null>(null),
+    [username, setUsername] = useState(""),
+    [objects, setObjects] = useState<Obj[]>([]),
+    [shares, setShares] = useState<Share[]>([]);
+  const [view, setView] = useState<View>("all"),
+    [query, setQuery] = useState(""),
+    [selected, setSelected] = useState<Obj | null>(null),
+    [modal, setModal] = useState<
+      null | "create" | "share" | "settings" | "commands"
+    >(null),
+    [toast, setToast] = useState("");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const flash = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2200);
+  };
+  const refresh = useCallback(async () => {
+    const s = await api("/api/status");
+    setConfig(s.config);
+    setUsername(s.username || "");
+    if (!s.initialized) return setPhase("setup");
+    if (!s.authenticated) return setPhase("login");
+    setPhase("desk");
+    const [items, links] = await Promise.all([
+      api(`/api/objects${view === "trash" ? "?trash=true" : ""}`),
+      api("/api/shares"),
+    ]);
+    setObjects(items.objects);
+    setShares(links.shares);
+  }, [view]);
+  useEffect(() => {
+    refresh().catch(() => setPhase("login"));
+  }, [refresh]);
+  useEffect(() => {
+    if (!config) return;
+    const media = matchMedia("(prefers-color-scheme: dark)"),
+      apply = () => {
+        const resolved =
+          config.theme === "system"
+            ? media.matches
+              ? "dark"
+              : "light"
+            : config.theme;
+        document.documentElement.dataset.theme = resolved;
+        setResolvedTheme(resolved);
+        localStorage.setItem("9t-theme", config.theme);
+      };
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [config]);
+  useEffect(() => {
+    const keys = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setModal("commands");
+      } else if (e.key === "/" && !modal) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (
+        e.key.toLowerCase() === "n" &&
+        !modal &&
+        !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)
+      )
+        setModal("create");
+    };
+    addEventListener("keydown", keys);
+    return () => removeEventListener("keydown", keys);
+  }, [modal]);
+  const visible = useMemo(
+    () =>
+      objects
+        .filter(
+          (o) =>
+            (view === "all" ||
+              view === "board" ||
+              view === "trash" ||
+              o.type === view) &&
+            (o.name + " " + (o.content || "") + " " + (o.url || ""))
+              .toLowerCase()
+              .includes(query.toLowerCase()),
+        )
+        .sort(
+          (a, b) =>
+            Number(b.pinned) - Number(a.pinned) ||
+            +new Date(b.updatedAt) - +new Date(a.updatedAt),
+        ),
+    [objects, view, query],
+  );
+  const counts = {
+    all: objects.length,
+    snippet: objects.filter((o) => o.type === "snippet").length,
+    file: objects.filter((o) => o.type === "file").length,
+    link: objects.filter((o) => o.type === "link").length,
+  };
+  const patch = async (o: Obj, body: Record<string, unknown>) => {
+    await api(`/api/objects/${o.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setObjects((items) =>
+      items.map((x) =>
+        x.id === o.id
+          ? { ...x, ...body, updatedAt: new Date().toISOString() }
+          : x,
+      ),
+    );
+    setSelected((s) => (s?.id === o.id ? { ...s, ...body } : s));
+  };
+  const remove = async (o: Obj, permanent = false) => {
+    await api(`/api/objects/${o.id}${permanent ? "?permanent=true" : ""}`, {
+      method: "DELETE",
+    });
+    setObjects((items) => items.filter((x) => x.id !== o.id));
+    setSelected(null);
+    flash(permanent ? "Item deleted" : "Moved to Trash");
+  };
+  const setTheme = async (theme: Theme) => {
+    await api("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme }),
+    });
+    setConfig((c) => (c ? { ...c, theme } : c));
+  };
+  if (phase === "loading") return <Boot />;
+  if (phase === "setup") return <Setup done={refresh} />;
+  if (phase === "login") return <Login done={refresh} />;
+  return (
+    <div className="desk">
+      <header className="mast">
+        <Logo />
+        <div className="mast-rule" />
+        <div className="server-signal">
+          <i />
+          Server online
+        </div>
+        <button
+          className="command-trigger"
+          onClick={() => setModal("commands")}
+        >
+          <Search />
+          Search or run a command <kbd>⌘K</kbd>
+        </button>
+        <div className="identity">
+          <span>{username}</span>
+          <button
+            title="Toggle theme"
+            onClick={() =>
+              setTheme(resolvedTheme === "dark" ? "light" : "dark")
+            }
+          >
+            {resolvedTheme === "dark" ? <Sun /> : <Moon />}
+          </button>
+          <button title="Settings" onClick={() => setModal("settings")}>
+            <Settings />
+          </button>
+          <button
+            title="Sign out"
+            onClick={async () => {
+              await api("/api/auth/logout", { method: "POST" });
+              setPhase("login");
+            }}
+          >
+            <LogOut />
+          </button>
+        </div>
+      </header>
+      <nav className="channel-strip">
+        <button className="capture" onClick={() => setModal("create")}>
+          <Plus /> Add <kbd>N</kbd>
+        </button>
+        <Channel
+          code="00"
+          label="Everything"
+          count={counts.all}
+          active={view === "all"}
+          onClick={() => setView("all")}
+        />
+        {config?.modules.snippets && (
+          <Channel
+            code="01"
+            label="Code"
+            count={counts.snippet}
+            active={view === "snippet"}
+            onClick={() => setView("snippet")}
+          />
+        )}
+        {config?.modules.files && (
+          <Channel
+            code="02"
+            label="Files"
+            count={counts.file}
+            active={view === "file"}
+            onClick={() => setView("file")}
+          />
+        )}
+        {config?.modules.links && (
+          <Channel
+            code="03"
+            label="Links"
+            count={counts.link}
+            active={view === "link"}
+            onClick={() => setView("link")}
+          />
+        )}
+        {config?.modules.board && (
+          <Channel
+            code="04"
+            label="Board"
+            active={view === "board"}
+            onClick={() => setView("board")}
+          />
+        )}
+        <Channel
+          code="05"
+          label="Shares"
+          count={shares.length}
+          active={view === "shares"}
+          onClick={() => setView("shares")}
+        />
+        <Channel
+          code="06"
+          label="Trash"
+          active={view === "trash"}
+          onClick={() => setView("trash")}
+        />
+      </nav>
+      <main className="desk-body">
+        <section className="signal-workspace">
+          <div className="workspace-head">
+            <div>
+              <span>9T / {view.toUpperCase()}</span>
+              <h1>
+                {view === "all"
+                  ? "Your workspace"
+                  : view === "board"
+                    ? "Board"
+                    : view === "shares"
+                      ? "Shared items"
+                      : view === "trash"
+                        ? "Trash"
+                        : view}
+              </h1>
+            </div>
+            <label className="inline-search">
+              <Search />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter items"
+              />
+              <kbd>/</kbd>
+            </label>
+          </div>
+          {view === "all" && (
+            <QuickAdd
+              saved={async () => {
+                await refresh();
+                flash("Added to 9t");
+              }}
+            />
+          )}
+          {view === "board" ? (
+            <Board objects={visible} move={patch} open={setSelected} />
+          ) : view === "shares" ? (
+            <ShareLog
+              shares={shares}
+              revoke={async (s) => {
+                await api(`/api/shares/${s.id}`, { method: "DELETE" });
+                setShares((x) => x.filter((v) => v.id !== s.id));
+                flash("Share revoked");
+              }}
+            />
+          ) : (
+            <Stream
+              objects={visible}
+              trash={view === "trash"}
+              open={setSelected}
+              patch={patch}
+              remove={remove}
+              restore={async (o) => {
+                await patch(o, { restore: true });
+                setObjects((x) => x.filter((v) => v.id !== o.id));
+                flash("Item restored");
+              }}
+            />
+          )}
+        </section>
+        <aside className="handoff-rail">
+          <div className="rail-title">
+            <span>QUICK ACCESS</span>
+            <Radio />
+          </div>
+          <p>Pinned items, ready on every device.</p>
+          <div className="relay-stack">
+            {objects
+              .filter((o) => o.pinned)
+              .slice(0, 5)
+              .map((o, i) => (
+                <button key={o.id} onClick={() => setSelected(o)}>
+                  <b>0{i + 1}</b>
+                  <span>
+                    {o.name}
+                    <small>
+                      {o.type} · {ago(o.updatedAt)}
+                    </small>
+                  </span>
+                  <ArrowUpRight />
+                </button>
+              ))}
+            {!objects.some((o) => o.pinned) && (
+              <div className="rail-empty">Pin an item to keep it close.</div>
+            )}
+          </div>
+          <div className="node-readout">
+            <div>
+              <span>Access</span>
+              <b>{config?.exposure}</b>
+            </div>
+            <div>
+              <span>Authentication</span>
+              <b>On</b>
+            </div>
+            <div>
+              <span>Storage</span>
+              <b>Local</b>
+            </div>
+            <div>
+              <span>Items</span>
+              <b>{objects.length}</b>
+            </div>
+          </div>
+          <button className="rail-capture" onClick={() => setModal("create")}>
+            <Plus />
+            Add an item
+          </button>
+        </aside>
+      </main>
+      {selected && (
+        <Inspector
+          key={selected.id}
+          object={selected}
+          close={() => setSelected(null)}
+          save={async (body) => {
+            await patch(selected, body);
+            flash("Item updated");
+          }}
+          share={() => setModal("share")}
+          pin={() => patch(selected, { pinned: !selected.pinned })}
+          remove={() => remove(selected)}
+        />
       )}
-      {config?.modules.files && (
-        <Channel code="02" label="Files" count={counts.file} active={view==="file"} onClick={()=>setView("file")}/>
+      {modal === "create" && (
+        <Create
+          config={config!}
+          close={() => setModal(null)}
+          saved={async () => {
+            setModal(null);
+            await refresh();
+            flash("Item added");
+          }}
+        />
       )}
-      {config?.modules.links && (
-        <Channel code="03" label="Links" count={counts.link} active={view==="link"} onClick={()=>setView("link")}/>
+      {modal === "share" && selected && (
+        <ShareModal
+          object={selected}
+          close={() => setModal(null)}
+          created={async () => {
+            await refresh();
+            flash("Share link ready");
+          }}
+        />
       )}
-      {config?.modules.board && (
-        <Channel code="04" label="Board" active={view==="board"} onClick={()=>setView("board")}/>
+      {modal === "settings" && (
+        <SettingsPanel
+          config={config!}
+          close={() => setModal(null)}
+          saved={async () => {
+            setModal(null);
+            await refresh();
+            flash("Settings saved");
+          }}
+        />
       )}
-      <Channel code="05" label="Shares" count={shares.length} active={view==="shares"} onClick={()=>setView("shares")}/>
-      <Channel code="06" label="Trash" active={view==="trash"} onClick={()=>setView("trash")}/>
-    </nav>
-    <main className="desk-body">
-      <section className="signal-workspace">
-        <div className="workspace-head"><div><span>9T / {view.toUpperCase()}</span><h1>{view==="all"?"Your workspace":view==="board"?"Board":view==="shares"?"Shared items":view==="trash"?"Trash":view}</h1></div><label className="inline-search"><Search/><input ref={searchRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Filter items"/><kbd>/</kbd></label></div>
-        {view==="all"&&<QuickAdd saved={async()=>{await refresh();flash("Added to 9t")}}/>}
-        {view==="board"?<Board objects={visible} move={patch} open={setSelected}/>:view==="shares"?<ShareLog shares={shares} revoke={async s=>{await api(`/api/shares/${s.id}`,{method:"DELETE"});setShares(x=>x.filter(v=>v.id!==s.id));flash("Share revoked")}}/>:<Stream objects={visible} trash={view==="trash"} open={setSelected} patch={patch} remove={remove} restore={async o=>{await patch(o,{restore:true});setObjects(x=>x.filter(v=>v.id!==o.id));flash("Item restored")}}/>}
+      {modal === "commands" && (
+        <Commands
+          close={() => setModal(null)}
+          run={(action) => {
+            setModal(null);
+            if (action === "create") setModal("create");
+            else if (action === "settings") setModal("settings");
+            else setView(action as View);
+          }}
+        />
+      )}
+      {toast && (
+        <div className="toast">
+          <Check />
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Logo() {
+  return (
+    <div className="brand">
+      <img src="/9t-mark.svg" alt="9t" />
+      <span>
+        <b>9t</b>
+        <small>INTERNET WORKSPACE</small>
+      </span>
+    </div>
+  );
+}
+function Boot() {
+  return (
+    <div className="boot">
+      <Logo />
+      <div className="boot-line">
+        <i />
+      </div>
+      <span>Opening your workspace</span>
+    </div>
+  );
+}
+function Channel({
+  code,
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  code: string;
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button className={active ? "channel active" : "channel"} onClick={onClick}>
+      <small>{code}</small>
+      <span>{label}</span>
+      {count !== undefined && <b>{count.toString().padStart(2, "0")}</b>}
+    </button>
+  );
+}
+
+function Qr({ path, label }: { path: string; label: string }) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    QRCode.toDataURL(new URL(path, location.origin).toString(), {
+      width: 220,
+      margin: 1,
+      color: { dark: "#10233e", light: "#ffffff" },
+    }).then(setSrc);
+  }, [path]);
+  return src ? (
+    <div className="qr">
+      <img src={src} alt={`QR code for ${label}`} />
+      <span>Scan to open on another device</span>
+    </div>
+  ) : null;
+}
+
+function QuickAdd({ saved }: { saved: () => void }) {
+  const [value, setValue] = useState(""),
+    [busy, setBusy] = useState(false),
+    [dragging, setDragging] = useState(false),
+    fileRef = useRef<HTMLInputElement>(null);
+  const add = async (file?: File) => {
+    if (!file && !value.trim()) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.set("lifetime", "forever");
+      if (file) {
+        form.set("type", "file");
+        form.set("name", file.name);
+        form.set("file", file);
+      } else {
+        const text = value.trim();
+        let parsed: URL | null = null;
+        try {
+          const candidate = new URL(text);
+          if (["http:", "https:"].includes(candidate.protocol))
+            parsed = candidate;
+        } catch {}
+        if (parsed) {
+          form.set("type", "link");
+          form.set("name", parsed.hostname.replace(/^www\./, ""));
+          form.set("url", parsed.toString());
+        } else {
+          form.set("type", "snippet");
+          form.set(
+            "name",
+            text.split("\n")[0].slice(0, 52) || "Untitled snippet",
+          );
+          form.set("content", text);
+          form.set("language", "text");
+        }
+      }
+      await api("/api/objects", { method: "POST", body: form });
+      setValue("");
+      saved();
+    } finally {
+      setBusy(false);
+      setDragging(false);
+    }
+  };
+  return (
+    <form
+      className={dragging ? "quick-add dragging" : "quick-add"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        add();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        add(e.dataTransfer.files[0]);
+      }}
+    >
+      <div className="quick-mark">
+        <img src="/9t-mark.svg" alt="" />
+      </div>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={dragging ? "Drop it here" : "Paste text or a link…"}
+      />
+      <button
+        type="button"
+        className="attach"
+        title="Choose a file"
+        onClick={() => fileRef.current?.click()}
+      >
+        <Paperclip />
+      </button>
+      <input
+        ref={fileRef}
+        hidden
+        type="file"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) add(file);
+        }}
+      />
+      <button className="quick-submit" disabled={busy || !value.trim()}>
+        {busy ? "Adding" : "Add"}
+        <ArrowRight />
+      </button>
+      <small>9t recognizes links, text, and files automatically</small>
+    </form>
+  );
+}
+
+function Stream({
+  objects,
+  trash,
+  open,
+  patch,
+  remove,
+  restore,
+}: {
+  objects: Obj[];
+  trash: boolean;
+  open: (o: Obj) => void;
+  patch: (o: Obj, b: Record<string, unknown>) => void;
+  remove: (o: Obj, p?: boolean) => void;
+  restore: (o: Obj) => void;
+}) {
+  if (!objects.length)
+    return (
+      <div className="zero-state">
+        <div>9t</div>
+        <h2>Nothing here yet</h2>
+        <p>Add a file, snippet, or link. It will be here on every device.</p>
+      </div>
+    );
+  return (
+    <div className="signal-list">
+      <div className="list-key">
+        <span>TYPE</span>
+        <span>ITEM</span>
+        <span>UPDATED</span>
+        <span>ACTIONS</span>
+      </div>
+      {objects.map((o, i) => {
+        const Icon = iconFor[o.type];
+        return (
+          <article className="signal-row" key={o.id} onClick={() => open(o)}>
+            <div className="signal-id">
+              <b>{(i + 1).toString().padStart(2, "0")}</b>
+              <span className={o.type}>
+                <Icon />
+              </span>
+            </div>
+            <div className="signal-payload">
+              <div>
+                <em>{o.type.toUpperCase()}</em>
+                {o.pinned && <i>PINNED</i>}
+                {o.expiresAt && (
+                  <i className="expiry">{until(o.expiresAt)} LEFT</i>
+                )}
+              </div>
+              <h3>{o.name}</h3>
+              <p>
+                {o.type === "snippet"
+                  ? (o.content || "empty snippet").slice(0, 120)
+                  : o.type === "link"
+                    ? o.url
+                    : `${o.mimeType || "file"} · ${bytes(o.sizeBytes)}`}
+              </p>
+            </div>
+            <time>{ago(o.updatedAt)}</time>
+            <div
+              className="signal-actions"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {trash ? (
+                <>
+                  <button onClick={() => restore(o)}>RESTORE</button>
+                  <button onClick={() => remove(o, true)}>DELETE</button>
+                </>
+              ) : (
+                <>
+                  <button
+                    title="Pin"
+                    className={o.pinned ? "active" : ""}
+                    onClick={() => patch(o, { pinned: !o.pinned })}
+                  >
+                    <Pin />
+                  </button>
+                  <button title="Details" onClick={() => open(o)}>
+                    <PanelRight />
+                  </button>
+                  <button title="Move to trash" onClick={() => remove(o)}>
+                    <Trash2 />
+                  </button>
+                </>
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function Board({
+  objects,
+  move,
+  open,
+}: {
+  objects: Obj[];
+  move: (o: Obj, b: Record<string, unknown>) => void;
+  open: (o: Obj) => void;
+}) {
+  const board = useRef<HTMLDivElement>(null);
+  const drop = (e: React.DragEvent, o: Obj) => {
+    const r = board.current!.getBoundingClientRect(),
+      x = ((e.clientX - r.left) / r.width) * 100,
+      y = ((e.clientY - r.top) / r.height) * 100;
+    move(o, { board: { x, y } });
+  };
+  return (
+    <div
+      className="spatial-board"
+      ref={board}
+      onDragOver={(e) => e.preventDefault()}
+    >
+      <div className="board-coordinates">
+        <span>0,0</span>
+        <span>100,0</span>
+        <span>0,100</span>
+        <span>100,100</span>
+      </div>
+      {objects.map((o, i) => {
+        const pos = o.board || {
+            x: 8 + ((i * 23) % 76),
+            y: 12 + ((i * 31) % 68),
+          },
+          Icon = iconFor[o.type];
+        return (
+          <button
+            draggable
+            onDragEnd={(e) => drop(e, o)}
+            onDoubleClick={() => open(o)}
+            className={`board-note ${o.type}`}
+            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            key={o.id}
+          >
+            <Move />
+            <small>
+              {o.type} / {o.id.slice(0, 4)}
+            </small>
+            <Icon />
+            <b>{o.name}</b>
+            <span>
+              {o.type === "snippet"
+                ? o.content?.slice(0, 60)
+                : o.type === "link"
+                  ? o.url
+                  : bytes(o.sizeBytes)}
+            </span>
+          </button>
+        );
+      })}
+      <div className="board-help">
+        DRAG TO ARRANGE · DOUBLE CLICK TO INSPECT
+      </div>
+    </div>
+  );
+}
+
+function ShareLog({
+  shares,
+  revoke,
+}: {
+  shares: Share[];
+  revoke: (s: Share) => void;
+}) {
+  return shares.length ? (
+    <div className="share-log">
+      {shares.map((s, i) => (
+        <article key={s.id}>
+          <b>{(i + 1).toString().padStart(2, "0")}</b>
+          <div>
+            <small>SHARED LINK</small>
+            <h3>{s.object.name}</h3>
+            <code>/s/{s.token.slice(0, 9)}••••</code>
+          </div>
+          <dl>
+            <dt>OPENED</dt>
+            <dd>{s.accessCount}×</dd>
+            <dt>EXPIRES</dt>
+            <dd>{s.expiresAt ? until(s.expiresAt) : "∞"}</dd>
+          </dl>
+          <button
+            onClick={() =>
+              navigator.clipboard.writeText(`${location.origin}/s/${s.token}`)
+            }
+          >
+            <Copy />
+            COPY
+          </button>
+          <button onClick={() => revoke(s)}>
+            <X />
+            REVOKE
+          </button>
+        </article>
+      ))}
+    </div>
+  ) : (
+    <div className="zero-state">
+      <div>↗</div>
+      <h2>No shared links</h2>
+      <p>Open an item to create an expiring public link.</p>
+    </div>
+  );
+}
+
+function Inspector({
+  object,
+  close,
+  save,
+  share,
+  pin,
+  remove,
+}: {
+  object: Obj;
+  close: () => void;
+  save: (b: Record<string, unknown>) => void;
+  share: () => void;
+  pin: () => void;
+  remove: () => void;
+}) {
+  const [name, setName] = useState(object.name),
+    [content, setContent] = useState(object.content || ""),
+    [url, setUrl] = useState(object.url || ""),
+    [lifetime, setLifetime] = useState(object.expiresAt ? "keep" : "forever");
+  const expiry =
+    lifetime === "keep"
+      ? object.expiresAt
+      : lifetime === "forever"
+        ? null
+        : new Date(
+            Date.now() +
+              ({ "1h": 36e5, "1d": 864e5, "7d": 6048e5 }[lifetime] || 0),
+          ).toISOString();
+  return (
+    <div className="inspector">
+      <header>
+        <span>
+          {object.type} · {object.id.slice(0, 8)}
+        </span>
+        <button onClick={close}>
+          <X />
+        </button>
+      </header>
+      <div className={`inspector-type ${object.type}`}>
+        {object.type.toUpperCase()} <i />
+      </div>
+      <label>
+        NAME
+        <input value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      {object.type === "snippet" && (
+        <label>
+          CONTENT
+          <textarea
+            rows={15}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+        </label>
+      )}
+      {object.type === "link" && (
+        <label>
+          URL
+          <input value={url} onChange={(e) => setUrl(e.target.value)} />
+        </label>
+      )}
+      {object.type === "file" && (
+        <div className="file-readout">
+          <File />
+          <span>
+            <b>{object.mimeType}</b>
+            <small>{bytes(object.sizeBytes)} · Stored locally</small>
+          </span>
+          <a href={`/api/files/${object.id}`}>
+            <ArrowDownToLine />
+            Download
+          </a>
+        </div>
+      )}
+      <label>
+        LIFETIME
+        <select value={lifetime} onChange={(e) => setLifetime(e.target.value)}>
+          <option value="keep">Keep current</option>
+          <option value="forever">Permanent</option>
+          <option value="1h">1 hour from now</option>
+          <option value="1d">1 day from now</option>
+          <option value="7d">7 days from now</option>
+        </select>
+      </label>
+      <div className="inspect-meta">
+        <span>
+          CREATED <b>{new Date(object.createdAt).toLocaleString()}</b>
+        </span>
+        <span>
+          LIFETIME{" "}
+          <b>
+            {object.expiresAt
+              ? new Date(object.expiresAt).toLocaleString()
+              : "PERMANENT"}
+          </b>
+        </span>
+      </div>
+      <div className="inspect-actions">
+        <a href={`/o/${object.id}`} target="_blank" rel="noreferrer">
+          <ArrowUpRight /> OPEN
+        </a>
+        <button onClick={pin}>
+          <Pin />
+          {object.pinned ? "UNPIN" : "PIN"}
+        </button>
+        <button onClick={share}>
+          <Share2 />
+          SHARE
+        </button>
+        <button className="destructive" onClick={remove}>
+          <Trash2 />
+          TRASH
+        </button>
+      </div>
+      <button
+        className="save-signal"
+        onClick={() =>
+          save({
+            name,
+            expiresAt: expiry,
+            ...(object.type === "snippet" ? { content } : {}),
+            ...(object.type === "link" ? { url } : {}),
+          })
+        }
+      >
+        Save changes <ArrowUpRight />
+      </button>
+    </div>
+  );
+}
+
+function Modal({
+  title,
+  code,
+  close,
+  children,
+}: {
+  title: string;
+  code: string;
+  close: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="modal-field"
+      onMouseDown={(e) => {
+        if (e.currentTarget === e.target) close();
+      }}
+    >
+      <section className="terminal-modal">
+        <header>
+          <span>{code}</span>
+          <h2>{title}</h2>
+          <button onClick={close}>
+            <X />
+          </button>
+        </header>
+        {children}
       </section>
-      <aside className="handoff-rail">
-        <div className="rail-title"><span>QUICK ACCESS</span><Radio/></div>
-        <p>Pinned items, ready on every device.</p>
-        <div className="relay-stack">{objects.filter(o=>o.pinned).slice(0,5).map((o,i)=><button key={o.id} onClick={()=>setSelected(o)}><b>0{i+1}</b><span>{o.name}<small>{o.type} · {ago(o.updatedAt)}</small></span><ArrowUpRight/></button>)}{!objects.some(o=>o.pinned)&&<div className="rail-empty">Pin an item to keep it close.</div>}</div>
-        <div className="node-readout"><div><span>Access</span><b>{config?.exposure}</b></div><div><span>Authentication</span><b>On</b></div><div><span>Storage</span><b>Local</b></div><div><span>Items</span><b>{objects.length}</b></div></div>
-        <button className="rail-capture" onClick={()=>setModal("create")}><Plus/>Add an item</button>
-      </aside>
-    </main>
-    {selected && (
-      <Inspector key={selected.id} object={selected} close={()=>setSelected(null)} save={async body=>{await patch(selected,body);flash("Item updated")}} share={()=>setModal("share")} pin={()=>patch(selected,{pinned:!selected.pinned})} remove={()=>remove(selected)}/>
-    )}
-    {modal==="create"&&<Create config={config!} close={()=>setModal(null)} saved={async()=>{setModal(null);await refresh();flash("Item added")}}/>}
-    {modal==="share"&&selected&&<ShareModal object={selected} close={()=>setModal(null)} created={async path=>{await navigator.clipboard.writeText(location.origin+path);setModal(null);await refresh();flash("Share link copied")}}/>}
-    {modal==="settings"&&<SettingsPanel config={config!} close={()=>setModal(null)} saved={async()=>{setModal(null);await refresh();flash("Settings saved")}}/>}
-    {modal==="commands"&&<Commands close={()=>setModal(null)} run={action=>{setModal(null);if(action==="create")setModal("create");else if(action==="settings")setModal("settings");else setView(action as View)}}/>}
-    {toast&&<div className="toast"><Check/>{toast}</div>}
-  </div>
+    </div>
+  );
 }
 
-function Logo(){return <div className="brand"><img src="/9t-mark.svg" alt="9t"/><span><b>9t</b><small>INTERNET WORKSPACE</small></span></div>}
-function Boot(){return <div className="boot"><Logo/><div className="boot-line"><i/></div><span>Opening your workspace</span></div>}
-function Channel({code,label,count,active,onClick}:{code:string;label:string;count?:number;active:boolean;onClick:()=>void}){return <button className={active?"channel active":"channel"} onClick={onClick}><small>{code}</small><span>{label}</span>{count!==undefined&&<b>{count.toString().padStart(2,"0")}</b>}</button>}
-
-function QuickAdd({saved}:{saved:()=>void}){
-  const [value,setValue]=useState(""),[busy,setBusy]=useState(false),[dragging,setDragging]=useState(false),fileRef=useRef<HTMLInputElement>(null);
-  const add=async(file?:File)=>{if(!file&&!value.trim())return;setBusy(true);try{const form=new FormData();form.set("lifetime","forever");if(file){form.set("type","file");form.set("name",file.name);form.set("file",file)}else{const text=value.trim();let parsed:URL|null=null;try{const candidate=new URL(text);if(["http:","https:"].includes(candidate.protocol))parsed=candidate}catch{}if(parsed){form.set("type","link");form.set("name",parsed.hostname.replace(/^www\./,""));form.set("url",parsed.toString())}else{form.set("type","snippet");form.set("name",text.split("\n")[0].slice(0,52)||"Untitled snippet");form.set("content",text);form.set("language","text")}}await api("/api/objects",{method:"POST",body:form});setValue("");saved()}finally{setBusy(false);setDragging(false)}};
-  return <form className={dragging?"quick-add dragging":"quick-add"} onSubmit={e=>{e.preventDefault();add()}} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();add(e.dataTransfer.files[0])}}><div className="quick-mark"><img src="/9t-mark.svg" alt=""/></div><input value={value} onChange={e=>setValue(e.target.value)} placeholder={dragging?"Drop it here":"Paste text or a link…"}/><button type="button" className="attach" title="Choose a file" onClick={()=>fileRef.current?.click()}><Paperclip/></button><input ref={fileRef} hidden type="file" onChange={e=>{const file=e.target.files?.[0];if(file)add(file)}}/><button className="quick-submit" disabled={busy||!value.trim()}>{busy?"Adding":"Add"}<ArrowRight/></button><small>9t recognizes links, text, and files automatically</small></form>
+function Create({
+  config,
+  close,
+  saved,
+}: {
+  config: Config;
+  close: () => void;
+  saved: () => void;
+}) {
+  const types = Object.entries(config.modules)
+      .filter(([k, v]) => v && k !== "board")
+      .map(([k]) => k.slice(0, -1)) as ObjectType[],
+    [type, setType] = useState<ObjectType>(types[0] || "snippet"),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api("/api/objects", {
+        method: "POST",
+        body: new FormData(e.currentTarget),
+      });
+      saved();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title="Add to 9t" code="NEW ITEM" close={close}>
+      <div className="mode-switch">
+        {types.map((t, i) => (
+          <button
+            type="button"
+            className={type === t ? "active" : ""}
+            onClick={() => setType(t)}
+            key={t}
+          >
+            <small>0{i + 1}</small>
+            {t}
+          </button>
+        ))}
+      </div>
+      <form className="signal-form" onSubmit={submit}>
+        <input type="hidden" name="type" value={type} />
+        <label>
+          NAME
+          <input
+            name="name"
+            required
+            autoFocus
+            placeholder="Something you will recognize"
+          />
+        </label>
+        {type === "snippet" && (
+          <>
+            <label>
+              LANGUAGE
+              <select name="language">
+                <option>text</option>
+                <option>javascript</option>
+                <option>typescript</option>
+                <option>python</option>
+                <option>bash</option>
+                <option>json</option>
+                <option>css</option>
+                <option>sql</option>
+              </select>
+            </label>
+            <label>
+              CONTENT
+              <textarea
+                name="content"
+                rows={9}
+                required
+                placeholder="Paste code, a command, note, or configuration…"
+              />
+            </label>
+          </>
+        )}
+        {type === "link" && (
+          <label>
+            URL
+            <input name="url" type="url" required placeholder="https://" />
+          </label>
+        )}
+        {type === "file" && (
+          <label className="file-drop">
+            <Upload />
+            <b>Choose a file</b>
+            <span>Up to {config.maxSizeMb} MB</span>
+            <input
+              name="file"
+              type="file"
+              required
+              onChange={(e) => {
+                const f = e.target.files?.[0],
+                  n = e.currentTarget.form?.elements.namedItem(
+                    "name",
+                  ) as HTMLInputElement;
+                if (f && !n.value) n.value = f.name;
+              }}
+            />
+          </label>
+        )}
+        <label>
+          KEEP FOR
+          <select name="lifetime">
+            <option value="forever">Forever</option>
+            <option value="1h">1 hour</option>
+            <option value="1d">1 day</option>
+            <option value="7d">7 days</option>
+          </select>
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <button className="transmit" disabled={busy}>
+          <Plus />
+          {busy ? "Adding…" : "Add item"}
+        </button>
+      </form>
+    </Modal>
+  );
 }
 
-function Stream({objects,trash,open,patch,remove,restore}:{objects:Obj[];trash:boolean;open:(o:Obj)=>void;patch:(o:Obj,b:Record<string,unknown>)=>void;remove:(o:Obj,p?:boolean)=>void;restore:(o:Obj)=>void}){
-  if(!objects.length)return <div className="zero-state"><div>9t</div><h2>Nothing here yet</h2><p>Add a file, snippet, or link. It will be here on every device.</p></div>;
-  return <div className="signal-list"><div className="list-key"><span>TYPE</span><span>ITEM</span><span>UPDATED</span><span>ACTIONS</span></div>{objects.map((o,i)=>{const Icon=iconFor[o.type];return <article className="signal-row" key={o.id} onClick={()=>open(o)}><div className="signal-id"><b>{(i+1).toString().padStart(2,"0")}</b><span className={o.type}><Icon/></span></div><div className="signal-payload"><div><em>{o.type.toUpperCase()}</em>{o.pinned&&<i>PINNED</i>}{o.expiresAt&&<i className="expiry">{until(o.expiresAt)} LEFT</i>}</div><h3>{o.name}</h3><p>{o.type==="snippet"?(o.content||"empty snippet").slice(0,120):o.type==="link"?o.url:`${o.mimeType||"file"} · ${bytes(o.sizeBytes)}`}</p></div><time>{ago(o.updatedAt)}</time><div className="signal-actions" onClick={e=>e.stopPropagation()}>{trash?<><button onClick={()=>restore(o)}>RESTORE</button><button onClick={()=>remove(o,true)}>DELETE</button></>:<><button title="Pin" className={o.pinned?"active":""} onClick={()=>patch(o,{pinned:!o.pinned})}><Pin/></button><button title="Details" onClick={()=>open(o)}><PanelRight/></button><button title="Move to trash" onClick={()=>remove(o)}><Trash2/></button></>}</div></article>})}</div>
+function ShareModal({
+  object,
+  close,
+  created,
+}: {
+  object: Obj;
+  close: () => void;
+  created: (path: string) => void;
+}) {
+  const [life, setLife] = useState("1d"),
+    [password, setPassword] = useState(""),
+    [path, setPath] = useState(""),
+    [busy, setBusy] = useState(false);
+  return (
+    <Modal title="Share this item" code="PUBLIC LINK" close={close}>
+      {path ? (
+        <div className="share-ready">
+          <Qr path={path} label={object.name} />
+          <code>{location.origin + path}</code>
+          <button
+            className="transmit"
+            onClick={async () => {
+              await navigator.clipboard.writeText(location.origin + path);
+              created(path);
+            }}
+          >
+            <Copy /> Copy link
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="share-object">
+            <Share2 />
+            <span>
+              <small>ITEM</small>
+              <b>{object.name}</b>
+            </span>
+          </div>
+          <div className="lifetime-grid">
+            {[
+              ["1h", "1 HOUR"],
+              ["1d", "1 DAY"],
+              ["7d", "7 DAYS"],
+              ["30d", "30 DAYS"],
+              ["forever", "NO EXPIRY"],
+            ].map(([v, l]) => (
+              <button
+                className={life === v ? "active" : ""}
+                onClick={() => setLife(v)}
+                key={v}
+              >
+                {v === "forever" ? <InfinityIcon /> : <Clock3 />}
+                {l}
+              </button>
+            ))}
+          </div>
+          <p className="share-warning">
+            <ShieldCheck />
+            Anyone with the link can open this item until it expires. The rest
+            of your workspace stays private.
+          </p>
+          <label className="share-password">
+            PASSWORD
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Optional (6+ characters)"
+              minLength={6}
+            />
+          </label>
+          <button
+            className="transmit"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              const d = await api("/api/shares", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  objectId: object.id,
+                  lifetime: life,
+                  password: password || undefined,
+                }),
+              });
+              setPath(d.path);
+              setBusy(false);
+              created(d.path);
+            }}
+          >
+            <Copy />
+            {busy ? "Creating…" : "Create and copy link"}
+          </button>
+        </>
+      )}
+    </Modal>
+  );
 }
 
-function Board({objects,move,open}:{objects:Obj[];move:(o:Obj,b:Record<string,unknown>)=>void;open:(o:Obj)=>void}){
-  const board=useRef<HTMLDivElement>(null);
-  const drop=(e:React.DragEvent,o:Obj)=>{const r=board.current!.getBoundingClientRect(),x=((e.clientX-r.left)/r.width)*100,y=((e.clientY-r.top)/r.height)*100;move(o,{board:{x,y}})};
-  return <div className="spatial-board" ref={board} onDragOver={e=>e.preventDefault()}><div className="board-coordinates"><span>0,0</span><span>100,0</span><span>0,100</span><span>100,100</span></div>{objects.map((o,i)=>{const pos=o.board||{x:8+(i*23)%76,y:12+(i*31)%68},Icon=iconFor[o.type];return <button draggable onDragEnd={e=>drop(e,o)} onDoubleClick={()=>open(o)} className={`board-note ${o.type}`} style={{left:`${pos.x}%`,top:`${pos.y}%`}} key={o.id}><Move/><small>{o.type} / {o.id.slice(0,4)}</small><Icon/><b>{o.name}</b><span>{o.type==="snippet"?o.content?.slice(0,60):o.type==="link"?o.url:bytes(o.sizeBytes)}</span></button>})}<div className="board-help">DRAG TO ARRANGE · DOUBLE CLICK TO INSPECT</div></div>
+function SettingsPanel({
+  config,
+  close,
+  saved,
+}: {
+  config: Config;
+  close: () => void;
+  saved: () => void;
+}) {
+  const [modules, setModules] = useState(config.modules),
+    [max, setMax] = useState(config.maxSizeMb),
+    [theme, setTheme] = useState<Theme>(config.theme);
+  const themes: { id: Theme; label: string; icon: React.ReactNode }[] = [
+    { id: "system", label: "System", icon: <Monitor /> },
+    { id: "light", label: "Light", icon: <Sun /> },
+    { id: "dark", label: "Dark", icon: <Moon /> },
+  ];
+  return (
+    <Modal title="Settings" code="9T / SETTINGS" close={close}>
+      <div className="theme-picker">
+        <span>APPEARANCE</span>
+        <div>
+          {themes.map((item) => (
+            <button
+              className={theme === item.id ? "active" : ""}
+              onClick={() => setTheme(item.id)}
+              key={item.id}
+            >
+              {item.icon}
+              <b>{item.label}</b>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="settings-grid">
+        {Object.entries(modules).map(([key, value], i) => (
+          <button
+            className={value ? "active" : ""}
+            onClick={() => setModules((x) => ({ ...x, [key]: !value }))}
+            key={key}
+          >
+            <small>MODULE 0{i + 1}</small>
+            <b>{key}</b>
+            <span>{value ? "ON" : "OFF"}</span>
+          </button>
+        ))}
+      </div>
+      <div className="settings-line">
+        <label>
+          MAXIMUM FILE SIZE
+          <input
+            type="number"
+            value={max}
+            min="1"
+            onChange={(e) => setMax(+e.target.value)}
+          />
+          <span>MB</span>
+        </label>
+        <div>
+          <small>ACCESS</small>
+          <b>{config.exposure.toUpperCase()}</b>
+        </div>
+        <div>
+          <small>AUTH</small>
+          <b>ON</b>
+        </div>
+      </div>
+      <button
+        className="transmit"
+        onClick={async () => {
+          await api("/api/config", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ modules, maxSizeMb: max, theme }),
+          });
+          saved();
+        }}
+      >
+        <Check />
+        Save settings
+      </button>
+    </Modal>
+  );
 }
 
-function ShareLog({shares,revoke}:{shares:Share[];revoke:(s:Share)=>void}){return shares.length?<div className="share-log">{shares.map((s,i)=><article key={s.id}><b>{(i+1).toString().padStart(2,"0")}</b><div><small>SHARED LINK</small><h3>{s.object.name}</h3><code>/s/{s.token.slice(0,9)}••••</code></div><dl><dt>OPENED</dt><dd>{s.accessCount}×</dd><dt>EXPIRES</dt><dd>{s.expiresAt?until(s.expiresAt):"∞"}</dd></dl><button onClick={()=>navigator.clipboard.writeText(`${location.origin}/s/${s.token}`)}><Copy/>COPY</button><button onClick={()=>revoke(s)}><X/>REVOKE</button></article>)}</div>:<div className="zero-state"><div>↗</div><h2>No shared links</h2><p>Open an item to create an expiring public link.</p></div>}
-
-function Inspector({object,close,save,share,pin,remove}:{object:Obj;close:()=>void;save:(b:Record<string,unknown>)=>void;share:()=>void;pin:()=>void;remove:()=>void}){
-  const [name,setName]=useState(object.name),[content,setContent]=useState(object.content||""),[url,setUrl]=useState(object.url||""),[lifetime,setLifetime]=useState(object.expiresAt?"keep":"forever");
-  const expiry=lifetime==="keep"?object.expiresAt:lifetime==="forever"?null:new Date(Date.now()+({"1h":36e5,"1d":864e5,"7d":6048e5}[lifetime]||0)).toISOString();
-  return <div className="inspector"><header><span>{object.type} · {object.id.slice(0,8)}</span><button onClick={close}><X/></button></header><div className={`inspector-type ${object.type}`}>{object.type.toUpperCase()} <i/></div><label>NAME<input value={name} onChange={e=>setName(e.target.value)}/></label>{object.type==="snippet"&&<label>CONTENT<textarea rows={15} value={content} onChange={e=>setContent(e.target.value)}/></label>}{object.type==="link"&&<label>URL<input value={url} onChange={e=>setUrl(e.target.value)}/></label>}{object.type==="file"&&<div className="file-readout"><File/><span><b>{object.mimeType}</b><small>{bytes(object.sizeBytes)} · Stored locally</small></span><a href={`/api/files/${object.id}`}><ArrowDownToLine/>Download</a></div>}<label>LIFETIME<select value={lifetime} onChange={e=>setLifetime(e.target.value)}><option value="keep">Keep current</option><option value="forever">Permanent</option><option value="1h">1 hour from now</option><option value="1d">1 day from now</option><option value="7d">7 days from now</option></select></label><div className="inspect-meta"><span>CREATED <b>{new Date(object.createdAt).toLocaleString()}</b></span><span>LIFETIME <b>{object.expiresAt?new Date(object.expiresAt).toLocaleString():"PERMANENT"}</b></span></div><div className="inspect-actions"><button onClick={pin}><Pin/>{object.pinned?"UNPIN":"PIN"}</button><button onClick={share}><Share2/>SHARE</button><button className="destructive" onClick={remove}><Trash2/>TRASH</button></div><button className="save-signal" onClick={()=>save({name,expiresAt:expiry,...(object.type==="snippet"?{content}:{}),...(object.type==="link"?{url}:{})})}>Save changes <ArrowUpRight/></button></div>
+function Commands({
+  close,
+  run,
+}: {
+  close: () => void;
+  run: (a: string) => void;
+}) {
+  const commands = [
+    ["create", "Add an item", "N"],
+    ["all", "Open everything", "0"],
+    ["board", "Open Board", "B"],
+    ["shares", "View shared links", "H"],
+    ["trash", "Open Trash", "R"],
+    ["settings", "Open settings", "S"],
+  ];
+  return (
+    <Modal title="Commands" code="9T / GO" close={close}>
+      <div className="command-list">
+        {commands.map(([a, l, k], i) => (
+          <button autoFocus={i === 0} onClick={() => run(a)} key={a}>
+            <small>{(i + 1).toString().padStart(2, "0")}</small>
+            <span>{l}</span>
+            <kbd>{k}</kbd>
+          </button>
+        ))}
+      </div>
+    </Modal>
+  );
 }
 
-function Modal({title,code,close,children}:{title:string;code:string;close:()=>void;children:React.ReactNode}){return <div className="modal-field" onMouseDown={e=>{if(e.currentTarget===e.target)close()}}><section className="terminal-modal"><header><span>{code}</span><h2>{title}</h2><button onClick={close}><X/></button></header>{children}</section></div>}
-
-function Create({config,close,saved}:{config:Config;close:()=>void;saved:()=>void}){
-  const types=Object.entries(config.modules).filter(([k,v])=>v&&k!=="board").map(([k])=>k.slice(0,-1)) as ObjectType[],[type,setType]=useState<ObjectType>(types[0]||"snippet"),[busy,setBusy]=useState(false),[error,setError]=useState("");
-  const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setBusy(true);try{await api("/api/objects",{method:"POST",body:new FormData(e.currentTarget)});saved()}catch(err){setError((err as Error).message);setBusy(false)}};
-  return <Modal title="Add to 9t" code="NEW ITEM" close={close}><div className="mode-switch">{types.map((t,i)=><button type="button" className={type===t?"active":""} onClick={()=>setType(t)} key={t}><small>0{i+1}</small>{t}</button>)}</div><form className="signal-form" onSubmit={submit}><input type="hidden" name="type" value={type}/><label>NAME<input name="name" required autoFocus placeholder="Something you will recognize"/></label>{type==="snippet"&&<><label>LANGUAGE<select name="language"><option>text</option><option>javascript</option><option>typescript</option><option>python</option><option>bash</option><option>json</option><option>css</option><option>sql</option></select></label><label>CONTENT<textarea name="content" rows={9} required placeholder="Paste code, a command, note, or configuration…"/></label></>}{type==="link"&&<label>URL<input name="url" type="url" required placeholder="https://"/></label>}{type==="file"&&<label className="file-drop"><Upload/><b>Choose a file</b><span>Up to {config.maxSizeMb} MB</span><input name="file" type="file" required onChange={e=>{const f=e.target.files?.[0],n=e.currentTarget.form?.elements.namedItem("name") as HTMLInputElement;if(f&&!n.value)n.value=f.name}}/></label>}<label>KEEP FOR<select name="lifetime"><option value="forever">Forever</option><option value="1h">1 hour</option><option value="1d">1 day</option><option value="7d">7 days</option></select></label>{error&&<p className="form-error">{error}</p>}<button className="transmit" disabled={busy}><Plus/>{busy?"Adding…":"Add item"}</button></form></Modal>
+function Setup({ done }: { done: () => void }) {
+  const [step, setStep] = useState(1),
+    [username, setUsername] = useState("admin"),
+    [password, setPassword] = useState(""),
+    [setupToken, setSetupToken] = useState(""),
+    [modules, setModules] = useState({
+      snippets: true,
+      files: true,
+      links: true,
+      board: true,
+    }),
+    [error, setError] = useState("");
+  const submit = async () => {
+    try {
+      await api("/api/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          password,
+          setupToken,
+          modules,
+          exposure: "public",
+        }),
+      });
+      done();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <div className="access-screen">
+      <section className="access-poster">
+        <Logo />
+        <div>
+          <small>YOUR SELF-HOSTED WORKSPACE</small>
+          <h1>
+            Put it in 9t.
+            <br />
+            <i>Get it anywhere.</i>
+          </h1>
+        </div>
+        <footer>
+          Private by default <span>Port 3265</span>
+        </footer>
+      </section>
+      <section className="access-panel">
+        <div className="step-index">STEP {step} OF 2</div>
+        {step === 1 ? (
+          <div className="access-form">
+            <small>CHOOSE MODULES</small>
+            <h2>Make 9t yours.</h2>
+            <p>Enable only what you use. You can change this at any time.</p>
+            <div className="setup-modules">
+              {Object.keys(modules).map((key, i) => (
+                <button
+                  className={
+                    modules[key as keyof typeof modules] ? "active" : ""
+                  }
+                  onClick={() =>
+                    setModules((x) => ({
+                      ...x,
+                      [key]: !x[key as keyof typeof x],
+                    }))
+                  }
+                  key={key}
+                >
+                  <b>0{i + 1}</b>
+                  <span>{key}</span>
+                  <i>{modules[key as keyof typeof modules] ? "ON" : "OFF"}</i>
+                </button>
+              ))}
+            </div>
+            <button className="transmit" onClick={() => setStep(2)}>
+              Continue <ArrowUpRight />
+            </button>
+          </div>
+        ) : (
+          <div className="access-form">
+            <small>SECURE YOUR WORKSPACE</small>
+            <h2>Create your account.</h2>
+            <p>The setup key confirms that this server belongs to you.</p>
+            <label>
+              SETUP KEY
+              <input
+                value={setupToken}
+                onChange={(e) => setSetupToken(e.target.value)}
+              />
+            </label>
+            <label>
+              USERNAME
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </label>
+            <label>
+              PASSWORD
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="8 characters minimum"
+              />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <button className="transmit" onClick={submit}>
+              <ShieldCheck />
+              Finish setup
+            </button>
+            <button className="text-button" onClick={() => setStep(1)}>
+              ← Back
+            </button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
 
-function ShareModal({object,close,created}:{object:Obj;close:()=>void;created:(path:string)=>void}){const [life,setLife]=useState("1d"),[busy,setBusy]=useState(false);return <Modal title="Share this item" code="PUBLIC LINK" close={close}><div className="share-object"><Share2/><span><small>ITEM</small><b>{object.name}</b></span></div><div className="lifetime-grid">{[["1h","1 HOUR"],["1d","1 DAY"],["7d","7 DAYS"],["30d","30 DAYS"],["forever","NO EXPIRY"]].map(([v,l])=><button className={life===v?"active":""} onClick={()=>setLife(v)} key={v}>{v==="forever"?<InfinityIcon/>:<Clock3/>}{l}</button>)}</div><p className="share-warning"><ShieldCheck/>Anyone with the link can open this item until it expires. The rest of your workspace stays private.</p><button className="transmit" disabled={busy} onClick={async()=>{setBusy(true);const d=await api("/api/shares",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({objectId:object.id,lifetime:life})});created(d.path)}}><Copy/>{busy?"Creating…":"Create and copy link"}</button></Modal>}
-
-function SettingsPanel({config,close,saved}:{config:Config;close:()=>void;saved:()=>void}){const [modules,setModules]=useState(config.modules),[max,setMax]=useState(config.maxSizeMb),[theme,setTheme]=useState<Theme>(config.theme);const themes:{id:Theme;label:string;icon:React.ReactNode}[]=[{id:"system",label:"System",icon:<Monitor/>},{id:"light",label:"Light",icon:<Sun/>},{id:"dark",label:"Dark",icon:<Moon/>}];return <Modal title="Settings" code="9T / SETTINGS" close={close}><div className="theme-picker"><span>APPEARANCE</span><div>{themes.map(item=><button className={theme===item.id?"active":""} onClick={()=>setTheme(item.id)} key={item.id}>{item.icon}<b>{item.label}</b></button>)}</div></div><div className="settings-grid">{Object.entries(modules).map(([key,value],i)=><button className={value?"active":""} onClick={()=>setModules(x=>({...x,[key]:!value}))} key={key}><small>MODULE 0{i+1}</small><b>{key}</b><span>{value?"ON":"OFF"}</span></button>)}</div><div className="settings-line"><label>MAXIMUM FILE SIZE<input type="number" value={max} min="1" onChange={e=>setMax(+e.target.value)}/><span>MB</span></label><div><small>ACCESS</small><b>{config.exposure.toUpperCase()}</b></div><div><small>AUTH</small><b>ON</b></div></div><button className="transmit" onClick={async()=>{await api("/api/config",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({modules,maxSizeMb:max,theme})});saved()}}><Check/>Save settings</button></Modal>}
-
-function Commands({close,run}:{close:()=>void;run:(a:string)=>void}){const commands=[["create","Add an item","N"],["all","Open everything","0"],["board","Open Board","B"],["shares","View shared links","H"],["trash","Open Trash","R"],["settings","Open settings","S"]];return <Modal title="Commands" code="9T / GO" close={close}><div className="command-list">{commands.map(([a,l,k],i)=><button autoFocus={i===0} onClick={()=>run(a)} key={a}><small>{(i+1).toString().padStart(2,"0")}</small><span>{l}</span><kbd>{k}</kbd></button>)}</div></Modal>}
-
-function Setup({done}:{done:()=>void}){const [step,setStep]=useState(1),[username,setUsername]=useState("admin"),[password,setPassword]=useState(""),[setupToken,setSetupToken]=useState(""),[modules,setModules]=useState({snippets:true,files:true,links:true,board:true}),[error,setError]=useState("");const submit=async()=>{try{await api("/api/setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password,setupToken,modules,exposure:"public"})});done()}catch(e){setError((e as Error).message)}};return <div className="access-screen"><section className="access-poster"><Logo/><div><small>YOUR SELF-HOSTED WORKSPACE</small><h1>Put it in 9t.<br/><i>Get it anywhere.</i></h1></div><footer>Private by default <span>Port 3265</span></footer></section><section className="access-panel"><div className="step-index">STEP {step} OF 2</div>{step===1?<div className="access-form"><small>CHOOSE MODULES</small><h2>Make 9t yours.</h2><p>Enable only what you use. You can change this at any time.</p><div className="setup-modules">{Object.keys(modules).map((key,i)=><button className={modules[key as keyof typeof modules]?"active":""} onClick={()=>setModules(x=>({...x,[key]:!x[key as keyof typeof x]}))} key={key}><b>0{i+1}</b><span>{key}</span><i>{modules[key as keyof typeof modules]?"ON":"OFF"}</i></button>)}</div><button className="transmit" onClick={()=>setStep(2)}>Continue <ArrowUpRight/></button></div>:<div className="access-form"><small>SECURE YOUR WORKSPACE</small><h2>Create your account.</h2><p>The setup key confirms that this server belongs to you.</p><label>SETUP KEY<input value={setupToken} onChange={e=>setSetupToken(e.target.value)}/></label><label>USERNAME<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>PASSWORD<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="8 characters minimum"/></label>{error&&<p className="form-error">{error}</p>}<button className="transmit" onClick={submit}><ShieldCheck/>Finish setup</button><button className="text-button" onClick={()=>setStep(1)}>← Back</button></div>}</section></div>}
-
-function Login({done}:{done:()=>void}){const [username,setUsername]=useState("admin"),[password,setPassword]=useState(""),[error,setError]=useState("");const submit=async(e:FormEvent)=>{e.preventDefault();try{await api("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});done()}catch(err){setError((err as Error).message)}};return <div className="login-screen"><div className="login-grid"/><form onSubmit={submit}><Logo/><div className="login-status"><i/>Your server is online</div><h1>Welcome back.</h1><label>USERNAME<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>PASSWORD<input autoFocus type="password" value={password} onChange={e=>setPassword(e.target.value)}/></label>{error&&<p className="form-error">{error}</p>}<button className="transmit">Open workspace <ArrowUpRight/></button><footer>193.122.5.91 <span>Authentication required</span></footer></form></div>}
+function Login({ done }: { done: () => void }) {
+  const [username, setUsername] = useState("admin"),
+    [password, setPassword] = useState(""),
+    [error, setError] = useState("");
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await api("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      done();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+  return (
+    <div className="login-screen">
+      <div className="login-grid" />
+      <form onSubmit={submit}>
+        <Logo />
+        <div className="login-status">
+          <i />
+          Your server is online
+        </div>
+        <h1>Welcome back.</h1>
+        <label>
+          USERNAME
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </label>
+        <label>
+          PASSWORD
+          <input
+            autoFocus
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <button className="transmit">
+          Open workspace <ArrowUpRight />
+        </button>
+        <footer>
+          193.122.5.91 <span>Authentication required</span>
+        </footer>
+      </form>
+    </div>
+  );
+}
