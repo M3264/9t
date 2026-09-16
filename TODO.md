@@ -30,6 +30,8 @@ The functional single-user release is built and deployed at `http://193.122.5.91
 - `9t.service` survived an explicit restart and remains active.
 - Signal Desk redesign deployed with a stream, Quick Relay rail, inspector, command palette, and spatial Board.
 - Public handoffs, expiry, access counts, revocation, object editing, and Board-position persistence passed isolated lifecycle tests.
+- Universal inbox classifies text, URLs, and files without asking for a type first.
+- System, Light, and Dark themes persist through the shared configuration API.
 
 ## Next sequence
 

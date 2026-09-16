@@ -9,6 +9,8 @@
 - Snippets, file uploads/downloads, and saved links
 - Search, filtering, pinning, and Quick Access
 - Keyboard command palette and capture shortcuts
+- Universal inbox that classifies pasted text, URLs, and dropped files
+- System, Light, and Dark appearance modes
 - Spatial Board with persisted object positions
 - Editable object names and payloads
 - Permanent or expiring objects
