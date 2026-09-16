@@ -35,6 +35,8 @@ npm start
 
 9t listens on `0.0.0.0:3265`.
 
+The current public deployment is available at [https://9t.kennyy.xyz](https://9t.kennyy.xyz). Nginx terminates TLS and proxies to the local application service; direct external access to port 3265 is blocked.
+
 Generate a unique first-run setup key before exposing the server:
 
 ```bash
@@ -58,6 +60,8 @@ Runtime data, uploaded objects, sessions, production secrets, dependencies, and 
 ## Service deployment
 
 An example systemd unit is provided in [9t.service](./9t.service). Update its user, working directory, and environment-file path for the target server before installing it.
+
+An HTTPS Nginx configuration for `9t.kennyy.xyz` is provided in [9t.nginx.conf](./9t.nginx.conf). Its certificate paths assume Certbot with the Nginx plugin.
 
 ```bash
 sudo install -m 644 9t.service /etc/systemd/system/9t.service

@@ -32,6 +32,7 @@ The functional single-user release is built and deployed at `http://193.122.5.91
 - Public handoffs, expiry, access counts, revocation, object editing, and Board-position persistence passed isolated lifecycle tests.
 - Universal inbox classifies text, URLs, and files without asking for a type first.
 - System, Light, and Dark themes persist through the shared configuration API.
+- `https://9t.kennyy.xyz` is live behind Nginx with Let's Encrypt, HSTS, Secure cookies, automatic renewal, and no direct public access to port 3265.
 
 ## Next sequence
 
