@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { headers } from "next/headers";
 import { createHash } from "crypto";
 import QRCode from "qrcode";
-import { mutate, readData } from "../../../lib/store";
+import { mutate, readData } from "@/lib/server/store";
 import Unlock from "./unlock";
 
 export const dynamic = "force-dynamic";

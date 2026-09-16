@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
-import { authenticated, unauthorized } from "../../../../lib/auth";
-import { readData, uploadDir } from "../../../../lib/store";
+import { authenticated, unauthorized } from "@/lib/server/auth";
+import { readData, uploadDir } from "@/lib/server/store";
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },

@@ -1,12 +1,12 @@
 import { randomUUID } from "crypto";
 import { writeFile } from "fs/promises";
-import { authenticated, unauthorized } from "../../../lib/auth";
+import { authenticated, unauthorized } from "@/lib/server/auth";
 import {
   addObject,
   readData,
   sweepExpired,
   uploadDir,
-} from "../../../lib/store";
+} from "@/lib/server/store";
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   if (!(await authenticated(req))) return unauthorized();

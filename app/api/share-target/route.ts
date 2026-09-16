@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { writeFile } from "fs/promises";
-import { authenticated } from "../../../lib/auth";
-import { addObject, readData, uploadDir } from "../../../lib/store";
+import { authenticated } from "@/lib/server/auth";
+import { addObject, readData, uploadDir } from "@/lib/server/store";
 
 export async function POST(req: Request) {
   if (!(await authenticated(req)))

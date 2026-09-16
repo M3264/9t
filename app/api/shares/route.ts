@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "crypto";
-import { authenticated, unauthorized } from "../../../lib/auth";
-import { makePassword } from "../../../lib/auth";
-import { mutate, readData } from "../../../lib/store";
+import { authenticated, unauthorized } from "@/lib/server/auth";
+import { makePassword } from "@/lib/server/auth";
+import { mutate, readData } from "@/lib/server/store";
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   if (!(await authenticated(req))) return unauthorized();

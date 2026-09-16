@@ -110,7 +110,7 @@ Completed 2026-09-16:
 7. Automated backup and verified restore flow.
 8. Password-protected public handoffs.
 
-The interface was also reduced to a quieter single-accent visual system: flatter surfaces, fewer decorative codes and gradients, consistent geometry, and a calmer desktop width.
+The interface was rebuilt as a quiet, single-column workspace centered on the universal inbox. The previous control-panel rail, numbered channels, gradients, and card-heavy shell were removed. The source tree was also reorganized into thin routes, focused workspace/access components, explicit client/server libraries, shared types, styles, deployment files, scripts, and documentation.
 
 ### Remaining platform work
 

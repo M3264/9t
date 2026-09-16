@@ -1,4 +1,4 @@
-import "./globals.css";
+import "../styles/globals.css";
 import Pwa from "./pwa";
 
 export const metadata = {

@@ -1,5 +1,5 @@
-import { authenticated, unauthorized } from "../../../../lib/auth";
-import { mutate, purgeObject, readData } from "../../../../lib/store";
+import { authenticated, unauthorized } from "@/lib/server/auth";
+import { mutate, purgeObject, readData } from "@/lib/server/store";
 
 export async function GET(
   req: Request,

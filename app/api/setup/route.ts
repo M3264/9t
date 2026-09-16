@@ -1,5 +1,5 @@
-import { createSession, makePassword } from "../../../lib/auth";
-import { mutate } from "../../../lib/store";
+import { createSession, makePassword } from "@/lib/server/auth";
+import { mutate } from "@/lib/server/store";
 export async function POST(req: Request) {
   const body = await req.json(),
     setupToken = process.env.NINE_T_SETUP_TOKEN;

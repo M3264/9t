@@ -25,7 +25,7 @@
 - Authenticated CLI for push, list, get, share, trash, and restore
 - Hourly retention cleanup and verified daily backups
 
-The product and technical direction is documented in [9t-whitepaper.md](./9t-whitepaper.md).
+The product and technical direction is documented in [docs/whitepaper.md](./docs/whitepaper.md).
 
 ## Run locally
 
@@ -62,6 +62,24 @@ Set `NINE_T_HTTPS=true` only after the app is served through HTTPS; this enables
 
 Runtime data, uploaded objects, sessions, production secrets, dependencies, and build output are excluded from Git.
 
+## Project structure
+
+```text
+app/                  Next.js routes, API endpoints, and route entry points
+components/access/    Setup and sign-in flows
+components/workspace/ Workspace shell, inbox, collections, and dialogs
+components/ui/        Small shared interface primitives
+lib/client/           Browser-side API and formatting helpers
+lib/server/           Authentication, configuration, and persistence
+types/                Shared product models
+styles/               Global visual system
+deploy/               Nginx and systemd deployment files
+scripts/              Cleanup, backup, and restore operations
+docs/                 White paper and source brand assets
+```
+
+Application routes stay thin; product UI belongs in `components`, browser and server code are explicitly separated, and operational files are kept outside the application tree.
+
 ## CLI
 
 Install the CLI from a checkout, then connect it to your server:
@@ -92,12 +110,12 @@ Stop the application before a real restore, then omit `--verify`. The restore to
 
 ## Service deployment
 
-An example systemd unit is provided in [9t.service](./9t.service). Update its user, working directory, and environment-file path for the target server before installing it.
+Deployment files live under `deploy/`. Update the systemd user, working directory, and environment-file path for the target server before installing them.
 
-An HTTPS Nginx configuration for `9t.kennyy.xyz` is provided in [9t.nginx.conf](./9t.nginx.conf). Its certificate paths assume Certbot with the Nginx plugin.
+The HTTPS Nginx example is at `deploy/nginx/9t.conf`. Its certificate paths assume Certbot with the Nginx plugin.
 
 ```bash
-sudo install -m 644 9t.service /etc/systemd/system/9t.service
+sudo install -m 644 deploy/systemd/9t.service /etc/systemd/system/9t.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now 9t.service
 ```

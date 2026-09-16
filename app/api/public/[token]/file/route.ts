@@ -1,5 +1,5 @@
 import { readFile } from "fs/promises";
-import { mutate, readData, uploadDir } from "../../../../../lib/store";
+import { mutate, readData, uploadDir } from "@/lib/server/store";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
 export async function GET(

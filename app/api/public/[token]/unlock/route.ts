@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { cookies } from "next/headers";
-import { verifyPassword } from "../../../../../lib/auth";
-import { readData } from "../../../../../lib/store";
+import { verifyPassword } from "@/lib/server/auth";
+import { readData } from "@/lib/server/store";
 
 export async function POST(
   req: Request,

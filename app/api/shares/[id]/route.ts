@@ -1,5 +1,5 @@
-import { authenticated, unauthorized } from "../../../../lib/auth";
-import { mutate } from "../../../../lib/store";
+import { authenticated, unauthorized } from "@/lib/server/auth";
+import { mutate } from "@/lib/server/store";
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> },

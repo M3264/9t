@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
-import { verifyPassword } from "../../../../lib/auth";
-import { mutate, readData } from "../../../../lib/store";
+import { verifyPassword } from "@/lib/server/auth";
+import { mutate, readData } from "@/lib/server/store";
 
 export async function POST(req: Request) {
   const { username, password, name = "CLI" } = await req.json();

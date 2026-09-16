@@ -2,8 +2,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import QRCode from "qrcode";
-import { authenticated } from "../../../lib/auth";
-import { readData } from "../../../lib/store";
+import { authenticated } from "@/lib/server/auth";
+import { readData } from "@/lib/server/store";
 
 export const dynamic = "force-dynamic";
 

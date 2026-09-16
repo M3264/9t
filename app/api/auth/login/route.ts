@@ -1,5 +1,5 @@
-import { createSession, verifyPassword } from "../../../../lib/auth";
-import { readData } from "../../../../lib/store";
+import { createSession, verifyPassword } from "@/lib/server/auth";
+import { readData } from "@/lib/server/store";
 export async function POST(req: Request) {
   const { username, password } = await req.json();
   const d = await readData();

@@ -1,5 +1,5 @@
-import { authenticated } from "../../../lib/auth";
-import { readData } from "../../../lib/store";
+import { authenticated } from "@/lib/server/auth";
+import { readData } from "@/lib/server/store";
 export const dynamic = "force-dynamic";
 export async function GET() {
   const d = await readData();
