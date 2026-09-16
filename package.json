@@ -1,0 +1,24 @@
+{
+  "name": "9t",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3265",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3265",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "lucide-react": "0.468.0",
+    "next": "^16.3.5",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "22.7.4",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "typescript": "5.6.2"
+  }
+}
