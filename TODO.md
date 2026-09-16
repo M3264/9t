@@ -28,6 +28,8 @@ The functional single-user release is built and deployed at `http://193.122.5.91
 - Live homepage and status endpoints return HTTP 200 through the public IP.
 - Invalid setup keys return HTTP 403.
 - `9t.service` survived an explicit restart and remains active.
+- Signal Desk redesign deployed with a stream, Quick Relay rail, inspector, command palette, and spatial Board.
+- Public handoffs, expiry, access counts, revocation, object editing, and Board-position persistence passed isolated lifecycle tests.
 
 ## Next sequence
 
@@ -44,10 +46,9 @@ The functional single-user release is built and deployed at `http://193.122.5.91
 
 ## Remaining white-paper work
 
-- Expiring/password-protected shares and QR handoff.
-- Object lifetime controls and idempotent expiry/trash sweep.
+- Password-protected handoffs and QR handoff.
+- Scheduled idempotent trash-retention sweep (object expiry is implemented and swept on access).
 - PostgreSQL repository and migrations.
-- Board with draggable object layouts.
 - CLI: setup, push, list, get, share, trash, restore.
 - DNS validation and Caddy HTTPS automation.
 - Hybrid LAN/public trust handling.

@@ -8,6 +8,11 @@
 - Scrypt password hashing and persistent login sessions
 - Snippets, file uploads/downloads, and saved links
 - Search, filtering, pinning, and Quick Access
+- Keyboard command palette and capture shortcuts
+- Spatial Board with persisted object positions
+- Editable object names and payloads
+- Permanent or expiring objects
+- Expiring public handoff links with access counts and revocation
 - Trash, restore, and permanent deletion
 - Module and upload-size settings
 - Atomic local persistence with opaque file storage keys
@@ -60,4 +65,4 @@ sudo systemctl enable --now 9t.service
 
 ## Status
 
-The current single-user release is operational. Sharing, expiry sweeping, PostgreSQL, Board layouts, CLI support, Caddy automation, hybrid access, and S3 storage remain on the roadmap in [TODO.md](./TODO.md).
+The current single-user release is operational. PostgreSQL, CLI support, Caddy automation, hybrid access, password-protected handoffs, and S3 storage remain on the roadmap in [TODO.md](./TODO.md).

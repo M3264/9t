@@ -3,9 +3,10 @@ import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 
 export type ObjectType = "snippet" | "file" | "link";
-export type NineTObject = { id:string; type:ObjectType; name:string; content?:string; language?:string; url?:string; mimeType?:string; sizeBytes?:number; storageKey?:string; pinned:boolean; createdAt:string; updatedAt:string; deletedAt?:string; expiresAt?:string };
+export type NineTObject = { id:string; type:ObjectType; name:string; content?:string; language?:string; url?:string; mimeType?:string; sizeBytes?:number; storageKey?:string; pinned:boolean; createdAt:string; updatedAt:string; deletedAt?:string; expiresAt?:string; board?:{x:number;y:number} };
 export type AppConfig = { initialized:boolean; modules:{snippets:boolean;files:boolean;links:boolean;board:boolean}; exposure:"lan"|"public"|"hybrid"; theme:"system"|"light"|"dark"; maxSizeMb:number; trashRetentionDays:number };
-type Data = { config:AppConfig; user?:{username:string;passwordHash:string;salt:string}; sessions:Record<string,{expiresAt:string}>; objects:NineTObject[]; shares:Record<string,{objectId:string;expiresAt?:string}> };
+export type Share = {id:string;token:string;objectId:string;createdAt:string;expiresAt?:string;accessCount:number};
+export type Data = { config:AppConfig; user?:{username:string;passwordHash:string;salt:string}; sessions:Record<string,{expiresAt:string}>; objects:NineTObject[]; shares:Record<string,Share> };
 
 const root = process.env.NINE_T_DATA_DIR
   ? path.resolve(process.env.NINE_T_DATA_DIR)
@@ -20,3 +21,4 @@ export async function readData():Promise<Data>{ await ensure(); return JSON.pars
 export async function mutate<T>(fn:(data:Data)=>T|Promise<T>):Promise<T>{ let result!:T; queue=queue.then(async()=>{const data=await readData(); result=await fn(data); const tmp=`${dbPath}.${randomUUID()}.tmp`; await writeFile(tmp,JSON.stringify(data,null,2),{mode:0o600}); await rename(tmp,dbPath)}); await queue; return result; }
 export async function addObject(input:Omit<NineTObject,"id"|"createdAt"|"updatedAt"|"pinned">){ const now=new Date().toISOString(); const obj:NineTObject={...input,id:randomUUID(),pinned:false,createdAt:now,updatedAt:now}; await mutate(d=>d.objects.unshift(obj)); return obj; }
 export async function purgeObject(id:string){ await mutate(async d=>{const obj=d.objects.find(x=>x.id===id); if(obj?.storageKey) await unlink(path.join(uploadDir,obj.storageKey)).catch(()=>{}); d.objects=d.objects.filter(x=>x.id!==id)}); }
+export async function sweepExpired(){const now=Date.now(),d=await readData(),expired=d.objects.filter(o=>o.expiresAt&&new Date(o.expiresAt).getTime()<=now).map(o=>o.id);for(const id of expired)await purgeObject(id);if(expired.length)await mutate(data=>{for(const [key,share] of Object.entries(data.shares))if(expired.includes(share.objectId))delete data.shares[key]});return expired.length}

@@ -1,0 +1,6 @@
+import { randomBytes, randomUUID } from "crypto";
+import { authenticated, unauthorized } from "../../../lib/auth";
+import { mutate, readData } from "../../../lib/store";
+export const dynamic="force-dynamic";
+export async function GET(){if(!await authenticated())return unauthorized();const d=await readData(),now=Date.now();return Response.json({shares:Object.values(d.shares).filter(s=>!s.expiresAt||new Date(s.expiresAt).getTime()>now).map(s=>({...s,object:d.objects.find(o=>o.id===s.objectId)})).filter(s=>s.object)})}
+export async function POST(req:Request){if(!await authenticated())return unauthorized();const {objectId,lifetime="1d"}=await req.json(),d=await readData();if(!d.objects.some(o=>o.id===objectId&&!o.deletedAt))return Response.json({error:"Object not found."},{status:404});const ttl:{[key:string]:number}={"1h":36e5,"1d":864e5,"7d":6048e5,"30d":2592e6};const share={id:randomUUID(),token:randomBytes(18).toString("base64url"),objectId,createdAt:new Date().toISOString(),expiresAt:lifetime==="forever"?undefined:new Date(Date.now()+(ttl[lifetime]||ttl["1d"])).toISOString(),accessCount:0};await mutate(data=>{data.shares[share.id]=share});return Response.json({share,path:`/s/${share.token}`})}
