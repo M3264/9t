@@ -172,46 +172,6 @@ export default function Workspace() {
     <div className="desk">
       <header className="mast">
         <Logo />
-        <nav className="primary-nav" aria-label="Workspace">
-          <button
-            className={view === "all" ? "active" : ""}
-            onClick={() => setView("all")}
-          >
-            Home
-          </button>
-          {config?.modules.snippets && (
-            <button
-              className={view === "snippet" ? "active" : ""}
-              onClick={() => setView("snippet")}
-            >
-              Snippets
-            </button>
-          )}
-          {config?.modules.files && (
-            <button
-              className={view === "file" ? "active" : ""}
-              onClick={() => setView("file")}
-            >
-              Files
-            </button>
-          )}
-          {config?.modules.links && (
-            <button
-              className={view === "link" ? "active" : ""}
-              onClick={() => setView("link")}
-            >
-              Links
-            </button>
-          )}
-          {config?.modules.board && (
-            <button
-              className={view === "board" ? "active" : ""}
-              onClick={() => setView("board")}
-            >
-              Board
-            </button>
-          )}
-        </nav>
         <div className="identity">
           <button
             title="Search and commands"
@@ -278,6 +238,46 @@ export default function Workspace() {
               )}
             </>
           )}
+          <nav className="workspace-tabs" aria-label="Content types">
+            <button
+              className={view === "all" ? "active" : ""}
+              onClick={() => setView("all")}
+            >
+              Everything
+            </button>
+            {config?.modules.snippets && (
+              <button
+                className={view === "snippet" ? "active" : ""}
+                onClick={() => setView("snippet")}
+              >
+                Snippets
+              </button>
+            )}
+            {config?.modules.files && (
+              <button
+                className={view === "file" ? "active" : ""}
+                onClick={() => setView("file")}
+              >
+                Files
+              </button>
+            )}
+            {config?.modules.links && (
+              <button
+                className={view === "link" ? "active" : ""}
+                onClick={() => setView("link")}
+              >
+                Links
+              </button>
+            )}
+            {config?.modules.board && (
+              <button
+                className={view === "board" ? "active" : ""}
+                onClick={() => setView("board")}
+              >
+                Board
+              </button>
+            )}
+          </nav>
           <div className="collection-head">
             <div>
               <h2>

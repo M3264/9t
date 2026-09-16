@@ -67,7 +67,7 @@ svg {
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  padding: 0 max(24px, calc((100vw - 1040px) / 2));
+  padding: 0 max(20px, calc((100vw - 920px) / 2));
   position: sticky;
   top: 0;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
@@ -95,37 +95,6 @@ svg {
 }
 .brand small {
   display: none;
-}
-.primary-nav {
-  display: flex;
-  align-items: stretch;
-  height: 100%;
-  gap: 28px;
-  margin-left: 54px;
-}
-.primary-nav button {
-  border: 0;
-  background: transparent;
-  padding: 2px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  position: relative;
-}
-.primary-nav button:hover {
-  color: var(--ink);
-}
-.primary-nav button.active {
-  color: var(--ink);
-  font-weight: 650;
-}
-.primary-nav button.active:after {
-  content: "";
-  position: absolute;
-  height: 2px;
-  background: var(--blue);
-  left: 0;
-  right: 0;
-  bottom: -1px;
 }
 .identity {
   display: flex;
@@ -296,9 +265,45 @@ svg {
 }
 
 /* Object collection */
+.workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 48px;
+  margin-top: 38px;
+  overflow-x: auto;
+}
+.signal-workspace > .workspace-tabs:first-child {
+  margin-top: 0;
+}
+.workspace-tabs button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.workspace-tabs button:hover {
+  color: var(--ink);
+}
+.workspace-tabs button.active {
+  color: var(--ink);
+  font-weight: 700;
+}
+.workspace-tabs button.active:before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: var(--blue);
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 55% 100%, 0 100%);
+}
 .collection-head {
   min-height: 77px;
-  margin-top: 42px;
+  margin-top: 0;
   border-bottom: 1px solid var(--ink);
   display: flex;
   align-items: center;
@@ -1433,17 +1438,6 @@ svg {
   .brand img {
     width: 40px;
   }
-  .primary-nav {
-    margin-left: 20px;
-    gap: 17px;
-    overflow-x: auto;
-  }
-  .primary-nav button {
-    font-size: 11px;
-  }
-  .primary-nav button:nth-of-type(n + 4) {
-    display: none;
-  }
   .identity button {
     width: 32px;
   }
@@ -1458,6 +1452,10 @@ svg {
   }
   .welcome h1 {
     font-size: 48px;
+  }
+  .workspace-tabs {
+    gap: 19px;
+    margin-top: 30px;
   }
   .welcome p {
     font-size: 12px;
