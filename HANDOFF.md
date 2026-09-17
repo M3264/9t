@@ -1,5 +1,15 @@
 # 9t Android + LAN handoff — 2026-09-17
 
+## Latest addition: guided installation
+
+The workspace/Android work below was committed and pushed as `39dc776`. A subsequent user request added an interactive installer: fresh clones run `./setup.sh`, or `./9t setup` / `npm run setup` with Node already installed. It installs dependencies, builds the app, creates the administrator with a salted password hash, saves actual module/theme/storage/network preferences, and offers foreground startup, a Linux systemd service, or starting later. Optional CLI link: `~/.local/bin/9t`.
+
+See `docs/installation.md`. Main implementation: `scripts/setup.mjs`, `scripts/run-server.mjs`, root launchers `9t` and `setup.sh`. `npm start` now uses the runner to honor `.env.production` host/port/data settings and inherited deployment build overrides. No live service restart or installation reset was performed for this change. Public setup expects an existing same-host HTTPS reverse proxy and produces a Caddyfile example; DNS, certificates, and firewall provisioning are not automated.
+
+Verified: six installer unit checks; an actual clean temporary checkout with npm dependency installation, production build, initialized login and saved preferences; and a real PTY interaction covering preference prompts, hidden password/confirmation, summary and cancellation without writes. Temporary test server and checkout were cleaned up. The optional Node-download bootstrap and privileged systemd installation were not exercised on this host; shell syntax and generated service configuration were checked. Regression tests remain in `tests/setup.test.mjs`, `tests/setup-install.mjs`, and `tests/setup-interactive.py`.
+
+The Android deployment/phone-testing details below are the earlier handoff and remain relevant. Its statements about uncommitted work and the user's last request are historical.
+
 ## Current state / user request
 
 User asked for an installable Android client, automatic saving of incoming files, clipboard delivery, LAN-first transfers without internet when the server is local, automatic internet fallback, and useful reliability improvements. They then clarified that the app should include all existing website features. Latest instruction: **stop and hand off because tokens are running out**.

@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+NINET_ENTRY=$0
+while [ -L "$NINET_ENTRY" ]; do
+  NINET_PARENT=$(CDPATH= cd -- "$(dirname -- "$NINET_ENTRY")" && pwd)
+  NINET_TARGET=$(readlink "$NINET_ENTRY")
+  case "$NINET_TARGET" in /*) NINET_ENTRY=$NINET_TARGET ;; *) NINET_ENTRY=$NINET_PARENT/$NINET_TARGET ;; esac
+done
+NINET_ROOT=$(CDPATH= cd -- "$(dirname -- "$NINET_ENTRY")" && pwd)
+if [ -x "$NINET_ROOT/.tools/node/bin/node" ]; then
+  PATH="$NINET_ROOT/.tools/node/bin:$PATH"
+  export PATH
+fi
+if ! command -v node >/dev/null 2>&1; then
+  echo 'Node.js is missing. Run ./setup.sh to install it and set up 9t.' >&2
+  exit 1
+fi
+exec node "$NINET_ROOT/bin/9t.mjs" "$@"

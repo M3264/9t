@@ -3,6 +3,32 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
+
+// Setup must work in a fresh clone, before dependencies or CLI login exist.
+if (process.argv[2] === "setup") {
+  try {
+    await (await import("../scripts/setup.mjs")).setup(process.argv.slice(3));
+  } catch (error) {
+    console.error(`9t: ${error.message}`);
+    process.exitCode = 1;
+  }
+  process.exit(process.exitCode || 0);
+}
+if (process.argv[2] === "start") {
+  try {
+    process.exitCode = await (
+      await import("../scripts/run-server.mjs")
+    ).runServer(
+      fileURLToPath(new URL("../", import.meta.url)),
+      process.argv.slice(3),
+    );
+  } catch (error) {
+    console.error(`9t: ${error.message}`);
+    process.exitCode = 1;
+  }
+  process.exit(process.exitCode || 0);
+}
 
 const configDir = join(homedir(), ".config", "9t"),
   configFile = join(configDir, "config.json");
@@ -50,6 +76,9 @@ const find = async (value, trash = false) => {
 const help = () =>
   console.log(`9t — put it here, get it anywhere
 
+  9t setup                         Install and configure this checkout
+  9t setup --help                  Installation options
+  9t start                         Run the configured server
   9t login --url https://9t.example.com --username you
   9t push <text|url|file> [--name name]
   9t list [--trash]

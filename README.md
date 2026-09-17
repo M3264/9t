@@ -27,7 +27,33 @@
 
 The product and technical direction is documented in [docs/whitepaper.md](./docs/whitepaper.md).
 
-## Run locally
+## Guided installation
+
+On Linux or macOS (Windows: use WSL), start from a fresh clone:
+
+```bash
+git clone https://github.com/M3264/9t.git
+cd 9t
+./setup.sh
+```
+
+The installer can download a private Node.js 22 runtime when needed, verifies its official SHA-256 checksum, installs dependencies, builds 9t, and creates your administrator account. It asks about network access, modules, theme, storage location, upload limit, trash retention, and startup. Password entry is hidden. Sign in when it finishes; there is no second browser setup step.
+
+Choose **LAN** to reach 9t from other devices on your Wi-Fi, **local** for this computer only, or **public** when you already have an HTTPS reverse proxy on this host. Public mode binds to localhost and generates a Caddyfile example; it does not configure DNS, router rules, or certificates for you. Authentication remains required in every mode.
+
+On Linux with systemd, the wizard can install and enable a service for this checkout using sudo, so 9t starts at boot. Alternatively, run in the current terminal or start later. Existing installations and data are never overwritten; use a separate checkout for another instance.
+
+With Node.js already installed, `npm run setup` and `./9t setup` open the same wizard. If you accept the optional command installation and `~/.local/bin` is on your PATH, you can subsequently use `9t setup` or `9t start` from anywhere.
+
+```bash
+./9t setup --help
+./9t setup --dry-run  # preview preferences in a fresh checkout
+./9t start           # start a completed installation
+```
+
+For repeatable/unattended installation, see [the installation guide](./docs/installation.md).
+
+## Manual installation
 
 Requirements: Node.js 22 or newer.
 
@@ -38,7 +64,7 @@ npm run build
 npm start
 ```
 
-9t listens on `0.0.0.0:3265`.
+By default, 9t listens on `0.0.0.0:3265`. `npm start` reads `.env.production`; use `PORT` and `NINE_T_HOST` to change the listener. Explicit process environment variables take precedence.
 
 The current public deployment is available at [https://9t.kennyy.xyz](https://9t.kennyy.xyz). Nginx terminates TLS and proxies to the local application service; direct external access to port 3265 is blocked.
 

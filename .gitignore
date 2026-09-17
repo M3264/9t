@@ -22,3 +22,7 @@ artifacts/
 public/downloads/*.apk
 public/downloads/*.idsig
 .next-mobile-release/
+.tools/
+.9t/
+.9t-install.json
+.9t-setup.lock
