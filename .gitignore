@@ -2,6 +2,23 @@ node_modules/
 .next/
 data/
 backups/
+.env
 .env*.local
 .env.production
 npm-debug.log*
+*.log
+.DS_Store
+*.tsbuildinfo
+
+# Android builds and local signing material
+android/.gradle/
+android/**/build/
+android/local.properties
+android/*.jks
+android/*.keystore
+artifacts/
+.next-mobile-build/
+
+public/downloads/*.apk
+public/downloads/*.idsig
+.next-mobile-release/

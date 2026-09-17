@@ -3,7 +3,18 @@ import { cookies } from "next/headers";
 import { mutate, readData } from "./store";
 
 const COOKIE = "9t_session";
+const MAX_PASSWORD_BYTES = 128;
+function assertPasswordSize(password: string) {
+  if (typeof password !== "string" || !password.length)
+    throw new Error("Invalid password.");
+  // Prevent scrypt CPU DoS on unbounded input.
+  if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES * 4)
+    throw new Error("Password too long.");
+  if (password.length > MAX_PASSWORD_BYTES)
+    throw new Error("Password too long.");
+}
 export function passwordHash(password: string, salt: string) {
+  assertPasswordSize(password);
   return scryptSync(password, salt, 64).toString("hex");
 }
 export function makePassword(password: string) {
@@ -55,8 +66,13 @@ export async function authenticated(req?: Request) {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return false;
   const key = createHash("sha256").update(token).digest("hex"),
-    session = (await readData()).sessions[key];
-  return !!session && new Date(session.expiresAt) > new Date();
+    data = await readData(),
+    session = data.sessions[key];
+  return (
+    !!session &&
+    new Date(session.expiresAt) > new Date() &&
+    (!session.deviceId || !!data.devices?.[session.deviceId])
+  );
 }
 export async function destroySession() {
   const jar = await cookies(),

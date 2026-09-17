@@ -1,42 +1,57 @@
 "use client";
+
 import { FormEvent, useState } from "react";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
-import { workspaceApi as api } from "../../lib/client/workspace";
+import { ArrowUpRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ApiError, workspaceApi as api } from "../../lib/client/workspace";
 import { Brand } from "../ui/Brand";
 
 export function SetupScreen({ done }: { done: () => void }) {
-  const [step, setStep] = useState(1),
-    [username, setUsername] = useState("admin"),
-    [password, setPassword] = useState(""),
-    [setupToken, setSetupToken] = useState(""),
-    [modules, setModules] = useState({
-      snippets: true,
-      files: true,
-      links: true,
-      board: true,
-    }),
-    [error, setError] = useState("");
+  const [step, setStep] = useState(1);
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [setupToken, setSetupToken] = useState("");
+  const [modules, setModules] = useState({
+    snippets: true,
+    files: true,
+    links: true,
+    board: true,
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const valid =
+    username.trim().length >= 2 &&
+    password.length >= 8 &&
+    password.length <= 128 &&
+    setupToken.trim().length > 0;
+
   const submit = async () => {
+    if (!valid || busy) return;
+    setBusy(true);
+    setError("");
     try {
       await api("/api/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username,
+          username: username.trim(),
           password,
-          setupToken,
+          setupToken: setupToken.trim(),
           modules,
           exposure: "public",
         }),
       });
       done();
-    } catch (value) {
-      setError((value as Error).message);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Setup failed. Try again.");
+      setBusy(false);
     }
   };
+
   return (
     <div className="access-screen">
-      <section className="access-poster">
+      <section className="access-poster" aria-hidden="true">
         <Brand />
         <div>
           <small>YOUR SELF-HOSTED WORKSPACE</small>
@@ -47,19 +62,24 @@ export function SetupScreen({ done }: { done: () => void }) {
           </h1>
         </div>
         <footer>
-          Private by default <span>Port 3265</span>
+          Private by default <span>Yours, everywhere</span>
         </footer>
       </section>
       <section className="access-panel">
-        <div className="step-index">STEP {step} OF 2</div>
+        <div className="step-index" aria-live="polite">
+          STEP {step} OF 2
+        </div>
         {step === 1 ? (
           <div className="access-form">
             <small>CHOOSE MODULES</small>
             <h2>Make 9t yours.</h2>
             <p>Enable only what you use. You can change this at any time.</p>
-            <div className="setup-modules">
+            <div className="setup-modules" role="group" aria-label="Modules">
               {Object.keys(modules).map((key, index) => (
                 <button
+                  key={key}
+                  type="button"
+                  aria-pressed={modules[key as keyof typeof modules]}
                   className={
                     modules[key as keyof typeof modules] ? "active" : ""
                   }
@@ -69,7 +89,6 @@ export function SetupScreen({ done }: { done: () => void }) {
                       [key]: !current[key as keyof typeof current],
                     }))
                   }
-                  key={key}
                 >
                   <b>0{index + 1}</b>
                   <span>{key}</span>
@@ -78,7 +97,7 @@ export function SetupScreen({ done }: { done: () => void }) {
               ))}
             </div>
             <button className="transmit" onClick={() => setStep(2)}>
-              Continue <ArrowUpRight />
+              Continue <ArrowUpRight aria-hidden="true" />
             </button>
           </div>
         ) : (
@@ -90,29 +109,53 @@ export function SetupScreen({ done }: { done: () => void }) {
               SETUP KEY
               <input
                 value={setupToken}
-                onChange={(event) => setSetupToken(event.target.value)}
+                onChange={(e) => setSetupToken(e.target.value)}
+                autoComplete="off"
+                placeholder="From NINE_T_SETUP_TOKEN"
               />
             </label>
             <label>
               USERNAME
               <input
                 value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                maxLength={64}
               />
             </label>
             <label>
               PASSWORD
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="8 characters minimum"
-              />
+              <span className="password-field">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="8–128 characters"
+                  autoComplete="new-password"
+                  minLength={8}
+                  maxLength={128}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </button>
+              </span>
             </label>
-            {error && <p className="form-error">{error}</p>}
-            <button className="transmit" onClick={submit}>
-              <ShieldCheck />
-              Finish setup
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <button
+              className="transmit"
+              onClick={submit}
+              disabled={!valid || busy}
+            >
+              <ShieldCheck aria-hidden="true" />
+              {busy ? "Setting up…" : "Finish setup"}
             </button>
             <button className="text-button" onClick={() => setStep(1)}>
               ← Back
@@ -125,54 +168,82 @@ export function SetupScreen({ done }: { done: () => void }) {
 }
 
 export function LoginScreen({ done }: { done: () => void }) {
-  const [username, setUsername] = useState("admin"),
-    [password, setPassword] = useState(""),
-    [error, setError] = useState("");
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy || !username.trim() || !password) return;
+    setBusy(true);
+    setError("");
     try {
       await api("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
       done();
-    } catch (value) {
-      setError((value as Error).message);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Couldn't sign in. Try again.",
+      );
+      setBusy(false);
     }
   };
+
   return (
     <div className="login-screen">
-      <div className="login-grid" />
-      <form onSubmit={submit}>
+      <section className="login-story"><Brand /><div><span className="story-eyebrow">A HOME FOR YOUR EVERYDAY THINGS</span><h2>Good things.<br />One place.</h2><p>The link you’ll need later. The thought you don’t want to lose. The file going with you.</p><div className="story-tags"><span>Files</span><span>Snippets</span><span>Links</span></div></div><small>Your workspace, on your own terms.</small></section>
+      <form className="access-form" onSubmit={submit} aria-label="Sign in to 9t">
         <Brand />
         <div className="login-status">
-          <i />
-          Your server is online
+          <i aria-hidden="true" />
+          Your personal workspace
         </div>
-        <h1>Welcome back.</h1>
+        <h1>Welcome back.</h1><p>Sign in to pick up where you left off.</p>
         <label>
           USERNAME
           <input
             value={username}
-            onChange={(event) => setUsername(event.target.value)}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            maxLength={64}
           />
         </label>
         <label>
           PASSWORD
-          <input
-            autoFocus
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
+          <span className="password-field">
+            <input
+              autoFocus
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              maxLength={128}
+            />
+            <button
+              type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              {showPassword ? <EyeOff /> : <Eye />}
+            </button>
+          </span>
         </label>
-        {error && <p className="form-error">{error}</p>}
-        <button className="transmit">
-          Open workspace <ArrowUpRight />
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button className="transmit" disabled={busy}>
+          {busy ? "Opening…" : "Open workspace"}{" "}
+          <ArrowUpRight aria-hidden="true" />
         </button>
         <footer>
-          9t.kennyy.xyz <span>Authentication required</span>
+          <span>9t · self-hosted</span> <span>Authentication required</span>
         </footer>
       </form>
     </div>

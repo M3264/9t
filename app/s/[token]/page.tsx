@@ -44,10 +44,14 @@ export default async function Handoff({
         <Unlock token={token} name={object.name} />
       </main>
     );
-  await mutate((data) => {
-    const current = data.shares[share.id];
-    if (current) current.accessCount++;
-  });
+  // Count views here only for non-file types.
+  // Files are counted on download (public file endpoint) to avoid double-counting.
+  if (object.type !== "file") {
+    await mutate((data) => {
+      const current = data.shares[share.id];
+      if (current) current.accessCount++;
+    });
+  }
   const incoming = await headers(),
     origin = `${incoming.get("x-forwarded-proto") || "https"}://${incoming.get("host")}`,
     qr = await QRCode.toDataURL(`${origin}/s/${token}`, {

@@ -1,7 +1,9 @@
 import { readFile } from "fs/promises";
-import { mutate, readData, uploadDir } from "@/lib/server/store";
+import { mutate, readData } from "@/lib/server/store";
+import { safeObjectPath } from "@/lib/server/security";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
+
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -24,7 +26,14 @@ export async function GET(
     if ((await cookies()).get(`9t_share_${share.id}`)?.value !== key)
       return new Response("Unlock this handoff first.", { status: 401 });
   }
-  const data = await readFile(`${uploadDir}/${o.storageKey}`);
+  const full = safeObjectPath(o.storageKey);
+  if (!full) return new Response("This handoff is unavailable.", { status: 404 });
+  let data: Buffer;
+  try {
+    data = await readFile(full);
+  } catch {
+    return new Response("This handoff is unavailable.", { status: 404 });
+  }
   await mutate((x) => {
     const current = x.shares[share.id];
     if (current) current.accessCount++;

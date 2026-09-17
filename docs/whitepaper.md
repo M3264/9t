@@ -561,3 +561,15 @@ CLI consumes the same public API as the web dashboard — no parallel logic path
 ```
 
 The product grows a layer only once the previous one has proven itself — same discipline as v0.1, now paired with a real differentiator: a workspace that's configured to be exactly what you need it to be, and safe by default when you decide to open it up to the world.
+
+---
+
+## Android client extension — September 2026
+
+The phone client carries the workspace beyond browser-only downloads. The implementation combines the existing full workspace UI inside the app with native receiving, Downloads integration, a local inbox, clipboard delivery, and an offline text outbox.
+
+Network selection is automatic and prefers a configured LAN endpoint, including Wi-Fi without internet, with fallback to the same server's public HTTPS endpoint. Device pairing binds both routes to one installation; transfers are encrypted and resumable, and devices can be revoked. This does not create a LAN replica of a remote cloud server.
+
+Android background limits are part of the product contract: live receiving is user-visible and time-limited by the OS, with scheduled recovery and clear status. The client must not promise an uninterruptible connection. Full workspace operations require HTTPS; native encrypted transfers also work over private HTTP LAN connections.
+
+See [Android implementation and operating guide](./android.md) for setup, feature coverage, protocol details, validation, and current limitations. Next platform work can add guided local server deployment, optional discovery, and push-assisted background delivery after real-phone testing.

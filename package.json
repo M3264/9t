@@ -9,7 +9,8 @@
     "dev": "next dev -H 0.0.0.0 -p 3265",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3265",
-    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
     "cleanup": "node scripts/maintenance.mjs",
     "backup": "node scripts/backup.mjs"
   },

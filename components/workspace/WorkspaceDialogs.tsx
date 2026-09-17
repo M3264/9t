@@ -1,4 +1,5 @@
 "use client";
+
 import { FormEvent, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import {
@@ -10,6 +11,7 @@ import {
   File,
   Infinity as InfinityIcon,
   Monitor,
+  LogOut,
   Moon,
   Pin,
   Plus,
@@ -27,26 +29,93 @@ import type {
   WorkspaceObject as Obj,
 } from "../../types/workspace";
 import {
+  ApiError,
   formatBytes as bytes,
   workspaceApi as api,
 } from "../../lib/client/workspace";
+import { expiryFromLifetime } from "../../lib/shared/lifetimes";
+
+function useDialogFocus(
+  ref: React.RefObject<HTMLElement | null>,
+  close: () => void,
+) {
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const node = ref.current;
+    if (!node) return;
+    const focusables = () =>
+      Array.from(
+        node.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled):not([type="hidden"]), textarea, select, a[href], [tabindex="0"]',
+        ),
+      ).filter((el) => el.getClientRects().length > 0);
+    (focusables()[0] || node).focus();
+    const key = (event: KeyboardEvent) => {
+      const dialogs = document.querySelectorAll('[aria-modal="true"]');
+      const dialog = node.closest('[aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== dialog) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeRef.current();
+      }
+      if (event.key === "Tab") {
+        const items = focusables(),
+          first = items[0],
+          last = items[items.length - 1];
+        if (!first) {
+          event.preventDefault();
+          return;
+        }
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", key, true);
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", key, true);
+      document.body.style.overflow = oldOverflow;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [ref]);
+}
 
 function Qr({ path, label }: { path: string; label: string }) {
   const [src, setSrc] = useState("");
   useEffect(() => {
+    let live = true;
     QRCode.toDataURL(new URL(path, location.origin).toString(), {
       width: 220,
       margin: 1,
       color: { dark: "#17202d", light: "#ffffff" },
-    }).then(setSrc);
+    })
+      .then((url) => {
+        if (live) setSrc(url);
+      })
+      .catch(() => {
+        /* The link remains available if QR generation fails. */
+      });
+    return () => {
+      live = false;
+    };
   }, [path]);
   return src ? (
     <div className="qr">
-      <img src={src} alt={`QR code for ${label}`} />
+      <img src={src} alt={`QR code for ${label}`} width={170} height={170} />
       <span>Scan to open on another device</span>
     </div>
   ) : null;
 }
+
 function Modal({
   title,
   code,
@@ -58,18 +127,23 @@ function Modal({
   close: () => void;
   children: React.ReactNode;
 }) {
+  const panelRef = useRef<HTMLElement>(null);
+  useDialogFocus(panelRef, close);
   return (
     <div
       className="modal-field"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) close();
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(e) => {
+        if (e.currentTarget === e.target) close();
       }}
     >
-      <section className="terminal-modal">
+      <section className="terminal-modal" ref={panelRef}>
         <header>
           <span>{code}</span>
           <h2>{title}</h2>
-          <button onClick={close}>
+          <button onClick={close} aria-label="Close">
             <X />
           </button>
         </header>
@@ -89,128 +163,175 @@ export function Inspector({
 }: {
   object: Obj;
   close: () => void;
-  save: (body: Record<string, unknown>) => void;
+  save: (body: Record<string, unknown>) => void | Promise<void>;
   share: () => void;
   pin: () => void;
   remove: () => void;
 }) {
-  const [name, setName] = useState(object.name),
-    [content, setContent] = useState(object.content || ""),
-    [url, setUrl] = useState(object.url || ""),
-    [lifetime, setLifetime] = useState(object.expiresAt ? "keep" : "forever");
+  const [name, setName] = useState(object.name);
+  const [content, setContent] = useState(object.content || "");
+  const [url, setUrl] = useState(object.url || "");
+  const [lifetime, setLifetime] = useState(
+    object.expiresAt ? "keep" : "forever",
+  );
+  const [saving, setSaving] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState("");
+  useDialogFocus(panelRef, close);
+
   const expiry =
     lifetime === "keep"
-      ? object.expiresAt
+      ? undefined // keep current — omit from patch
       : lifetime === "forever"
         ? null
-        : new Date(
-            Date.now() +
-              ({ "1h": 36e5, "1d": 864e5, "7d": 6048e5 }[lifetime] || 0),
-          ).toISOString();
+        : expiryFromLifetime(lifetime);
+
   return (
-    <div className="inspector">
-      <header>
-        <span>
-          {object.type} · {object.id.slice(0, 8)}
-        </span>
-        <button onClick={close}>
-          <X />
-        </button>
-      </header>
-      <div className={`inspector-type ${object.type}`}>
-        {object.type}
-        <i />
-      </div>
-      <label>
-        NAME
-        <input value={name} onChange={(event) => setName(event.target.value)} />
-      </label>
-      {object.type === "snippet" && (
+    <div
+      className="inspector-scrim"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+    >
+      <div
+        ref={panelRef}
+        className="inspector"
+        role="dialog"
+        aria-modal="true"
+        aria-label={object.name}
+      >
+        <header>
+          <span>
+            {object.type} · {object.id.slice(0, 8)}
+          </span>
+          <button onClick={close} aria-label="Close inspector">
+            <X />
+          </button>
+        </header>
+        <div className={`inspector-type ${object.type}`}>
+          {object.type}
+          <i aria-hidden="true" />
+        </div>
         <label>
-          CONTENT
-          <textarea
-            rows={15}
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
+          NAME
+          <input
+            value={name}
+            maxLength={200}
+            onChange={(e) => setName(e.target.value)}
           />
         </label>
-      )}
-      {object.type === "link" && (
+        {object.type === "snippet" && (
+          <label>
+            CONTENT
+            <textarea
+              rows={15}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </label>
+        )}
+        {object.type === "link" && (
+          <label>
+            URL
+            <input
+              value={url}
+              inputMode="url"
+              onChange={(e) => setUrl(e.target.value)}
+            />
+          </label>
+        )}
+        {object.type === "file" && (
+          <div className="file-readout">
+            <File aria-hidden="true" />
+            <span>
+              <b>{object.mimeType}</b>
+              <small>{bytes(object.sizeBytes)} · Stored locally</small>
+            </span>
+            <a href={`/api/files/${object.id}`}>
+              <ArrowDownToLine aria-hidden="true" />
+              Download
+            </a>
+          </div>
+        )}
         <label>
-          URL
-          <input value={url} onChange={(event) => setUrl(event.target.value)} />
+          LIFETIME
+          <select
+            value={lifetime}
+            onChange={(e) => setLifetime(e.target.value)}
+          >
+            <option value="keep">Keep current</option>
+            <option value="forever">Permanent</option>
+            <option value="1h">1 hour from now</option>
+            <option value="1d">1 day from now</option>
+            <option value="7d">7 days from now</option>
+          </select>
         </label>
-      )}
-      {object.type === "file" && (
-        <div className="file-readout">
-          <File />
+        <div className="inspect-meta">
           <span>
-            <b>{object.mimeType}</b>
-            <small>{bytes(object.sizeBytes)} · Stored locally</small>
+            CREATED <b>{new Date(object.createdAt).toLocaleString()}</b>
           </span>
-          <a href={`/api/files/${object.id}`}>
-            <ArrowDownToLine />
-            Download
-          </a>
+          <span>
+            LIFETIME{" "}
+            <b>
+              {object.expiresAt
+                ? new Date(object.expiresAt).toLocaleString()
+                : "PERMANENT"}
+            </b>
+          </span>
         </div>
-      )}
-      <label>
-        LIFETIME
-        <select
-          value={lifetime}
-          onChange={(event) => setLifetime(event.target.value)}
+        <div className="inspect-actions">
+          <a href={`/o/${object.id}`} target="_blank" rel="noreferrer">
+            <ArrowUpRight aria-hidden="true" />
+            OPEN
+          </a>
+          <button onClick={pin}>
+            <Pin aria-hidden="true" />
+            {object.pinned ? "UNPIN" : "PIN"}
+          </button>
+          <button onClick={share}>
+            <Share2 aria-hidden="true" />
+            SHARE
+          </button>
+          <button className="destructive" onClick={remove}>
+            <Trash2 aria-hidden="true" />
+            TRASH
+          </button>
+        </div>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <details className="device-handoff">
+          <summary>Open on another device</summary>
+          <Qr path={`/o/${object.id}`} label={object.name} />
+          <p>Sign in to your workspace on the other device, then scan.</p>
+        </details>
+        <button
+          className="save-signal"
+          disabled={saving || !name.trim()}
+          onClick={async () => {
+            setSaving(true);
+            setError("");
+            try {
+              const body: Record<string, unknown> = { name: name.trim() };
+              if (expiry !== undefined) body.expiresAt = expiry;
+              if (object.type === "snippet") body.content = content;
+              if (object.type === "link") body.url = url;
+              await save(body);
+            } catch (err) {
+              setError(
+                err instanceof Error ? err.message : "Couldn’t save changes.",
+              );
+            } finally {
+              setSaving(false);
+            }
+          }}
         >
-          <option value="keep">Keep current</option>
-          <option value="forever">Permanent</option>
-          <option value="1h">1 hour from now</option>
-          <option value="1d">1 day from now</option>
-          <option value="7d">7 days from now</option>
-        </select>
-      </label>
-      <div className="inspect-meta">
-        <span>
-          CREATED <b>{new Date(object.createdAt).toLocaleString()}</b>
-        </span>
-        <span>
-          LIFETIME{" "}
-          <b>
-            {object.expiresAt
-              ? new Date(object.expiresAt).toLocaleString()
-              : "PERMANENT"}
-          </b>
-        </span>
-      </div>
-      <div className="inspect-actions">
-        <a href={`/o/${object.id}`} target="_blank" rel="noreferrer">
-          <ArrowUpRight />
-          OPEN
-        </a>
-        <button onClick={pin}>
-          <Pin />
-          {object.pinned ? "UNPIN" : "PIN"}
-        </button>
-        <button onClick={share}>
-          <Share2 />
-          SHARE
-        </button>
-        <button className="destructive" onClick={remove}>
-          <Trash2 />
-          TRASH
+          {saving ? "Saving…" : "Save changes"}{" "}
+          <ArrowUpRight aria-hidden="true" />
         </button>
       </div>
-      <button
-        className="save-signal"
-        onClick={() =>
-          save({
-            name,
-            expiresAt: expiry,
-            ...(object.type === "snippet" ? { content } : {}),
-            ...(object.type === "link" ? { url } : {}),
-          })
-        }
-      >
-        Save changes <ArrowUpRight />
-      </button>
     </div>
   );
 }
@@ -225,34 +346,39 @@ export function CreateDialog({
   saved: () => void;
 }) {
   const types = Object.entries(config.modules)
-      .filter(([key, value]) => value && key !== "board")
-      .map(([key]) => key.slice(0, -1)) as ObjectType[],
-    [type, setType] = useState<ObjectType>(types[0] || "snippet"),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    .filter(([key, value]) => value && key !== "board")
+    .map(([key]) => key.slice(0, -1)) as ObjectType[];
+  const [type, setType] = useState<ObjectType>(types[0] || "snippet");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setBusy(true);
+    setError("");
     try {
       await api("/api/objects", {
         method: "POST",
-        body: new FormData(event.currentTarget),
+        body: new FormData(e.currentTarget),
       });
       saved();
-    } catch (value) {
-      setError((value as Error).message);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't add item.");
       setBusy(false);
     }
   };
+
   return (
     <Modal title="Add to 9t" code="NEW ITEM" close={close}>
-      <div className="mode-switch">
+      <div className="mode-switch" role="tablist" aria-label="Item type">
         {types.map((t) => (
           <button
+            key={t}
             type="button"
+            role="tab"
+            aria-selected={type === t}
             className={type === t ? "active" : ""}
             onClick={() => setType(t)}
-            key={t}
           >
             {t}
           </button>
@@ -266,6 +392,7 @@ export function CreateDialog({
             name="name"
             required
             autoFocus
+            maxLength={200}
             placeholder="Something you will recognize"
           />
         </label>
@@ -303,35 +430,41 @@ export function CreateDialog({
         )}
         {type === "file" && (
           <label className="file-drop">
-            <Upload />
+            <Upload aria-hidden="true" />
             <b>Choose a file</b>
             <span>Up to {config.maxSizeMb} MB</span>
             <input
               name="file"
               type="file"
               required
-              onChange={(event) => {
-                const file = event.target.files?.[0],
-                  name = event.currentTarget.form?.elements.namedItem(
-                    "name",
-                  ) as HTMLInputElement;
-                if (file && !name.value) name.value = file.name;
+              aria-label="Choose a file"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                const nameInput = e.currentTarget.form?.elements.namedItem(
+                  "name",
+                ) as HTMLInputElement | null;
+                if (file && nameInput && !nameInput.value)
+                  nameInput.value = file.name;
               }}
             />
           </label>
         )}
         <label>
           KEEP FOR
-          <select name="lifetime">
+          <select name="lifetime" defaultValue="forever">
             <option value="forever">Forever</option>
             <option value="1h">1 hour</option>
             <option value="1d">1 day</option>
             <option value="7d">7 days</option>
           </select>
         </label>
-        {error && <p className="form-error">{error}</p>}
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
         <button className="transmit" disabled={busy}>
-          <Plus />
+          <Plus aria-hidden="true" />
           {busy ? "Adding…" : "Add item"}
         </button>
       </form>
@@ -348,10 +481,13 @@ export function ShareDialog({
   close: () => void;
   created: (path: string) => void;
 }) {
-  const [life, setLife] = useState("1d"),
-    [password, setPassword] = useState(""),
-    [path, setPath] = useState(""),
-    [busy, setBusy] = useState(false);
+  const [life, setLife] = useState("1d");
+  const [password, setPassword] = useState("");
+  const [path, setPath] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
   return (
     <Modal title="Share this item" code="PUBLIC LINK" close={close}>
       {path ? (
@@ -361,24 +497,40 @@ export function ShareDialog({
           <button
             className="transmit"
             onClick={async () => {
-              await navigator.clipboard.writeText(location.origin + path);
-              created(path);
+              try {
+                await navigator.clipboard.writeText(location.origin + path);
+                setCopied(true);
+                setError("");
+              } catch {
+                setError(
+                  "Couldn’t copy automatically. Select and copy the link above.",
+                );
+              }
             }}
           >
-            <Copy />
-            Copy link
+            <Copy aria-hidden="true" />
+            {copied ? "Link copied" : "Copy link"}
           </button>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
         </div>
       ) : (
         <>
           <div className="share-object">
-            <Share2 />
+            <Share2 aria-hidden="true" />
             <span>
               <small>ITEM</small>
               <b>{object.name}</b>
             </span>
           </div>
-          <div className="lifetime-grid">
+          <div
+            className="lifetime-grid"
+            role="group"
+            aria-label="Link lifetime"
+          >
             {[
               ["1h", "1 HOUR"],
               ["1d", "1 DAY"],
@@ -387,50 +539,71 @@ export function ShareDialog({
               ["forever", "NO EXPIRY"],
             ].map(([value, label]) => (
               <button
+                key={value}
+                type="button"
+                aria-pressed={life === value}
                 className={life === value ? "active" : ""}
                 onClick={() => setLife(value)}
-                key={value}
               >
-                {value === "forever" ? <InfinityIcon /> : <Clock3 />}
+                {value === "forever" ? (
+                  <InfinityIcon aria-hidden="true" />
+                ) : (
+                  <Clock3 aria-hidden="true" />
+                )}
                 {label}
               </button>
             ))}
           </div>
           <p className="share-warning">
-            <ShieldCheck />
+            <ShieldCheck aria-hidden="true" />
             Anyone with the link can open this item until it expires. The rest
             of your workspace stays private.
           </p>
           <label className="share-password">
-            PASSWORD
+            PASSWORD (OPTIONAL, 8+ CHARACTERS)
             <input
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Optional (6+ characters)"
-              minLength={6}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Optional (8+ characters)"
+              minLength={8}
+              autoComplete="new-password"
             />
           </label>
+          {error && (
+            <p className="form-error share-error" role="alert">
+              {error}
+            </p>
+          )}
           <button
             className="transmit"
-            disabled={busy}
+            disabled={busy || (password.length > 0 && password.length < 8)}
             onClick={async () => {
               setBusy(true);
-              const data = await api("/api/shares", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  objectId: object.id,
-                  lifetime: life,
-                  password: password || undefined,
-                }),
-              });
-              setPath(data.path);
-              setBusy(false);
-              created(data.path);
+              setError("");
+              try {
+                const data = await api("/api/shares", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    objectId: object.id,
+                    lifetime: life,
+                    password: password || undefined,
+                  }),
+                });
+                setPath(data.path);
+                created(data.path);
+              } catch (err) {
+                setError(
+                  err instanceof ApiError
+                    ? err.message
+                    : "Couldn't create link.",
+                );
+                setBusy(false);
+              }
             }}
           >
-            <Copy />
+            <Copy aria-hidden="true" />
             {busy ? "Creating…" : "Create link"}
           </button>
         </>
@@ -440,6 +613,7 @@ export function ShareDialog({
 }
 
 export function SettingsDialog({
+  signOut,
   config,
   close,
   saved,
@@ -447,25 +621,31 @@ export function SettingsDialog({
   config: Config;
   close: () => void;
   saved: () => void;
+  signOut: () => void;
 }) {
-  const [modules, setModules] = useState(config.modules),
-    [max, setMax] = useState(config.maxSizeMb),
-    [theme, setTheme] = useState<Theme>(config.theme),
-    themes = [
-      { id: "system" as Theme, label: "System", icon: <Monitor /> },
-      { id: "light" as Theme, label: "Light", icon: <Sun /> },
-      { id: "dark" as Theme, label: "Dark", icon: <Moon /> },
-    ];
+  const [modules, setModules] = useState(config.modules);
+  const [max, setMax] = useState(config.maxSizeMb);
+  const [theme, setTheme] = useState<Theme>(config.theme);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const themes = [
+    { id: "system" as Theme, label: "System", icon: <Monitor /> },
+    { id: "light" as Theme, label: "Light", icon: <Sun /> },
+    { id: "dark" as Theme, label: "Dark", icon: <Moon /> },
+  ];
+
   return (
     <Modal title="Settings" code="9T / SETTINGS" close={close}>
       <div className="theme-picker">
         <span>APPEARANCE</span>
-        <div>
+        <div role="group" aria-label="Appearance">
           {themes.map((item) => (
             <button
+              key={item.id}
+              type="button"
+              aria-pressed={theme === item.id}
               className={theme === item.id ? "active" : ""}
               onClick={() => setTheme(item.id)}
-              key={item.id}
             >
               {item.icon}
               <b>{item.label}</b>
@@ -473,16 +653,30 @@ export function SettingsDialog({
           ))}
         </div>
       </div>
+      <div className="settings-section-heading">
+        <h3>Your modules</h3>
+        <p>Keep what you use. Hide what you don’t.</p>
+      </div>
       <div className="settings-grid">
         {Object.entries(modules).map(([key, value]) => (
           <button
+            key={key}
+            type="button"
+            aria-pressed={!!value}
             className={value ? "active" : ""}
             onClick={() =>
               setModules((current) => ({ ...current, [key]: !value }))
             }
-            key={key}
           >
-            <small>MODULE</small>
+            <small>
+              {key === "files"
+                ? "Move between devices"
+                : key === "snippets"
+                  ? "Keep text and code"
+                  : key === "links"
+                    ? "Save a destination"
+                    : "Arrange your items"}
+            </small>
             <b>{key}</b>
             <span>{value ? "ON" : "OFF"}</span>
           </button>
@@ -494,8 +688,9 @@ export function SettingsDialog({
           <input
             type="number"
             value={max}
-            min="1"
-            onChange={(event) => setMax(+event.target.value)}
+            min={1}
+            max={2048}
+            onChange={(e) => setMax(+e.target.value)}
           />
           <span>MB</span>
         </label>
@@ -508,53 +703,117 @@ export function SettingsDialog({
           <b>ON</b>
         </div>
       </div>
+      {error && (
+        <p className="form-error settings-error" role="alert">
+          {error}
+        </p>
+      )}
       <button
         className="transmit"
+        disabled={busy}
         onClick={async () => {
-          await api("/api/config", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ modules, maxSizeMb: max, theme }),
-          });
-          saved();
+          setBusy(true);
+          setError("");
+          try {
+            await api("/api/config", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ modules, maxSizeMb: max, theme }),
+            });
+            saved();
+          } catch (err) {
+            setError(
+              err instanceof ApiError ? err.message : "Couldn't save settings.",
+            );
+            setBusy(false);
+          }
         }}
       >
-        <Check />
-        Save settings
+        <Check aria-hidden="true" />
+        {busy ? "Saving…" : "Save settings"}
       </button>
+      <button className="signout-button" onClick={signOut}>
+        <LogOut /> Sign out of this device
+      </button>
+      <a
+        href="/devices"
+        className="secondary-button"
+        style={{
+          display: "block",
+          marginTop: 12,
+          textAlign: "center",
+          padding: 12,
+        }}
+      >
+        Android devices &amp; pairing
+      </a>
     </Modal>
   );
 }
 
 export function CommandsDialog({
+  config,
   close,
   run,
 }: {
   close: () => void;
   run: (action: string) => void;
+  config: Config;
 }) {
-  const commands = [
+  const [filter, setFilter] = useState("");
+  const commands: Array<[string, string, string]> = [
     ["create", "Add an item", "N"],
     ["all", "Open everything", "0"],
+    ["snippet", "Snippets only", "1"],
+    ["file", "Files only", "2"],
+    ["link", "Links only", "3"],
     ["board", "Open Board", "B"],
     ["shares", "View shared links", "H"],
     ["trash", "Open Trash", "R"],
     ["settings", "Open settings", "S"],
   ];
+  const visible = commands.filter(([action, label]) => {
+    if (
+      (action === "snippet" && !config.modules.snippets) ||
+      (action === "file" && !config.modules.files) ||
+      (action === "link" && !config.modules.links) ||
+      (action === "board" && !config.modules.board)
+    )
+      return false;
+    if (
+      action === "create" &&
+      !config.modules.snippets &&
+      !config.modules.files &&
+      !config.modules.links
+    )
+      return false;
+    return label.toLowerCase().includes(filter.toLowerCase());
+  });
+
   return (
     <Modal title="Commands" code="9T / GO" close={close}>
-      <div className="command-list">
-        {commands.map(([action, label, key], index) => (
+      <div className="command-search">
+        <input
+          autoFocus
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Type to filter…"
+          aria-label="Filter commands"
+        />
+      </div>
+      <div className="command-list" aria-label="Commands">
+        {visible.map(([action, label, key], index) => (
           <button
-            autoFocus={index === 0}
-            onClick={() => run(action)}
             key={action}
+            autoFocus={index === 0 && !filter}
+            onClick={() => run(action)}
           >
             <small>{(index + 1).toString().padStart(2, "0")}</small>
             <span>{label}</span>
             <kbd>{key}</kbd>
           </button>
         ))}
+        {!visible.length && <p className="command-empty">No commands match.</p>}
       </div>
     </Modal>
   );

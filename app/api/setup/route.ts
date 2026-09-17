@@ -1,33 +1,54 @@
 import { createSession, makePassword } from "@/lib/server/auth";
 import { mutate } from "@/lib/server/store";
+import {
+  authRateLimit,
+  rateLimitResponse,
+  setupSchema,
+} from "@/lib/server/security";
+
 export async function POST(req: Request) {
-  const body = await req.json(),
-    setupToken = process.env.NINE_T_SETUP_TOKEN;
-  if (setupToken && body.setupToken !== setupToken)
+  const rl = authRateLimit(req, "setup");
+  if (!rl.ok) return rateLimitResponse(rl.retryAfterSec);
+
+  const setupToken = process.env.NINE_T_SETUP_TOKEN;
+  // Fail closed: setup requires a configured key.
+  if (!setupToken) {
+    return Response.json(
+      { error: "Server setup is not configured (missing setup token)." },
+      { status: 503 },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON." }, { status: 400 });
+  }
+  const parsed = setupSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(
+      { error: parsed.error.issues[0]?.message || "Invalid setup data." },
+      { status: 400 },
+    );
+  }
+  if (parsed.data.setupToken !== setupToken)
     return Response.json(
       { error: "The setup key is incorrect." },
       { status: 403 },
     );
-  if (
-    typeof body.username !== "string" ||
-    body.username.length < 2 ||
-    typeof body.password !== "string" ||
-    body.password.length < 8
-  )
-    return Response.json(
-      { error: "Use a username and a password of at least 8 characters." },
-      { status: 400 },
-    );
+
+  const { username, password, modules, exposure } = parsed.data;
   let exists = false;
   await mutate((d) => {
     if (d.config.initialized) {
       exists = true;
       return;
     }
-    d.user = { username: body.username.trim(), ...makePassword(body.password) };
+    d.user = { username: username.trim(), ...makePassword(password) };
     d.config.initialized = true;
-    d.config.modules = { ...d.config.modules, ...body.modules };
-    d.config.exposure = body.exposure || "public";
+    if (modules) d.config.modules = { ...d.config.modules, ...modules };
+    d.config.exposure = exposure || "public";
   });
   if (exists)
     return Response.json(

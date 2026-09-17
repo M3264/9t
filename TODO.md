@@ -1,5 +1,7 @@
 # 9t build plan and resume state
 
+> **Latest handoff:** [HANDOFF.md](./HANDOFF.md). The Android preview APK, encrypted LAN/public transfers, and device pairing were deployed on 2026-09-17. Real-phone validation remains outstanding. Older design descriptions below are historical.
+
 Paused: 2026-09-16
 
 ## Current state

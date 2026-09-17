@@ -1,0 +1,17 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'xyz.kennyy.ninet'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'xyz.kennyy.ninet'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '0.2.0'
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { testImplementation 'junit:junit:4.13.2' }

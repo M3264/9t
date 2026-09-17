@@ -2,7 +2,15 @@ import { randomBytes, randomUUID } from "crypto";
 import { authenticated, unauthorized } from "@/lib/server/auth";
 import { makePassword } from "@/lib/server/auth";
 import { mutate, readData } from "@/lib/server/store";
+import {
+  csrfCheck,
+  csrfResponse,
+  shareCreateSchema,
+} from "@/lib/server/security";
+import { expiryFromLifetime } from "@/lib/shared/lifetimes";
+
 export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   if (!(await authenticated(req))) return unauthorized();
   const d = await readData(),
@@ -23,36 +31,35 @@ export async function GET(req: Request) {
       .filter((s) => s.object),
   });
 }
+
 export async function POST(req: Request) {
   if (!(await authenticated(req))) return unauthorized();
-  const { objectId, lifetime = "1d", password } = await req.json(),
-    d = await readData();
-  if (!d.objects.some((o) => o.id === objectId && !o.deletedAt))
-    return Response.json({ error: "Object not found." }, { status: 404 });
-  const ttl: { [key: string]: number } = {
-    "1h": 36e5,
-    "1d": 864e5,
-    "7d": 6048e5,
-    "30d": 2592e6,
-  };
-  if (
-    password !== undefined &&
-    (typeof password !== "string" || password.length < 6)
-  )
+  if (!csrfCheck(req)) return csrfResponse();
+
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON." }, { status: 400 });
+  }
+  const parsed = shareCreateSchema.safeParse(raw);
+  if (!parsed.success)
     return Response.json(
-      { error: "Share passwords must be at least 6 characters." },
+      { error: parsed.error.issues[0]?.message || "Invalid share request." },
       { status: 400 },
     );
+  const { objectId, lifetime = "1d", password } = parsed.data;
+  const d = await readData();
+  if (!d.objects.some((o) => o.id === objectId && !o.deletedAt))
+    return Response.json({ error: "Object not found." }, { status: 404 });
+
   const secret = password ? makePassword(password) : undefined;
   const share = {
     id: randomUUID(),
     token: randomBytes(18).toString("base64url"),
     objectId,
     createdAt: new Date().toISOString(),
-    expiresAt:
-      lifetime === "forever"
-        ? undefined
-        : new Date(Date.now() + (ttl[lifetime] || ttl["1d"])).toISOString(),
+    expiresAt: expiryFromLifetime(lifetime),
     accessCount: 0,
     passwordHash: secret?.passwordHash,
     passwordSalt: secret?.salt,

@@ -1,9 +1,24 @@
-export async function workspaceApi(url: string, init?: RequestInit) {
-  const response = await fetch(url, init),
-    data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Something went wrong");
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export async function workspaceApi(url: string, init?: RequestInit): Promise<any> {
+  const response = await fetch(url, init);
+  let data: { error?: string } = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+  if (!response.ok)
+    throw new ApiError(data.error || "Something went wrong", response.status);
   return data;
 }
+
 export function timeAgo(value: string) {
   const seconds = (Date.now() - new Date(value).getTime()) / 1000;
   return seconds < 60
@@ -14,6 +29,7 @@ export function timeAgo(value: string) {
         ? `${Math.floor(seconds / 3600)}h`
         : `${Math.floor(seconds / 86400)}d`;
 }
+
 export function timeUntil(value: string) {
   const seconds = (new Date(value).getTime() - Date.now()) / 1000;
   return seconds <= 0
@@ -24,10 +40,14 @@ export function timeUntil(value: string) {
         ? `${Math.ceil(seconds / 3600)}h`
         : `${Math.ceil(seconds / 86400)}d`;
 }
+
 export function formatBytes(value = 0) {
+  if (!Number.isFinite(value) || value < 0) return "0B";
   return value < 1024
     ? `${value}B`
     : value < 1048576
       ? `${(value / 1024).toFixed(1)}KB`
-      : `${(value / 1048576).toFixed(1)}MB`;
+      : value < 1073741824
+        ? `${(value / 1048576).toFixed(1)}MB`
+        : `${(value / 1073741824).toFixed(1)}GB`;
 }

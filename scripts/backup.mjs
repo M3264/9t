@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readdir, stat, unlink } from "node:fs/promises";
+import { chmod, mkdir, readdir, stat, unlink } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join, resolve } from "node:path";
@@ -13,6 +13,8 @@ await mkdir(target, { recursive: true, mode: 0o700 });
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const archive = join(target, `9t-${stamp}.tar.gz`);
 await run("tar", ["-czf", archive, "-C", root, "."]);
+// Archive contains password hashes / sessions / tokens — restrict to owner.
+await chmod(archive, 0o600);
 const files = (await readdir(target)).filter((name) =>
   /^9t-.*\.tar\.gz$/.test(name),
 );

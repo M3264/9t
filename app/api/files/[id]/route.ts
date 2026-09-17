@@ -1,6 +1,8 @@
 import { readFile } from "fs/promises";
 import { authenticated, unauthorized } from "@/lib/server/auth";
-import { readData, uploadDir } from "@/lib/server/store";
+import { readData } from "@/lib/server/store";
+import { safeObjectPath } from "@/lib/server/security";
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -11,7 +13,14 @@ export async function GET(
     (x) => x.id === id && !x.deletedAt && x.type === "file",
   );
   if (!o?.storageKey) return new Response("Not found", { status: 404 });
-  const data = await readFile(`${uploadDir}/${o.storageKey}`);
+  const full = safeObjectPath(o.storageKey);
+  if (!full) return new Response("Not found", { status: 404 });
+  let data: Buffer;
+  try {
+    data = await readFile(full);
+  } catch {
+    return new Response("Not found", { status: 404 });
+  }
   return new Response(new Uint8Array(data), {
     headers: {
       "Content-Type": o.mimeType || "application/octet-stream",

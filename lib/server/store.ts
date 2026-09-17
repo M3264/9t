@@ -50,9 +50,14 @@ export type ApiToken = {
   lastUsedAt?: string;
 };
 export type Data = {
+  instanceId?: string;
+  devices?: Record<
+    string,
+    { name: string; key: string; createdAt: string; lastSeenAt?: string }
+  >;
   config: AppConfig;
   user?: { username: string; passwordHash: string; salt: string };
-  sessions: Record<string, { expiresAt: string }>;
+  sessions: Record<string, { expiresAt: string; deviceId?: string }>;
   apiTokens?: Record<string, ApiToken>;
   objects: NineTObject[];
   shares: Record<string, Share>;
@@ -83,7 +88,8 @@ async function ensure() {
   await mkdir(uploadDir, { recursive: true });
   try {
     await readFile(dbPath);
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     await writeFile(dbPath, JSON.stringify(initial, null, 2), { mode: 0o600 });
   }
 }
@@ -95,14 +101,19 @@ export async function mutate<T>(
   fn: (data: Data) => T | Promise<T>,
 ): Promise<T> {
   let result!: T;
-  queue = queue.then(async () => {
+  const operation = queue.then(async () => {
     const data = await readData();
     result = await fn(data);
     const tmp = `${dbPath}.${randomUUID()}.tmp`;
     await writeFile(tmp, JSON.stringify(data, null, 2), { mode: 0o600 });
     await rename(tmp, dbPath);
   });
-  await queue;
+  // Keep each caller's error, but let subsequent operations run.
+  queue = operation.then(
+    () => {},
+    () => {},
+  );
+  await operation;
   return result;
 }
 export async function addObject(
@@ -122,8 +133,10 @@ export async function addObject(
 export async function purgeObject(id: string) {
   await mutate(async (d) => {
     const obj = d.objects.find((x) => x.id === id);
-    if (obj?.storageKey)
-      await unlink(path.join(uploadDir, obj.storageKey)).catch(() => {});
+    if (obj?.storageKey && /^[0-9a-f-]{36}$/i.test(obj.storageKey))
+      await unlink(path.join(uploadDir, path.basename(obj.storageKey))).catch(
+        () => {},
+      );
     d.objects = d.objects.filter((x) => x.id !== id);
   });
 }

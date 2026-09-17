@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brand as Logo, LoadingScreen as Boot } from "../ui/Brand";
+import {
+  Brand as Logo,
+  ErrorBoundary,
+  LoadingScreen as Boot,
+} from "../ui/Brand";
 import {
   LoginScreen as Login,
   SetupScreen as Setup,
@@ -20,9 +24,19 @@ import {
   ShareDialog as ShareModal,
 } from "./WorkspaceDialogs";
 import {
-  ArrowUpRight,
+  LayoutGrid,
+  Code2,
+  FileText,
+  Link2,
+  Layers,
+  LockKeyhole,
+  Pin,
+  Menu,
+  X,
+  List,
+  ArrowDownUp,
+  FolderOpen,
   Check,
-  LogOut,
   Moon,
   Plus,
   Search,
@@ -38,108 +52,295 @@ import type {
   WorkspaceShare as Share,
   WorkspaceView as View,
 } from "../../types/workspace";
-import { workspaceApi as api } from "../../lib/client/workspace";
+import { ApiError, workspaceApi as api } from "../../lib/client/workspace";
 
-export default function Workspace() {
-  const [phase, setPhase] = useState<"loading" | "setup" | "login" | "desk">(
-    "loading",
+type Phase = "loading" | "setup" | "login" | "desk";
+
+function useToast() {
+  const [toast, setToast] = useState("");
+  const timer = useRef<number | undefined>(undefined);
+  const flash = useCallback((message: string) => {
+    setToast(message);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setToast(""), 2200);
+  }, []);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return { toast, flash };
+}
+
+function SkeletonList() {
+  return (
+    <div className="skeleton-list" aria-hidden="true">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="skeleton-row">
+          <span />
+          <div>
+            <i />
+            <b />
+          </div>
+        </div>
+      ))}
+    </div>
   );
-  const [config, setConfig] = useState<Config | null>(null),
-    [username, setUsername] = useState(""),
-    [objects, setObjects] = useState<Obj[]>([]),
-    [shares, setShares] = useState<Share[]>([]);
-  const [view, setView] = useState<View>("all"),
-    [query, setQuery] = useState(""),
-    [selected, setSelected] = useState<Obj | null>(null),
-    [modal, setModal] = useState<
-      null | "create" | "share" | "settings" | "commands"
-    >(null),
-    [toast, setToast] = useState("");
+}
+
+function WorkspaceInner() {
+  const [phase, setPhase] = useState<Phase>("loading");
+  const [loadingObjects, setLoadingObjects] = useState(false);
+  const [config, setConfig] = useState<Config | null>(null);
+  const [username, setUsername] = useState("");
+  const [objects, setObjects] = useState<Obj[]>([]);
+  const [shares, setShares] = useState<Share[]>([]);
+  const [view, setView] = useState<View>("all");
+  const [query, setQuery] = useState("");
+  const [pinnedOnly, setPinnedOnly] = useState(false);
+  const [layout, setLayout] = useState<"grid" | "list">("grid");
+  const [sort, setSort] = useState<"recent" | "name">("recent");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const media = matchMedia("(max-width: 700px)");
+    const apply = () => setMobile(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
+  useEffect(() => {
+    if (!menuOpen || !mobile) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = sidebarRef.current;
+    const elements = () =>
+      Array.from(
+        panel?.querySelectorAll<HTMLElement>("button, a[href]") || [],
+      ).filter((el) => el.getClientRects().length > 0);
+    elements()[0]?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Tab") {
+        const items = elements(),
+          first = items[0],
+          last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      removeEventListener("keydown", onKey);
+      previous?.focus();
+    };
+  }, [menuOpen, mobile]);
+  const [loadError, setLoadError] = useState("");
+  const requestId = useRef(0);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("9t-layout") === "list") setLayout("list");
+    } catch {}
+  }, []);
+  const changeLayout = (next: "grid" | "list") => {
+    setLayout(next);
+    try {
+      localStorage.setItem("9t-layout", next);
+    } catch {}
+  };
+  const navigate = (next: View, pinned = false) => {
+    setView(next);
+    setPinnedOnly(pinned);
+    setQuery("");
+    setSelected(null);
+    setMenuOpen(false);
+  };
+  const [selected, setSelected] = useState<Obj | null>(null);
+  const [modal, setModal] = useState<
+    null | "create" | "share" | "settings" | "commands"
+  >(null);
+  const { toast, flash } = useToast();
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const searchRef = useRef<HTMLInputElement>(null);
-  const flash = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2200);
-  };
+
   const refresh = useCallback(async () => {
-    const s = await api("/api/status");
+    let s: {
+      initialized?: boolean;
+      authenticated?: boolean;
+      config?: Config;
+      username?: string;
+    };
+    try {
+      s = await api("/api/status");
+    } catch {
+      setPhase("login");
+      return;
+    }
+    if (!s.initialized) {
+      setPhase("setup");
+      return;
+    }
+    if (!s.authenticated || !s.config) {
+      setPhase("login");
+      return;
+    }
     setConfig(s.config);
     setUsername(s.username || "");
-    if (!s.initialized) return setPhase("setup");
-    if (!s.authenticated) return setPhase("login");
     setPhase("desk");
-    const [items, links] = await Promise.all([
-      api(`/api/objects${view === "trash" ? "?trash=true" : ""}`),
-      api("/api/shares"),
-    ]);
-    setObjects(items.objects);
-    setShares(links.shares);
-  }, [view]);
+  }, []);
+
+  const loadObjects = useCallback(
+    async (currentView: View) => {
+      const currentRequest = ++requestId.current;
+      setLoadingObjects(true);
+      setLoadError("");
+      try {
+        const [items, links] = await Promise.all([
+          api(`/api/objects${currentView === "trash" ? "?trash=true" : ""}`),
+          api("/api/shares"),
+        ]);
+        if (currentRequest !== requestId.current) return;
+        setObjects(items.objects ?? []);
+        setShares(links.shares ?? []);
+      } catch (e) {
+        if (currentRequest !== requestId.current) return;
+        if (e instanceof ApiError && e.status === 401) setPhase("login");
+        else if (currentRequest === requestId.current)
+          setLoadError("Your items couldn’t be loaded. Try again.");
+      } finally {
+        if (currentRequest === requestId.current) setLoadingObjects(false);
+      }
+    },
+    [flash],
+  );
+
   useEffect(() => {
-    refresh().catch(() => setPhase("login"));
+    refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (phase === "desk") loadObjects(view);
+  }, [phase, view, loadObjects]);
+
+  // Theme
   useEffect(() => {
     if (!config) return;
-    const media = matchMedia("(prefers-color-scheme: dark)"),
-      apply = () => {
-        const resolved =
-          config.theme === "system"
-            ? media.matches
-              ? "dark"
-              : "light"
-            : config.theme;
-        document.documentElement.dataset.theme = resolved;
-        setResolvedTheme(resolved);
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const resolved =
+        config.theme === "system"
+          ? media.matches
+            ? "dark"
+            : "light"
+          : config.theme;
+      document.documentElement.dataset.theme = resolved;
+      setResolvedTheme(resolved);
+      try {
         localStorage.setItem("9t-theme", config.theme);
-      };
+      } catch {
+        // private mode — ignore
+      }
+    };
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [config]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const keys = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (phase !== "desk") return;
+      const typing =
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+        target.isContentEditable;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setModal("commands");
-      } else if (e.key === "/" && !modal) {
+      } else if (e.key === "/" && !modal && !typing) {
         e.preventDefault();
         searchRef.current?.focus();
       } else if (
         e.key.toLowerCase() === "n" &&
         !modal &&
-        !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)
-      )
-        setModal("create");
+        !selected &&
+        !typing
+      ) {
+        setModal(
+          config &&
+            (config.modules.snippets ||
+              config.modules.files ||
+              config.modules.links)
+            ? "create"
+            : "settings",
+        );
+      } else if (e.key === "Escape" && selected && !modal) {
+        setSelected(null);
+      }
     };
     addEventListener("keydown", keys);
     return () => removeEventListener("keydown", keys);
-  }, [modal]);
-  const visible = useMemo(
-    () =>
-      objects
-        .filter(
-          (o) =>
-            (view === "all" ||
-              view === "board" ||
-              view === "trash" ||
-              o.type === view) &&
-            (o.name + " " + (o.content || "") + " " + (o.url || ""))
-              .toLowerCase()
-              .includes(query.toLowerCase()),
+  }, [modal, selected, phase, config]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return objects
+      .filter((o) => {
+        if (
+          config &&
+          !config.modules[`${o.type}s` as "snippets" | "files" | "links"]
         )
-        .sort(
-          (a, b) =>
-            Number(b.pinned) - Number(a.pinned) ||
-            +new Date(b.updatedAt) - +new Date(a.updatedAt),
-        ),
-    [objects, view, query],
-  );
+          return false;
+        if (pinnedOnly && !o.pinned) return false;
+        if (
+          view !== "all" &&
+          view !== "board" &&
+          view !== "trash" &&
+          o.type !== view
+        )
+          return false;
+        if (!q) return true;
+        return (o.name + " " + (o.content || "") + " " + (o.url || ""))
+          .toLowerCase()
+          .includes(q);
+      })
+      .sort((a, b) =>
+        sort === "name"
+          ? a.name.localeCompare(b.name)
+          : +new Date(b.updatedAt) - +new Date(a.updatedAt),
+      );
+  }, [objects, view, query, pinnedOnly, sort, config]);
+
+  const counts = useMemo(() => {
+    const active = objects.filter(
+      (o) =>
+        !o.deletedAt &&
+        (!config ||
+          config.modules[`${o.type}s` as "snippets" | "files" | "links"]),
+    );
+    return {
+      all: active.length,
+      snippet: active.filter((o) => o.type === "snippet").length,
+      file: active.filter((o) => o.type === "file").length,
+      link: active.filter((o) => o.type === "link").length,
+    };
+  }, [objects, config]);
+
   const patch = async (o: Obj, body: Record<string, unknown>) => {
-    await api(`/api/objects/${o.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    try {
+      await api(`/api/objects/${o.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      flash(e instanceof ApiError ? e.message : "Couldn't update item.");
+      return false;
+    }
     setObjects((items) =>
       items.map((x) =>
         x.id === o.id
@@ -148,217 +349,485 @@ export default function Workspace() {
       ),
     );
     setSelected((s) => (s?.id === o.id ? { ...s, ...body } : s));
+    return true;
   };
+
   const remove = async (o: Obj, permanent = false) => {
-    await api(`/api/objects/${o.id}${permanent ? "?permanent=true" : ""}`, {
-      method: "DELETE",
-    });
+    try {
+      await api(`/api/objects/${o.id}${permanent ? "?permanent=true" : ""}`, {
+        method: "DELETE",
+      });
+    } catch (e) {
+      flash(e instanceof ApiError ? e.message : "Couldn't delete item.");
+      return;
+    }
     setObjects((items) => items.filter((x) => x.id !== o.id));
     setSelected(null);
     flash(permanent ? "Item deleted" : "Moved to Trash");
   };
+
   const setTheme = async (theme: Theme) => {
-    await api("/api/config", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ theme }),
-    });
-    setConfig((c) => (c ? { ...c, theme } : c));
+    try {
+      await api("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme }),
+      });
+      setConfig((c) => (c ? { ...c, theme } : c));
+    } catch {
+      flash("Couldn't change theme.");
+    }
   };
+
   if (phase === "loading") return <Boot />;
   if (phase === "setup") return <Setup done={refresh} />;
   if (phase === "login") return <Login done={refresh} />;
-  return (
-    <div className="desk">
-      <header className="mast">
-        <Logo />
-        <div className="identity">
-          <button
-            title="Search and commands"
-            onClick={() => setModal("commands")}
-          >
-            <Search />
-          </button>
-          <button
-            title="Toggle theme"
-            onClick={() =>
-              setTheme(resolvedTheme === "dark" ? "light" : "dark")
-            }
-          >
-            {resolvedTheme === "dark" ? <Sun /> : <Moon />}
-          </button>
-          <button title="Settings" onClick={() => setModal("settings")}>
-            <Settings />
-          </button>
-          <button
-            title="Sign out"
-            onClick={async () => {
-              await api("/api/auth/logout", { method: "POST" });
-              setPhase("login");
-            }}
-          >
-            <LogOut />
+
+  const tabs: Array<{
+    id: View;
+    label: string;
+    count?: number;
+    show: boolean;
+  }> = [
+    { id: "all", label: "All items", count: counts.all, show: true },
+    {
+      id: "snippet",
+      label: "Snippets",
+      count: counts.snippet,
+      show: !!config?.modules.snippets,
+    },
+    {
+      id: "file",
+      label: "Files",
+      count: counts.file,
+      show: !!config?.modules.files,
+    },
+    {
+      id: "link",
+      label: "Links",
+      count: counts.link,
+      show: !!config?.modules.links,
+    },
+    { id: "board", label: "Board", show: !!config?.modules.board },
+  ];
+
+  const navIcons = {
+    all: FolderOpen,
+    snippet: Code2,
+    file: FileText,
+    link: Link2,
+    board: Layers,
+  };
+  const title = pinnedOnly
+    ? "Pinned items"
+    : view === "all"
+      ? "My workspace"
+      : view === "shares"
+        ? "Shared links"
+        : view === "trash"
+          ? "Trash"
+          : tabs.find((t) => t.id === view)?.label || "My workspace";
+  const activeModules =
+    config &&
+    (config.modules.files || config.modules.snippets || config.modules.links);
+  const collection = (
+    <>
+      {loadError ? (
+        <div className="zero-state" role="alert">
+          <h2>Let’s try that again.</h2>
+          <p>{loadError}</p>
+          <button className="primary-button" onClick={() => loadObjects(view)}>
+            Reload items
           </button>
         </div>
-      </header>
-      <main className="desk-body">
-        <section className="signal-workspace">
-          {view === "all" && (
-            <>
-              <div className="welcome">
-                <small>{username}&apos;s private space</small>
-                <h1>
-                  Put it here.
-                  <br />
-                  <span>Get it anywhere.</span>
-                </h1>
-                <p>
-                  Text, links, and files—one quiet place that belongs to you.
-                </p>
-              </div>
-              <QuickAdd
-                saved={async () => {
-                  await refresh();
-                  flash("Added to 9t");
-                }}
-              />
-              {objects.some((o) => o.pinned) && (
-                <div className="pinned-row">
-                  <span>Pinned</span>
-                  {objects
-                    .filter((o) => o.pinned)
-                    .slice(0, 5)
-                    .map((o) => (
-                      <button key={o.id} onClick={() => setSelected(o)}>
-                        {o.name}
-                        <ArrowUpRight />
-                      </button>
-                    ))}
-                </div>
-              )}
-            </>
+      ) : loadingObjects ? (
+        <SkeletonList />
+      ) : view === "board" ? (
+        <Board objects={visible} move={patch} open={setSelected} />
+      ) : view === "shares" ? (
+        <ShareLog
+          shares={shares.filter(
+            (s) =>
+              !query ||
+              s.object.name.toLowerCase().includes(query.toLowerCase()),
           )}
-          <nav className="workspace-tabs" aria-label="Content types">
-            <button
-              className={view === "all" ? "active" : ""}
-              onClick={() => setView("all")}
-            >
-              Everything
-            </button>
-            {config?.modules.snippets && (
-              <button
-                className={view === "snippet" ? "active" : ""}
-                onClick={() => setView("snippet")}
-              >
-                Snippets
-              </button>
-            )}
-            {config?.modules.files && (
-              <button
-                className={view === "file" ? "active" : ""}
-                onClick={() => setView("file")}
-              >
-                Files
-              </button>
-            )}
-            {config?.modules.links && (
-              <button
-                className={view === "link" ? "active" : ""}
-                onClick={() => setView("link")}
-              >
-                Links
-              </button>
-            )}
-            {config?.modules.board && (
-              <button
-                className={view === "board" ? "active" : ""}
-                onClick={() => setView("board")}
-              >
-                Board
-              </button>
-            )}
-          </nav>
-          <div className="collection-head">
+          notify={flash}
+          revoke={async (share) => {
+            try {
+              await api(`/api/shares/${share.id}`, { method: "DELETE" });
+              setShares((items) => items.filter((s) => s.id !== share.id));
+              flash("Share revoked");
+            } catch (error) {
+              flash(
+                error instanceof ApiError
+                  ? error.message
+                  : "Couldn’t revoke this link.",
+              );
+            }
+          }}
+        />
+      ) : (
+        <Stream
+          objects={visible}
+          layout={layout}
+          searching={!!query}
+          trash={view === "trash"}
+          open={setSelected}
+          patch={patch}
+          remove={remove}
+          notify={flash}
+          create={() => setModal(activeModules ? "create" : "settings")}
+          restore={async (object) => {
+            if (await patch(object, { restore: true })) {
+              setObjects((items) => items.filter((o) => o.id !== object.id));
+              flash("Item restored");
+            }
+          }}
+        />
+      )}
+    </>
+  );
+
+  return (
+    <div className="workspace-app">
+      <a className="skip-link" href="#collection">
+        Skip to items
+      </a>
+      {menuOpen && (
+        <button
+          className="nav-scrim"
+          aria-label="Close navigation"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+      <aside
+        ref={sidebarRef}
+        inert={mobile && !menuOpen}
+        className={`app-sidebar ${menuOpen ? "is-open" : ""}`}
+      >
+        <div className="sidebar-brand">
+          <Logo />
+          <span>YOUR PERSONAL CLOUD</span>
+          <button
+            className="icon-button mobile-only"
+            aria-label="Close navigation"
+            onClick={() => setMenuOpen(false)}
+          >
+            <X />
+          </button>
+        </div>
+        <div className="workspace-switch">
+          <span className="avatar">{(username || "P")[0].toUpperCase()}</span>
+          <div>
+            <strong>{username || "Personal"}’s workspace</strong>
+            <small>Just for you</small>
+          </div>
+          <LockKeyhole />
+        </div>
+        <div className="sidebar-label">WORKSPACE</div>
+        <nav aria-label="Workspace navigation">
+          {tabs
+            .filter((t) => t.show)
+            .map((t) => {
+              const Icon = navIcons[t.id as keyof typeof navIcons];
+              return (
+                <button
+                  key={t.id}
+                  aria-current={
+                    view === t.id && !pinnedOnly ? "page" : undefined
+                  }
+                  className={view === t.id && !pinnedOnly ? "active" : ""}
+                  onClick={() => navigate(t.id)}
+                >
+                  <Icon />
+                  <span>{t.label}</span>
+                  {t.count !== undefined && view !== "trash" && (
+                    <small>{t.count}</small>
+                  )}
+                </button>
+              );
+            })}
+          <button
+            className={pinnedOnly ? "active" : ""}
+            onClick={() => navigate("all", true)}
+          >
+            <Pin />
+            <span>Pinned</span>
+          </button>
+          <div className="sidebar-label">HANDOFF & ORGANIZE</div>
+          <button
+            className={view === "shares" ? "active" : ""}
+            onClick={() => navigate("shares")}
+          >
+            <Share2 />
+            <span>Shared links</span>
+          </button>
+          <button
+            className={view === "trash" ? "active" : ""}
+            onClick={() => navigate("trash")}
+          >
+            <Trash2 />
+            <span>Trash</span>
+          </button>
+        </nav>
+        <div className="sidebar-foot">
+          <div className="private-note">
+            <LockKeyhole />
             <div>
-              <h2>
-                {view === "all"
-                  ? "Recently added"
-                  : view === "shares"
-                    ? "Shared links"
-                    : view === "trash"
-                      ? "Trash"
-                      : view[0].toUpperCase() + view.slice(1)}
-              </h2>
-              <span>
-                {view === "shares" ? shares.length : visible.length}{" "}
-                {view === "shares" ? "links" : "items"}
-              </span>
-            </div>
-            <label className="inline-search">
-              <Search />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search"
-              />
-              <kbd>/</kbd>
-            </label>
-            <div className="collection-actions">
-              <button
-                className={view === "shares" ? "active" : ""}
-                onClick={() => setView("shares")}
-              >
-                <Share2 />
-                <span>Shares</span>
-              </button>
-              <button
-                className={view === "trash" ? "active" : ""}
-                onClick={() => setView("trash")}
-              >
-                <Trash2 />
-                <span>Trash</span>
-              </button>
-              <button className="add-button" onClick={() => setModal("create")}>
-                <Plus />
-                <span>Add</span>
-              </button>
+              <strong>On your own terms.</strong>
+              <p>
+                Your files live on your server.
+                <br />
+                You decide what gets shared.
+              </p>
             </div>
           </div>
-          {view === "board" ? (
-            <Board objects={visible} move={patch} open={setSelected} />
-          ) : view === "shares" ? (
-            <ShareLog
-              shares={shares}
-              revoke={async (s) => {
-                await api(`/api/shares/${s.id}`, { method: "DELETE" });
-                setShares((x) => x.filter((v) => v.id !== s.id));
-                flash("Share revoked");
-              }}
+          <button
+            className="sidebar-settings"
+            onClick={() => {
+              setMenuOpen(false);
+              setModal("settings");
+            }}
+          >
+            <Settings />
+            <span>Settings</span>
+            <span className="settings-dot" />
+          </button>
+          <div className="sidebar-signature">
+            9t <span>A little space of your own.</span>
+          </div>
+        </div>
+      </aside>
+      <div className="app-surface">
+        <header className="app-topbar">
+          <button
+            className="mobile-brand"
+            onClick={() => navigate("all")}
+            aria-label="My workspace"
+          >
+            <img src="/9t-mark.svg" alt="9t" />
+          </button>
+          <div className="breadcrumb">
+            Personal <span>/</span>
+            <strong>{title}</strong>
+          </div>
+          <label className="global-search">
+            <Search />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Find something…"
+              aria-label="Search items"
             />
-          ) : (
-            <Stream
-              objects={visible}
-              trash={view === "trash"}
-              open={setSelected}
-              patch={patch}
-              remove={remove}
-              restore={async (o) => {
-                await patch(o, { restore: true });
-                setObjects((x) => x.filter((v) => v.id !== o.id));
-                flash("Item restored");
+            <kbd>/</kbd>
+            {query && (
+              <button onClick={() => setQuery("")} aria-label="Clear search">
+                <X />
+              </button>
+            )}
+          </label>
+          <div className="topbar-actions">
+            <button
+              className="icon-button"
+              aria-label="Search and commands"
+              title="Commands · Ctrl K"
+              onClick={() => setModal("commands")}
+            >
+              <Search />
+            </button>
+            <button
+              className="icon-button"
+              aria-label="Toggle theme"
+              onClick={() =>
+                setTheme(resolvedTheme === "dark" ? "light" : "dark")
+              }
+            >
+              {resolvedTheme === "dark" ? <Sun /> : <Moon />}
+            </button>
+            <button
+              className="avatar"
+              aria-label="Workspace settings"
+              onClick={() => setModal("settings")}
+            >
+              {(username || "P")[0].toUpperCase()}
+            </button>
+          </div>
+        </header>
+        <main className="workspace-main">
+          <div className="page-heading">
+            <div>
+              <div className="eyebrow">
+                <span /> A SPACE THAT GOES WITH YOU
+              </div>
+              <h1>
+                {title}
+                <span>.</span>
+              </h1>
+              <p>
+                {view === "all" && !pinnedOnly
+                  ? "A file, a thought, a link. Keep it here. Pick it up anywhere."
+                  : view === "trash"
+                    ? `Deleted items stay here for ${config?.trashRetentionDays || 7} days before removal.`
+                    : view === "shares"
+                      ? "A small handoff. Only the things you choose to share."
+                      : pinnedOnly
+                        ? "The things you reach for, always close by."
+                        : view === "board"
+                          ? "Your own arrangement of the things that matter."
+                          : "Less searching. More right where you left it."}
+              </p>
+            </div>
+            <button
+              className="primary-button new-item-button"
+              onClick={() => setModal(activeModules ? "create" : "settings")}
+            >
+              <Plus />
+              {activeModules ? "Add something" : "Enable modules"}
+            </button>
+          </div>
+          {view === "all" && !pinnedOnly && !query && config && (
+            <QuickAdd
+              config={config}
+              saved={async () => {
+                await loadObjects(view);
               }}
+              notify={flash}
             />
           )}
-        </section>
-      </main>
+          <section className="collection-section" aria-label="Your items">
+            <div className="collection-toolbar">
+              <div className="collection-title">
+                <h2 id="collection" tabIndex={-1}>
+                  {query
+                    ? "Search results"
+                    : view === "all" && !pinnedOnly
+                      ? "Your collection"
+                      : title}
+                </h2>
+                <span>
+                  {view === "shares" ? shares.length : visible.length}
+                </span>
+              </div>
+              <div className="collection-controls">
+                {view !== "shares" && view !== "board" && (
+                  <>
+                    <label className="sort-control">
+                      <ArrowDownUp />
+                      <select
+                        aria-label="Sort items"
+                        value={sort}
+                        onChange={(e) =>
+                          setSort(e.target.value as "recent" | "name")
+                        }
+                      >
+                        <option value="recent">Recently updated</option>
+                        <option value="name">Name A–Z</option>
+                      </select>
+                    </label>
+                    <div
+                      className="layout-switch"
+                      role="group"
+                      aria-label="Collection layout"
+                    >
+                      <button
+                        className={layout === "grid" ? "active" : ""}
+                        aria-label="Grid view"
+                        aria-pressed={layout === "grid"}
+                        onClick={() => changeLayout("grid")}
+                      >
+                        <LayoutGrid />
+                      </button>
+                      <button
+                        className={layout === "list" ? "active" : ""}
+                        aria-label="List view"
+                        aria-pressed={layout === "list"}
+                        onClick={() => changeLayout("list")}
+                      >
+                        <List />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            {(view === "all" || ["file", "snippet", "link"].includes(view)) &&
+              !pinnedOnly && (
+                <nav className="type-filters" aria-label="Filter collection">
+                  {tabs
+                    .filter((t) => t.show && t.id !== "board")
+                    .map((t) => {
+                      const Icon = navIcons[t.id as keyof typeof navIcons];
+                      return (
+                        <button
+                          key={t.id}
+                          aria-pressed={view === t.id}
+                          className={view === t.id ? "active" : ""}
+                          onClick={() => navigate(t.id)}
+                        >
+                          <Icon />
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                </nav>
+              )}
+            {collection}
+          </section>
+          <footer className="workspace-footer">
+            <span>
+              <LockKeyhole /> Your server. Your things.
+            </span>
+            <span>Put it in 9t. Get it anywhere.</span>
+          </footer>
+        </main>
+      </div>
+      <nav className="mobile-dock" aria-label="Mobile navigation">
+        <button
+          className={view === "all" && !pinnedOnly ? "active" : ""}
+          onClick={() => navigate("all")}
+        >
+          <FolderOpen />
+          <span>Workspace</span>
+        </button>
+        <button
+          className={pinnedOnly ? "active" : ""}
+          onClick={() => navigate("all", true)}
+        >
+          <Pin />
+          <span>Pinned</span>
+        </button>
+        <button
+          className="dock-add"
+          aria-label="Add something"
+          onClick={() => setModal(activeModules ? "create" : "settings")}
+        >
+          <Plus />
+        </button>
+        <button
+          className={view === "shares" ? "active" : ""}
+          onClick={() => navigate("shares")}
+        >
+          <Share2 />
+          <span>Shared</span>
+        </button>
+        <button
+          aria-label="More navigation"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <Menu />
+          <span>More</span>
+        </button>
+      </nav>
       {selected && (
         <Inspector
           key={selected.id}
           object={selected}
           close={() => setSelected(null)}
           save={async (body) => {
-            await patch(selected, body);
+            if (!(await patch(selected, body)))
+              throw new Error("Changes could not be saved.");
             flash("Item updated");
           }}
           share={() => setModal("share")}
@@ -366,13 +835,13 @@ export default function Workspace() {
           remove={() => remove(selected)}
         />
       )}
-      {modal === "create" && (
+      {modal === "create" && config && (
         <Create
-          config={config!}
+          config={config}
           close={() => setModal(null)}
           saved={async () => {
             setModal(null);
-            await refresh();
+            await loadObjects(view);
             flash("Item added");
           }}
         />
@@ -382,39 +851,59 @@ export default function Workspace() {
           object={selected}
           close={() => setModal(null)}
           created={async () => {
-            await refresh();
+            await loadObjects(view);
             flash("Share link ready");
           }}
         />
       )}
-      {modal === "settings" && (
+      {modal === "settings" && config && (
         <SettingsPanel
-          config={config!}
+          signOut={async () => {
+            try {
+              await api("/api/auth/logout", { method: "POST" });
+              setModal(null);
+              setPhase("login");
+            } catch {
+              flash("Couldn’t sign out. Try again.");
+            }
+          }}
+          config={config}
           close={() => setModal(null)}
           saved={async () => {
             setModal(null);
             await refresh();
+            navigate("all");
+            await loadObjects("all");
             flash("Settings saved");
           }}
         />
       )}
       {modal === "commands" && (
         <Commands
+          config={config!}
           close={() => setModal(null)}
           run={(action) => {
             setModal(null);
             if (action === "create") setModal("create");
             else if (action === "settings") setModal("settings");
-            else setView(action as View);
+            else navigate(action as View);
           }}
         />
       )}
       {toast && (
-        <div className="toast">
-          <Check />
+        <div className="toast" role="status" aria-live="polite">
+          <Check aria-hidden="true" />
           {toast}
         </div>
       )}
     </div>
+  );
+}
+
+export default function Workspace() {
+  return (
+    <ErrorBoundary>
+      <WorkspaceInner />
+    </ErrorBoundary>
   );
 }

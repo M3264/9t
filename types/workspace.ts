@@ -8,6 +8,7 @@ export type WorkspaceObject = {
   url?: string;
   mimeType?: string;
   sizeBytes?: number;
+  storageKey?: string;
   pinned: boolean;
   createdAt: string;
   updatedAt: string;
