@@ -14,6 +14,16 @@ User reported that both files and snippets on their local LAN installation stopp
 - Changes are uncommitted. No server protocol changes; the updated APK works with the existing laptop server. Current live web build is `.next`; never build into it while serving.
 - Final 0.4.0 build passed `assembleRelease`, 20 JVM tests, and lint (warnings remain; zero errors). Signed APK: `artifacts/9t-android-0.4.0.apk` and `public/downloads/9t-android-0.4.0.apk`; SHA-256 `64a986ece661af50619fdc92e1cbbb4397b92d88a4a459d1c490154f5c6e7bbe`. It has not been installed on a physical device or deployed through the live service in this session.
 
+## Follow-up: public-link sync speed
+
+User confirmed 0.4.0 works on the phone and asked for public-link receiving to converge as quickly as LAN. Commit `dd409b0` is pushed to `main`.
+
+- Connected push reconciliation is now 5 seconds instead of 15 seconds.
+- Public socket reconnect backoff is capped at 10 seconds instead of 60 seconds, so a carrier/proxy socket failure does not create a long apparent sync stall.
+- The encrypted WebSocket remains the immediate delivery path; reconciliation is the recovery path for missed change frames.
+- The change is source-only so far. A new signed 0.4.1 APK still needs to be built and published before phones receive it. The host became memory constrained during the incremental Gradle build; no 0.4.1 APK was produced or deployed.
+- 0.4.0 remains the latest public APK. Do not claim the public-link speed change is installed until a 0.4.1 APK is built, signed, published, and tested.
+
 ## Current update: background receiver recovery (0.3.1)
 
 - Published **0.3.1 / code 5**: https://9t.kennyy.xyz/downloads/9t-android-0.3.1.apk . Install over the existing app; original release signing certificate verified. SHA-256: `428bcb52c2b24bef782ba11e1106d85c8dcf371884feacf18720736040a330fb`.
