@@ -1,5 +1,9 @@
 # 9t project handoff — 2026-09-18
 
+## Current work: Android 0.4.2 native UI restyle — PUSHED
+
+User said the app looked terrible next to the website. Restructured `MainActivity.java` beyond colors: per-tab heroes (dark eyebrow pill + black headline + muted sub), `card()`/`sectionLabel()`/`secondary()` helpers, Connect split into APPEARANCE / CONNECTION / DOWNLOADS / LIVE RECEIVING / DANGER ZONE cards, fixed white-on-neon kind pills in dark mode. Commit `c15a43d` pushed. Release-only Gradle build took ~2 min (lighter than full build); signed + published https://9t.kennyy.xyz/downloads/9t-android-0.4.2.apk , SHA-256 `089140d22db118113563d7b43f2ea6c35b9eb2b0511a90cbd25b57f048ec06d7`, same cert, live hash verified. Unit tests not rerun (presentation-only change). Devices-page link points at 0.4.2 in source only — live page still shows 0.4.1 until next web rebuild, which is deferred (VPS at ~80 MB free RAM). No physical-device test yet.
+
 ## Current work: Tactile Paper + Neon UI rebuild (web) + Android 0.4.1 — PUSHED
 
 User asked for a cooler, more unique UI on both website and Android app. Chose **Tactile Paper + Neon** (warm dotted paper, sticker cards with ink borders + hard shadows, neon `#D9FF4B` highlights) with a topbar + tab-pill shell replacing the sidebar, implemented in per-component CSS modules. Commit `13f06b3` is pushed to `main` (rebased over remote README-only commits `4eb8a15`–`8f66f09`).
