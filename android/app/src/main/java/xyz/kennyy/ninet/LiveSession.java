@@ -8,7 +8,7 @@ final class LiveSession {
   static final int BACKGROUND_START_RESTRICTED_SDK = 31;
 
   static boolean deviceConnection(String mode, String lan) {
-    return !"public".equals(mode) && lan != null && !lan.isBlank();
+    return !"public".equals(mode) && lan != null && !lan.trim().isEmpty();
   }
 
   static boolean restoreAtBoot(boolean paired, boolean enabled, String mode, String lan) {

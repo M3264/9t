@@ -423,7 +423,7 @@ public final class MainActivity extends Activity {
               "Copy text",
               (d, w) -> {
                 try {
-                  getSystemService(ClipboardManager.class)
+                  androidx.core.content.ContextCompat.getSystemService(this, ClipboardManager.class)
                       .setPrimaryClip(ClipData.newPlainText("9t", item.optString("content")));
                   toast("Copied as text");
                 } catch (RuntimeException e) {
@@ -448,7 +448,7 @@ public final class MainActivity extends Activity {
         button(
             "Paste clipboard",
             () -> {
-              ClipboardManager cm = getSystemService(ClipboardManager.class);
+              ClipboardManager cm = androidx.core.content.ContextCompat.getSystemService(this, ClipboardManager.class);
               if (cm.hasPrimaryClip() && cm.getPrimaryClip() != null)
                 compose.setText(cm.getPrimaryClip().getItemAt(0).coerceToText(this));
             }));
@@ -457,7 +457,7 @@ public final class MainActivity extends Activity {
             "Send to 9t",
             () -> {
               String content = compose.getText().toString();
-              if (content.isBlank() || content.length() > 100000) {
+              if (content.trim().isEmpty() || content.length() > 100000) {
                 toast("Enter between 1 and 100,000 characters.");
                 return;
               }
@@ -576,6 +576,7 @@ public final class MainActivity extends Activity {
                 toast("Choose 1–2048 MB");
               }
             }));
+    if (Build.VERSION.SDK_INT < 29) body.addView(button("Allow download storage", this::requestNotifications));
     body.addView(button("Start live receiving", this::startLive));
     body.addView(text("BACKGROUND RECEIVING · 9t " + ReceiverDiagnostics.version(this), 12, green));
     receiverStatus = text(ReceiverDiagnostics.summary(this), 14, muted);
@@ -586,7 +587,7 @@ public final class MainActivity extends Activity {
     body.addView(button("Phone app settings", this::openAppSettings));
     paragraph(
         "Allow background receiving in Android's prompt so files can arrive while the screen is"
-            + " off. On Tecno/HiOS, also allow background activity and auto-start in Phone app"
+            + " off. If your phone provides extra battery controls, allow background activity and auto-start in app"
             + " settings if offered. Live receiving uses extra battery.");
     body.addView(button("Receiver details", this::showReceiverDetails));
     body.addView(
@@ -604,8 +605,9 @@ public final class MainActivity extends Activity {
             "Notification settings",
             () ->
                 startActivity(
-                    new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()))));
+                    (Build.VERSION.SDK_INT >= 26
+                        ? new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))))));
     paragraph(
         "With a LAN address and Automatic or LAN-only mode, receiving keeps the connection to your"
             + " computer active until you pause it, including after a restart. Internet-only"
@@ -639,8 +641,8 @@ public final class MainActivity extends Activity {
 
   private String backgroundStatus() {
     boolean exempt =
-        getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName());
-    boolean restricted = getSystemService(ActivityManager.class).isBackgroundRestricted();
+        Compat.batteryExempt(this);
+    boolean restricted = Compat.backgroundRestricted(this);
     return (exempt
             ? "Android background battery access: allowed."
             : "Android background battery access: restricted. Tap Allow background receiving.")
@@ -649,7 +651,7 @@ public final class MainActivity extends Activity {
 
   private void offerBackgroundAccess() {
     if (prefs.p.getBoolean("backgroundPromptV3", false)
-        || getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName()))
+        || Compat.batteryExempt(this))
       return;
     prefs.p.edit().putBoolean("backgroundPromptV3", true).apply();
     new AlertDialog.Builder(this)
@@ -663,8 +665,8 @@ public final class MainActivity extends Activity {
   }
 
   private void requestBackgroundAccess() {
-    if (getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName())) {
-      if (getSystemService(ActivityManager.class).isBackgroundRestricted()) openAppSettings();
+    if (Compat.batteryExempt(this)) {
+      if (Compat.backgroundRestricted(this)) openAppSettings();
       else toast("Android background battery access is already allowed.");
       return;
     }
@@ -702,7 +704,7 @@ public final class MainActivity extends Activity {
         .setPositiveButton(
             "Copy details",
             (d, w) -> {
-              getSystemService(ClipboardManager.class)
+              androidx.core.content.ContextCompat.getSystemService(this, ClipboardManager.class)
                   .setPrimaryClip(ClipData.newPlainText("9t receiver details", report));
               toast("Receiver details copied");
             })
@@ -713,7 +715,7 @@ public final class MainActivity extends Activity {
   private void ensureLive() {
     SyncJob.schedule(this);
     try {
-      startForegroundService(
+      androidx.core.content.ContextCompat.startForegroundService(this,
           new Intent(this, ReceiveService.class).setAction(ReceiveService.START));
     } catch (Exception e) {
       ReceiverDiagnostics.error(this, e);
@@ -724,6 +726,9 @@ public final class MainActivity extends Activity {
   }
 
   private void requestNotifications() {
+    if (Build.VERSION.SDK_INT >= 23 && Build.VERSION.SDK_INT < 29
+        && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+      requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, 12);
     if (Build.VERSION.SDK_INT >= 33
         && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
             != android.content.pm.PackageManager.PERMISSION_GRANTED)
@@ -755,7 +760,7 @@ public final class MainActivity extends Activity {
     SyncJob.cancel(this);
     io.execute(
         () -> {
-          while (SyncEngine.running.get()) {
+          while (SyncEngine.isRunning()) {
             try {
               Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -833,6 +838,14 @@ public final class MainActivity extends Activity {
                             CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
                             web.setWebViewClient(
                                 new WebViewClient() {
+                                  @Override
+                                  public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                                    Uri u = Uri.parse(url);
+                                    if (sameOrigin(u)) return false;
+                                    if ("https".equals(u.getScheme()) || "http".equals(u.getScheme())) openExternal(url);
+                                    return true;
+                                  }
+
                                   @Override
                                   public boolean shouldOverrideUrlLoading(
                                       WebView v, WebResourceRequest r) {
@@ -914,7 +927,7 @@ public final class MainActivity extends Activity {
                                         .setDestinationInExternalPublicDir(
                                             Environment.DIRECTORY_DOWNLOADS,
                                             "9t/" + URLUtil.guessFileName(url, disposition, mime));
-                                    getSystemService(DownloadManager.class).enqueue(r);
+                                    androidx.core.content.ContextCompat.getSystemService(this, DownloadManager.class).enqueue(r);
                                     toast("Saving to Downloads/9t");
                                   } catch (Exception e) {
                                     toast("Could not start download");

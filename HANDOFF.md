@@ -1,5 +1,19 @@
 # 9t project handoff — 2026-09-18
 
+## Current work: Android 0.4.0 — general compatibility and transfer recovery
+
+User reported that both files and snippets on their local LAN installation stopped arriving while 0.3.1 was hidden (Android 15, battery exemption granted, service reported active). Report shows background sync at 13:34:19, then reopening at 13:40:22. This does not establish a phone-brand-specific root cause. User explicitly wants general phone compatibility, including Android 5; iOS is deferred.
+
+- Lowered minimum SDK from 29 to 21 with AndroidX service/notification compatibility, guarded platform calls/resources, Java API desugaring, legacy Downloads/FileProvider storage with permission handling, and Android 5 RSA-Keystore-wrapped local AES key. Existing modern pairing storage remains unchanged.
+- HTTP now uses OkHttp whole-call/read/write deadlines instead of a separate HttpURLConnection.disconnect timer. Timeouts no longer silently exit the download pass as if the user paused. Text is processed before files and clipboard delivery is scheduled immediately.
+- Live reconciliation every 15 seconds while push is connected; service maintenance also requests catch-up. CPU lock renewal continues through network failures until service stop. Removed reconnects on every capability update and on screen/recents events; actual network changes still reconnect. Concurrent sync attempts retry instead of reporting success after skipping work.
+- Diagnostics distinguish heartbeats from revision changes and record sync phase and HTTP start/finish. Removed brand-specific UI guidance.
+- APK version 0.4.0/code 6. Native minimum Android 5; embedded modern website still depends on WebView compatibility and HTTPS. Do not claim universal firmware/runtime coverage.
+- New HttpTransferTest exercises a stalled response and autonomous ReceiveLoop recovery without another UI request. The 20 JVM tests passed during the first completed run; lint then identified three API 21 compatibility errors, which were corrected. Final build/check status follows below.
+- No attached Android device (`adb devices -l` empty). No physical background-delivery verification, including Android 5 runtime verification. Do not claim the reported phone failure has been reproduced or conclusively fixed.
+- Changes are uncommitted. No server protocol changes; the updated APK works with the existing laptop server. Current live web build is `.next`; never build into it while serving.
+- Final 0.4.0 build passed `assembleRelease`, 20 JVM tests, and lint (warnings remain; zero errors). Signed APK: `artifacts/9t-android-0.4.0.apk` and `public/downloads/9t-android-0.4.0.apk`; SHA-256 `64a986ece661af50619fdc92e1cbbb4397b92d88a4a459d1c490154f5c6e7bbe`. It has not been installed on a physical device or deployed through the live service in this session.
+
 ## Current update: background receiver recovery (0.3.1)
 
 - Published **0.3.1 / code 5**: https://9t.kennyy.xyz/downloads/9t-android-0.3.1.apk . Install over the existing app; original release signing certificate verified. SHA-256: `428bcb52c2b24bef782ba11e1106d85c8dcf371884feacf18720736040a330fb`.

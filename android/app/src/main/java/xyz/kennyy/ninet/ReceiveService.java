@@ -31,10 +31,11 @@ public final class ReceiveService extends Service {
         @Override
         public void run() {
           if (stopped) return;
-          // Long downloads make progress between ticks. A stalled worker must not leak a wake lock.
-          long recent =
-              Math.max(prefs.p.getLong("receiverTickAt", 0), prefs.p.getLong("lastNetworkAt", 0));
-          if (System.currentTimeMillis() - recent < 180000) keepAwake();
+          // A failed network must not disable the CPU needed to reconnect while screen-off.
+          // The user-visible service owns this bounded lock and releases it on pause/stop.
+          keepAwake();
+          prefs.p.edit().putLong("serviceHeartbeatAt", System.currentTimeMillis()).apply();
+          loop.request();
           handler.postDelayed(this, 60000);
         }
       };
@@ -49,11 +50,11 @@ public final class ReceiveService extends Service {
             this,
             loop::request,
             connected -> {
-              loop.setInterval(connected ? 60000 : 5000);
+              loop.setInterval(connected ? 15000 : 5000);
               if (!connected) loop.request();
             });
     wakeLock =
-        getSystemService(PowerManager.class)
+        androidx.core.content.ContextCompat.getSystemService(this, PowerManager.class)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "9t:receiving");
     wakeLock.setReferenceCounted(false);
   }
@@ -100,9 +101,9 @@ public final class ReceiveService extends Service {
     try {
       // Select exactly one type: selecting both also imposes dataSync's time limit on LAN.
       // Remove the previous foreground mode before switching between LAN and cloud.
-      if (active) stopForeground(STOP_FOREGROUND_REMOVE);
-      startForeground(
-          1,
+      if (active) stopForeground(true);
+      androidx.core.app.ServiceCompat.startForeground(
+          this, 1,
           Notices.live(this, "Connecting to your workspace"),
           nextDeviceLink
               ? ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
@@ -138,7 +139,7 @@ public final class ReceiveService extends Service {
   }
 
   private void watchNetworks() {
-    ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+    ConnectivityManager cm = androidx.core.content.ContextCompat.getSystemService(this, ConnectivityManager.class);
     try {
       if (callback == null) {
         callback =
@@ -150,11 +151,6 @@ public final class ReceiveService extends Service {
 
               @Override
               public void onLost(Network n) {
-                reconnect();
-              }
-
-              @Override
-              public void onCapabilitiesChanged(Network n, NetworkCapabilities caps) {
                 reconnect();
               }
 
@@ -210,7 +206,8 @@ public final class ReceiveService extends Service {
           @Override
           public void onReceive(Context c, Intent intent) {
             if (Intent.ACTION_USER_PRESENT.equals(intent.getAction())) SyncEngine.copyPending(c);
-            reconnect();
+            // Screen/unlock is a catch-up trigger, not a reason to tear down a healthy socket.
+            loop.request();
           }
         };
     IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_ON);
@@ -266,7 +263,7 @@ public final class ReceiveService extends Service {
     } finally {
       if (!stopped) {
         try {
-          getSystemService(NotificationManager.class)
+          androidx.core.content.ContextCompat.getSystemService(this, NotificationManager.class)
               .notify(1, Notices.live(this, prefs.p.getString("status", "Connecting")));
         } catch (RuntimeException e) {
           ReceiverDiagnostics.error(this, e);
@@ -303,7 +300,7 @@ public final class ReceiveService extends Service {
   @Override
   public void onTaskRemoved(Intent rootIntent) {
     ReceiverDiagnostics.event(this, "App removed from recents; receiver remains enabled");
-    reconnect();
+    loop.request();
     super.onTaskRemoved(rootIntent);
   }
 
@@ -314,7 +311,7 @@ public final class ReceiveService extends Service {
     handler.removeCallbacksAndMessages(null);
     events.close();
     loop.close();
-    ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+    ConnectivityManager cm = androidx.core.content.ContextCompat.getSystemService(this, ConnectivityManager.class);
     for (ConnectivityManager.NetworkCallback cb :
         new ConnectivityManager.NetworkCallback[] {callback, wifiRequest}) {
       if (cb != null)
@@ -328,7 +325,7 @@ public final class ReceiveService extends Service {
       if (wakeLock.isHeld()) wakeLock.release();
     }
     ReceiverDiagnostics.event(this, "Receiver service stopped");
-    stopForeground(STOP_FOREGROUND_REMOVE);
+    stopForeground(true);
     super.onDestroy();
   }
 

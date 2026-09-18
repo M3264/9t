@@ -6,8 +6,13 @@ import android.net.Uri;
 import android.os.Build;
 
 final class Notices {
+  private static Notification.Builder builder(Context c, String channel) {
+    return Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(c, channel) : new Notification.Builder(c);
+  }
+
   static void channels(Context c) {
-    NotificationManager n = c.getSystemService(NotificationManager.class);
+    if (Build.VERSION.SDK_INT < 26) return;
+    NotificationManager n = androidx.core.content.ContextCompat.getSystemService(c, NotificationManager.class);
     n.createNotificationChannel(
         new NotificationChannel("connection", "Connection", NotificationManager.IMPORTANCE_LOW));
     n.createNotificationChannel(
@@ -33,7 +38,7 @@ final class Notices {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     long lastConnection = new Prefs(c).p.getLong("lastNetworkAt", 0);
     Notification.Builder notification =
-        new Notification.Builder(c, "connection")
+        builder(c, "connection")
             .setSmallIcon(R.drawable.ic_ninet)
             .setContentTitle("9t · Live receiving")
             .setContentText(text)
@@ -43,7 +48,7 @@ final class Notices {
             .setWhen(lastConnection)
             .setShowWhen(lastConnection > 0)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .addAction(new Notification.Action.Builder(null, "Pause", stop).build());
+            .addAction(new Notification.Action.Builder(R.drawable.ic_ninet, "Pause", stop).build());
     if (Build.VERSION.SDK_INT >= 31)
       notification.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
     return notification.build();
@@ -51,10 +56,10 @@ final class Notices {
 
   static void clip(Context c) {
     channels(c);
-    c.getSystemService(NotificationManager.class)
+    androidx.core.content.ContextCompat.getSystemService(c, NotificationManager.class)
         .notify(
             3,
-            new Notification.Builder(c, "transfers")
+            builder(c, "transfers")
                 .setSmallIcon(R.drawable.ic_ninet)
                 .setOnlyAlertOnce(true)
                 .setContentTitle("Text received in 9t")
@@ -77,10 +82,10 @@ final class Notices {
             uri.hashCode(),
             open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-    c.getSystemService(NotificationManager.class)
+    androidx.core.content.ContextCompat.getSystemService(c, NotificationManager.class)
         .notify(
             uri.hashCode(),
-            new Notification.Builder(c, "transfers")
+            builder(c, "transfers")
                 .setSmallIcon(R.drawable.ic_ninet)
                 .setContentTitle("Saved to Downloads/9t")
                 .setContentText(name)

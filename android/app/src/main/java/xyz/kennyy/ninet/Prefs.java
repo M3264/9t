@@ -10,8 +10,10 @@ import org.json.JSONObject;
 
 final class Prefs {
   final SharedPreferences p;
+  private final Context context;
 
   Prefs(Context c) {
+    context = c.getApplicationContext();
     p = c.getSharedPreferences("9t", Context.MODE_PRIVATE);
   }
 
@@ -20,6 +22,7 @@ final class Prefs {
   }
 
   private javax.crypto.SecretKey localKey() throws Exception {
+    if (android.os.Build.VERSION.SDK_INT < 23 || p.contains("wrappedLocalKey")) return legacyKey();
     KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
     ks.load(null);
     if (!ks.containsAlias("9t-pair")) {
@@ -33,6 +36,40 @@ final class Prefs {
       gen.generateKey();
     }
     return (javax.crypto.SecretKey) ks.getKey("9t-pair", null);
+  }
+
+  // Android 5 has RSA AndroidKeyStore keys, but no AES AndroidKeyStore provider.
+  // Wrap a random AES key with that non-exportable RSA key; never save the pair key as plaintext.
+  @SuppressWarnings("deprecation")
+  private javax.crypto.SecretKey legacyKey() throws Exception {
+    KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+    ks.load(null);
+    String alias = "9t-pair-rsa";
+    if (!ks.containsAlias(alias)) {
+      if (p.contains("wrappedLocalKey")) throw new java.security.KeyStoreException("Local key unavailable; pair again");
+      java.util.Calendar end = java.util.Calendar.getInstance();
+      end.add(java.util.Calendar.YEAR, 30);
+      java.security.KeyPairGenerator generator = java.security.KeyPairGenerator.getInstance("RSA", "AndroidKeyStore");
+      generator.initialize(new android.security.KeyPairGeneratorSpec.Builder(context)
+          .setAlias(alias).setKeySize(2048)
+          .setSubject(new javax.security.auth.x500.X500Principal("CN=9t"))
+          .setSerialNumber(java.math.BigInteger.ONE)
+          .setStartDate(new java.util.Date(0)).setEndDate(end.getTime()).build());
+      generator.generateKeyPair();
+    }
+    Cipher rsa = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+    byte[] key;
+    if (p.contains("wrappedLocalKey")) {
+      rsa.init(Cipher.DECRYPT_MODE, ks.getKey(alias, null));
+      key = rsa.doFinal(Wire.decode(p.getString("wrappedLocalKey", "")));
+    } else {
+      key = new byte[32];
+      new java.security.SecureRandom().nextBytes(key);
+      rsa.init(Cipher.ENCRYPT_MODE, ks.getCertificate(alias).getPublicKey());
+      if (!p.edit().putString("wrappedLocalKey", Wire.b64(rsa.doFinal(key))).commit())
+        throw new java.io.IOException("Cannot save local key");
+    }
+    return new javax.crypto.spec.SecretKeySpec(key, "AES");
   }
 
   synchronized void pair(String code) throws Exception {
@@ -53,8 +90,10 @@ final class Prefs {
         Wire.b64(cipher.getIV())
             + ":"
             + Wire.b64(cipher.doFinal(obj.toString().getBytes(StandardCharsets.UTF_8)));
+    String wrappedLocalKey = p.getString("wrappedLocalKey", null);
     p.edit()
         .clear()
+        .putString("wrappedLocalKey", wrappedLocalKey)
         .putString("pair", encrypted)
         .putString(local ? "lan" : "public", url)
         .putLong(

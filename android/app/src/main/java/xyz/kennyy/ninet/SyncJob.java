@@ -14,9 +14,9 @@ public final class SyncJob extends JobService {
 
   static void schedule(Context c) {
     // No INTERNET/validated-network constraint: offline Wi-Fi LANs must work.
-    JobScheduler scheduler = c.getSystemService(JobScheduler.class);
+    JobScheduler scheduler = androidx.core.content.ContextCompat.getSystemService(c, JobScheduler.class);
     // Replacing an existing periodic job resets its window and may cancel running work.
-    if (scheduler.getPendingJob(9) != null) return;
+    for (JobInfo job : scheduler.getAllPendingJobs()) if (job.getId() == 9) return;
     scheduler.schedule(
         new JobInfo.Builder(9, new ComponentName(c, SyncJob.class))
             .setPeriodic(15 * 60 * 1000L)
@@ -25,7 +25,7 @@ public final class SyncJob extends JobService {
   }
 
   static void cancel(Context c) {
-    c.getSystemService(JobScheduler.class).cancel(9);
+    androidx.core.content.ContextCompat.getSystemService(c, JobScheduler.class).cancel(9);
   }
 
   /**
@@ -36,8 +36,7 @@ public final class SyncJob extends JobService {
     Prefs prefs = new Prefs(c);
     boolean exempt;
     try {
-      exempt =
-          c.getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(c.getPackageName());
+      exempt = Compat.batteryExempt(c);
     } catch (RuntimeException e) {
       exempt = false;
     }
@@ -52,7 +51,7 @@ public final class SyncJob extends JobService {
         prefs.p.getLong("liveDeadline", 0),
         SystemClock.elapsedRealtime())) return;
     try {
-      c.startForegroundService(
+      androidx.core.content.ContextCompat.startForegroundService(c,
           new Intent(c, ReceiveService.class).setAction(ReceiveService.RESTORE));
       ReceiverDiagnostics.event(c, "Scheduled job restarted live receiving");
     } catch (RuntimeException e) {

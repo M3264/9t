@@ -15,11 +15,8 @@ final class Transport {
   final Prefs prefs;
   final JSONObject credentials;
   static volatile long lanRetryAt;
-  private static final ScheduledThreadPoolExecutor timeouts = new ScheduledThreadPoolExecutor(1);
-
-  static {
-    timeouts.setRemoveOnCancelPolicy(true);
-  }
+  private static final okhttp3.OkHttpClient HTTP = HttpTransfer.client(30000);
+  private final Map<Network, okhttp3.OkHttpClient> clients = new HashMap<>();
 
   static final class Route {
     final String url, label;
@@ -43,7 +40,7 @@ final class Transport {
     String mode = prefs.p.getString("mode", "auto"),
         lan = prefs.p.getString("lan", ""),
         remote = prefs.p.getString("public", "");
-    ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
+    ConnectivityManager cm = androidx.core.content.ContextCompat.getSystemService(context, ConnectivityManager.class);
     if (!lan.isEmpty()
         && !mode.equals("public")
         && (System.currentTimeMillis() >= lanRetryAt || mode.equals("lan") || remote.isEmpty())) {
@@ -102,41 +99,22 @@ final class Transport {
                         iv,
                         aad + ":request",
                         body.toString().getBytes(StandardCharsets.UTF_8))));
-    URL url = new URL(route.url + "/api/mobile");
-    HttpURLConnection conn =
-        (HttpURLConnection)
-            (route.network == null ? url.openConnection() : route.network.openConnection(url));
-    conn.setConnectTimeout(route.label.equals("LAN") ? 1800 : 7000);
-    conn.setReadTimeout(15000);
-    conn.setInstanceFollowRedirects(false);
-    conn.setRequestMethod("POST");
-    conn.setDoOutput(true);
-    conn.setRequestProperty("Content-Type", "application/json");
-    byte[] bytes = env.toString().getBytes(StandardCharsets.UTF_8);
-    conn.setFixedLengthStreamingMode(bytes.length);
-    // A read timeout alone cannot bound a blocked write or a response that trickles
-    // forever. Close the request so the receiver can retry or use its other route.
-    ScheduledFuture<?> timeout = timeouts.schedule(conn::disconnect, 30, TimeUnit.SECONDS);
+    okhttp3.OkHttpClient client = clients.get(route.network);
+    if (client == null) {
+      okhttp3.OkHttpClient.Builder builder = HTTP.newBuilder()
+          .connectTimeout(route.label.equals("LAN") ? 1800 : 7000, TimeUnit.MILLISECONDS);
+      if (route.network != null) {
+        builder.socketFactory(route.network.getSocketFactory());
+        builder.dns(host -> Arrays.asList(route.network.getAllByName(host)));
+      }
+      client = builder.build();
+      clients.put(route.network, client);
+    }
+    prefs.p.edit().putLong("httpStartedAt", System.currentTimeMillis())
+        .putString("httpAction", body.optString("action")).apply();
     try {
-      try (OutputStream out = conn.getOutputStream()) {
-        out.write(bytes);
-      }
-      int status = conn.getResponseCode();
-      if (status != 200)
-        throw new IOException(
-            status == 401
-                ? "Pairing rejected or phone clock incorrect"
-                : "Server returned " + status);
-      ByteArrayOutputStream out = new ByteArrayOutputStream();
-      try (InputStream in = conn.getInputStream()) {
-        byte[] buffer = new byte[16384];
-        int n;
-        while ((n = in.read(buffer)) != -1) {
-          out.write(buffer, 0, n);
-          if (out.size() > 5_000_000) throw new IOException("Response too large");
-        }
-      }
-      JSONObject reply = new JSONObject(out.toString("UTF-8"));
+      byte[] response = HttpTransfer.post(client, route.url + "/api/mobile", env.toString());
+      JSONObject reply = new JSONObject(new String(response, StandardCharsets.UTF_8));
       JSONObject result =
           new JSONObject(
               new String(
@@ -152,8 +130,7 @@ final class Transport {
       prefs.p.edit().putLong("lastNetworkAt", System.currentTimeMillis()).apply();
       return result;
     } finally {
-      timeout.cancel(false);
-      conn.disconnect();
+      prefs.p.edit().putLong("httpFinishedAt", System.currentTimeMillis()).apply();
     }
   }
 

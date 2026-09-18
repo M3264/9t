@@ -200,6 +200,7 @@ final class EventConnection implements AutoCloseable {
                           // ready always triggers catch-up; a missed file-watch event is recovered
                           // by revision heartbeats.
                           if (!revision.equals(nextRevision)) {
+                            prefs.p.edit().putLong("lastChangeAt", System.currentTimeMillis()).apply();
                             revision = nextRevision;
                             changed.run();
                           }

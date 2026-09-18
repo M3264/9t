@@ -18,7 +18,7 @@ public final class BootReceiver extends BroadcastReceiver {
         p.p.getString("mode", "auto"),
         p.p.getString("lan", ""))) {
       try {
-        c.startForegroundService(
+        androidx.core.content.ContextCompat.startForegroundService(c,
             new Intent(c, ReceiveService.class).setAction(ReceiveService.RESTORE));
       } catch (RuntimeException e) {
         ReceiverDiagnostics.error(c, e);

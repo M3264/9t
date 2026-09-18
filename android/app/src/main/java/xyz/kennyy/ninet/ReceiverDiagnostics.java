@@ -39,6 +39,8 @@ final class ReceiverDiagnostics {
     // Exception class is enough to distinguish permission, network and storage failures
     // without accidentally copying an endpoint or remote response into a support report.
     String kind = e.getClass().getSimpleName();
+    Throwable cause = e.getCause();
+    if (cause != null) kind += "/" + cause.getClass().getSimpleName();
     p.edit()
         .putString("receiverError", kind)
         .putLong("receiverErrorAt", System.currentTimeMillis())
@@ -58,8 +60,10 @@ final class ReceiverDiagnostics {
     SharedPreferences p = new Prefs(c).p;
     return "Connection: "
         + p.getString("socketStatus", "Not started")
-        + "\nLast push event: "
+        + "\nLast socket message: "
         + time(p.getLong("lastSocketAt", 0))
+        + "\nLast change notification: "
+        + time(p.getLong("lastChangeAt", 0))
         + "\nLast background sync: "
         + time(p.getLong("lastBackgroundSync", 0))
         + "\nLast receiver check: "
@@ -76,8 +80,8 @@ final class ReceiverDiagnostics {
 
   static String report(Context c) {
     SharedPreferences p = new Prefs(c).p;
-    PowerManager power = c.getSystemService(PowerManager.class);
-    ConnectivityManager network = c.getSystemService(ConnectivityManager.class);
+    PowerManager power = androidx.core.content.ContextCompat.getSystemService(c, PowerManager.class);
+    ConnectivityManager network = androidx.core.content.ContextCompat.getSystemService(c, ConnectivityManager.class);
     return "9t Android "
         + version(c)
         + "\nAndroid "
@@ -100,17 +104,17 @@ final class ReceiverDiagnostics {
         + "\nLast route: "
         + p.getString("route", "Not connected")
         + "\nBattery exemption: "
-        + power.isIgnoringBatteryOptimizations(c.getPackageName())
+        + Compat.batteryExempt(c)
         + "\nBackground restricted: "
-        + c.getSystemService(ActivityManager.class).isBackgroundRestricted()
+        + Compat.backgroundRestricted(c)
         + "\nBattery saver: "
         + power.isPowerSaveMode()
         + "\nDevice idle: "
-        + power.isDeviceIdleMode()
+        + (Build.VERSION.SDK_INT >= 23 && power.isDeviceIdleMode())
         + "\nData Saver status: "
-        + network.getRestrictBackgroundStatus()
+        + (Build.VERSION.SDK_INT >= 24 ? network.getRestrictBackgroundStatus() : "Not applicable")
         + "\nNotifications allowed: "
-        + c.getSystemService(NotificationManager.class).areNotificationsEnabled()
+        + androidx.core.app.NotificationManagerCompat.from(c).areNotificationsEnabled()
         + "\nLast app opened: "
         + time(p.getLong("appOpenedAt", 0))
         + "\nLast app hidden: "
@@ -119,6 +123,13 @@ final class ReceiverDiagnostics {
         + summary(c)
         + "\nLast network response: "
         + time(p.getLong("lastNetworkAt", 0))
+        + "\nService heartbeat: " + time(p.getLong("serviceHeartbeatAt", 0))
+        + "\nSync phase: " + p.getString("syncPhase", "idle")
+        + "\nSync started: " + time(p.getLong("syncStartedAt", 0))
+        + "\nSync finished: " + time(p.getLong("syncFinishedAt", 0))
+        + "\nHTTP action: " + p.getString("httpAction", "none")
+        + "\nHTTP started: " + time(p.getLong("httpStartedAt", 0))
+        + "\nHTTP finished: " + time(p.getLong("httpFinishedAt", 0))
         + "\nLast completed sync: "
         + time(p.getLong("lastSync", 0))
         + "\nLast sync source: "

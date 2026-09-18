@@ -74,15 +74,15 @@ export default function DeviceManager() {
       </p>
       <p style={{ marginTop: 20 }}>
         <a
-          href="/downloads/9t-android-0.3.0.apk"
+          href="/downloads/9t-android-0.4.0.apk"
           download
           style={{ color: "#28533f", fontWeight: 700 }}
         >
-          Download 9t for Android · v0.3.0
+          Download 9t for Android · v0.4.0
         </a>
         <br />
         <small>
-          Android 10 or newer. Includes the full workspace and native receiving.
+          Android 5 or newer. Native receiving; the full workspace needs a current WebView.
         </small>
       </p>
       <section

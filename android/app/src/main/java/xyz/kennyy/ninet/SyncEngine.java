@@ -8,21 +8,26 @@ import android.os.*;
 import android.provider.MediaStore;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.*;
 
 final class SyncEngine {
-  static final AtomicBoolean running = new AtomicBoolean(false);
+  private static final java.util.concurrent.locks.ReentrantLock syncLock = new java.util.concurrent.locks.ReentrantLock();
+
+  static boolean isRunning() { return syncLock.isLocked(); }
 
   interface Cancel {
     boolean stopped();
   }
 
   static void run(Context context, Cancel cancel, String source) throws Exception {
-    if (!running.compareAndSet(false, true)) return;
-    boolean startedInBackground = !ReceiverDiagnostics.visible && !"open app".equals(source);
     Prefs p = new Prefs(context);
+    // Do not silently discard push/job work when a foreground sync is still running.
+    if (!syncLock.tryLock(1, java.util.concurrent.TimeUnit.SECONDS))
+      throw new IOException("Sync busy; retrying");
+    boolean startedInBackground = !ReceiverDiagnostics.visible && !"open app".equals(source);
     try (LocalStore db = new LocalStore(context)) {
+      p.p.edit().putLong("syncStartedAt", System.currentTimeMillis())
+          .putString("syncActiveSource", source).putString("syncPhase", "outbox").apply();
       if (!p.paired() || !p.p.getBoolean("enabled", true)) return;
       Transport net = new Transport(context);
       for (JSONObject item : db.outbox()) {
@@ -41,6 +46,7 @@ final class SyncEngine {
           throw e;
         }
       }
+      p.p.edit().putString("syncPhase", "metadata").apply();
       String after = "";
       boolean changed = false;
       do {
@@ -53,13 +59,18 @@ final class SyncEngine {
       } while (!after.isEmpty());
       JSONObject latest = null;
       int errors = 0;
-      for (JSONObject item : db.items("status IN ('pending','receiving','error')")) {
+      java.util.List<JSONObject> pending = db.items("status IN ('pending','receiving','error')");
+      // Small text deliveries must not wait behind a large or interrupted file download.
+      java.util.Collections.sort(pending, (a, b) -> Boolean.compare(
+          "file".equals(a.optString("type")), "file".equals(b.optString("type"))));
+      for (JSONObject item : pending) {
         if (cancel.stopped()) return;
         String id = item.getString("id"), type = item.getString("type");
         try {
+          p.p.edit().putString("syncPhase", type).apply();
           if (type.equals("file")) {
             if (!p.p.getBoolean("files", true)) continue;
-            ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
+            ConnectivityManager cm = androidx.core.content.ContextCompat.getSystemService(context, ConnectivityManager.class);
             if (p.p.getBoolean("wifiOnly", false)
                 && !p.p.getString("route", "").equals("LAN")
                 && cm.isActiveNetworkMetered()) {
@@ -83,10 +94,18 @@ final class SyncEngine {
                 && (latest == null
                     || item.getString("updatedAt").compareTo(latest.getString("updatedAt")) > 0))
               latest = item.put("content", text.optString("content"));
+            if (latest != null && p.p.getBoolean("copy", true)
+                && latest.getString("updatedAt").compareTo(p.p.getString("clipRevision", "")) > 0) {
+              p.p.edit().putString("pendingClip", latest.getString("id"))
+                  .putString("clipRevision", latest.getString("updatedAt")).commit();
+              copyPending(context);
+            }
           }
-        } catch (InterruptedIOException e) {
-          return;
         } catch (Exception e) {
+          if (cancel.stopped() || Thread.currentThread().isInterrupted()) return;
+          // SocketTimeoutException also extends InterruptedIOException: it is a failure,
+          // not a user cancellation. Record it and let the next item/pass proceed.
+          ReceiverDiagnostics.error(context, e);
           errors++;
           db.update(id, "status", "error");
           db.update(id, "error", e.getMessage());
@@ -123,7 +142,11 @@ final class SyncEngine {
       ReceiverDiagnostics.error(context, e);
       throw e;
     } finally {
-      running.set(false);
+      try {
+        p.p.edit().putString("syncPhase", "idle").putLong("syncFinishedAt", System.currentTimeMillis()).apply();
+      } finally {
+        syncLock.unlock();
+      }
     }
   }
 
@@ -131,7 +154,7 @@ final class SyncEngine {
     Prefs p = new Prefs(c);
     String id = p.p.getString("pendingClip", "");
     if (id.isEmpty() || !p.p.getBoolean("copy", true)) return;
-    if (c.getSystemService(KeyguardManager.class).isDeviceLocked()) {
+    if (androidx.core.content.ContextCompat.getSystemService(c, KeyguardManager.class).isKeyguardLocked()) {
       Notices.clip(c);
       return;
     }
@@ -152,11 +175,13 @@ final class SyncEngine {
                   return;
                 }
                 ClipData clip = ClipData.newPlainText("9t", item.optString("content"));
-                PersistableBundle extras = new PersistableBundle();
-                extras.putBoolean("android.content.extra.IS_SENSITIVE", true);
-                clip.getDescription().setExtras(extras);
-                c.getSystemService(ClipboardManager.class).setPrimaryClip(clip);
-                c.getSystemService(NotificationManager.class).cancel(3);
+                if (Build.VERSION.SDK_INT >= 24) {
+                  PersistableBundle extras = new PersistableBundle();
+                  extras.putBoolean("android.content.extra.IS_SENSITIVE", true);
+                  clip.getDescription().setExtras(extras);
+                }
+                androidx.core.content.ContextCompat.getSystemService(c, ClipboardManager.class).setPrimaryClip(clip);
+                androidx.core.content.ContextCompat.getSystemService(c, NotificationManager.class).cancel(3);
                 p.p
                     .edit()
                     .remove("pendingClip")
@@ -178,7 +203,7 @@ final class SyncEngine {
     // Files are immutable on the server; the revision identifies the partial.
     File partial = new File(dir, id + ".part");
     String oldUri = item.optString("uri", "");
-    if (!oldUri.isEmpty()) {
+    if (Build.VERSION.SDK_INT >= 29 && !oldUri.isEmpty()) {
       Uri uri = Uri.parse(oldUri);
       try (Cursor cursor =
           c.getContentResolver()
@@ -228,7 +253,11 @@ final class SyncEngine {
     if (cancel.stopped()) throw new InterruptedIOException("Paused");
     ContentValues values = new ContentValues();
     String filename = item.getString("name").replaceAll("[\\\\/\\p{Cntrl}]", "_");
-    if (filename.isBlank()) filename = "9t-file";
+    if (filename.trim().isEmpty()) filename = "9t-file";
+    if (Build.VERSION.SDK_INT < 29) {
+      saveLegacy(c, db, item, partial, filename);
+      return;
+    }
     values.put(MediaStore.Downloads.DISPLAY_NAME, filename);
     values.put(
         MediaStore.Downloads.MIME_TYPE, item.optString("mimeType", "application/octet-stream"));
@@ -253,4 +282,32 @@ final class SyncEngine {
     new Prefs(c).p.edit().putLong("lastFileSavedAt", System.currentTimeMillis()).apply();
     Notices.saved(c, filename, uri, item.optString("mimeType", "application/octet-stream"));
   }
+  private static void saveLegacy(Context c, LocalStore db, JSONObject item, File partial, String filename) throws Exception {
+    if (androidx.core.content.ContextCompat.checkSelfPermission(c, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        != android.content.pm.PackageManager.PERMISSION_GRANTED)
+      throw new IOException("Allow storage access in Connect to save downloads");
+    File directory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "9t");
+    if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Downloads unavailable");
+    // Stable unique name permits retry after process death without duplicate or clobbered files.
+    String id = item.getString("id");
+    File target = new File(directory, id + "-" + filename);
+    if (!target.getCanonicalFile().getParentFile().equals(directory.getCanonicalFile()))
+      throw new IOException("Invalid download name");
+    File staging = new File(directory, "." + id + ".pending");
+    try (InputStream in = new FileInputStream(partial); OutputStream out = new FileOutputStream(staging)) {
+      byte[] buffer = new byte[65536];
+      int n;
+      while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+      ((FileOutputStream) out).getFD().sync();
+    }
+    if (!staging.renameTo(target)) throw new IOException("Cannot publish download");
+    Uri uri = androidx.core.content.FileProvider.getUriForFile(c, c.getPackageName() + ".files", target);
+    db.update(id, "uri", uri.toString());
+    db.update(id, "status", "saved");
+    db.update(id, "error", null);
+    partial.delete();
+    new Prefs(c).p.edit().putLong("lastFileSavedAt", System.currentTimeMillis()).apply();
+    Notices.saved(c, filename, uri, item.optString("mimeType", "application/octet-stream"));
+  }
+
 }
