@@ -162,6 +162,108 @@ public final class MainActivity extends Activity {
     body.addView(t);
   }
 
+  private void eyebrow(String value) {
+    TextView b = text("● " + value, 11, neon);
+    b.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    GradientDrawable d = new GradientDrawable();
+    d.setColor(Color.rgb(28, 35, 31));
+    d.setCornerRadius(dp(20));
+    d.setStroke(dp(2), lineInk);
+    b.setBackground(d);
+    b.setPadding(dp(12), dp(7), dp(12), dp(7));
+    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
+    p.setMargins(0, 0, 0, dp(8));
+    body.addView(b, p);
+  }
+
+  private void hero(String tag, String headline, String sub) {
+    eyebrow(tag);
+    title(headline);
+    paragraph(sub);
+  }
+
+  private void sectionLabel(String value) {
+    TextView t = text(value, 11, muted);
+    t.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    t.setPadding(0, dp(16), 0, dp(2));
+    body.addView(t);
+  }
+
+  private LinearLayout card() {
+    LinearLayout c = new LinearLayout(this);
+    c.setOrientation(LinearLayout.VERTICAL);
+    c.setPadding(dp(16), dp(14), dp(16), dp(14));
+    c.setBackground(sticker(paper, 16));
+    c.setElevation(dp(3));
+    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+    p.setMargins(0, dp(7), 0, dp(7));
+    body.addView(c, p);
+    return c;
+  }
+
+  private void paragraphIn(LinearLayout parent, String value) {
+    TextView t = text(value, 14, muted);
+    t.setLineSpacing(dp(3), 1);
+    parent.addView(t);
+  }
+
+  private TextView labelIn(LinearLayout parent, String value) {
+    TextView t = text(value, 11, muted);
+    t.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    t.setPadding(0, dp(10), 0, 0);
+    parent.addView(t);
+    return t;
+  }
+
+  private EditText fieldIn(LinearLayout parent, String hint, String value, boolean multiline) {
+    EditText e = new EditText(this);
+    e.setTextColor(ink);
+    e.setHintTextColor(muted);
+    e.setHint(hint);
+    e.setText(value);
+    e.setTextSize(15);
+    e.setPadding(dp(14), dp(12), dp(14), dp(12));
+    e.setBackground(sticker(paper, 14));
+    e.setSingleLine(!multiline);
+    if (multiline) {
+      e.setMinLines(4);
+      e.setGravity(Gravity.TOP);
+      e.setInputType(
+          android.text.InputType.TYPE_CLASS_TEXT
+              | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+    }
+    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+    p.setMargins(0, dp(6), 0, dp(6));
+    parent.addView(e, p);
+    return e;
+  }
+
+  private void toggleIn(LinearLayout parent, String label, String key, boolean fallback) {
+    Switch sw = new Switch(this);
+    sw.setText(label);
+    sw.setTextColor(ink);
+    sw.setPadding(0, dp(10), 0, dp(10));
+    sw.setChecked(prefs.p.getBoolean(key, fallback));
+    sw.setOnCheckedChangeListener((b, value) -> prefs.p.edit().putBoolean(key, value).apply());
+    parent.addView(sw);
+  }
+
+  private Button secondary(String label, Runnable action) {
+    Button b = new Button(this);
+    b.setText(label);
+    b.setAllCaps(false);
+    b.setTextColor(ink);
+    b.setTextSize(14);
+    b.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+    b.setBackground(sticker(paper, 26));
+    b.setElevation(dp(2));
+    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(52));
+    p.setMargins(0, dp(6), 0, dp(6));
+    b.setLayoutParams(p);
+    b.setOnClickListener(v -> action.run());
+    return b;
+  }
+
   private Button button(String label, Runnable action) {
     Button b = new Button(this);
     b.setText("● " + label);
@@ -302,16 +404,9 @@ public final class MainActivity extends Activity {
   }
 
   private void onboarding() {
-    title("Drop it.\nBeam it.");
-    paragraph(
+    hero("LAN FIRST · ENCRYPTED · YOUR SERVER", "Drop it.\nBeam it.",
         "Your 9t stash lives here — files land in Downloads/9t, snippets are ready to paste.");
-    TextView badge = text("● LAN FIRST  ·  ENCRYPTED  ·  NEON FAST", 12, ink);
-    badge.setTypeface(Typeface.create("monospace", Typeface.BOLD));
-    badge.setBackground(sticker(neon, 20));
-    badge.setPadding(dp(12), dp(8), dp(12), dp(8));
-    badge.setElevation(dp(2));
-    body.addView(badge);
-    body.addView(text("Connect your workspace", 21, ink));
+    sectionLabel("CONNECT YOUR WORKSPACE");
     paragraph(
         "In 9t, open Settings → Android devices & pairing. Create a code, then paste it below."
             + " Treat the code like a password.");
@@ -365,16 +460,18 @@ public final class MainActivity extends Activity {
   }
 
   private void inbox() {
-    title("Stuck here.");
-    paragraph(prefs.p.getString("status", "Beam something to 9t. It lands here."));
-    body.addView(
+    hero("BEAM IT · KEEP IT · FIND IT", "Stuck here.",
+        "Files land in Downloads/9t. Snippets wait to be pasted. All yours.");
+    LinearLayout status = card();
+    paragraphIn(status, prefs.p.getString("status", "Beam something to 9t. It lands here."));
+    status.addView(
         button(
             ReceiveService.active ? "Refresh inbox" : "Start live receiving",
             () -> {
               if (!ReceiveService.active) startLive();
               sync(true);
             }));
-    body.addView(text("ON THIS PHONE", 12, muted));
+    sectionLabel("ON THIS PHONE");
     try (LocalStore db = new LocalStore(this)) {
       List<JSONObject> items = db.items(null);
       if (items.isEmpty())
@@ -393,7 +490,7 @@ public final class MainActivity extends Activity {
                     + " · "
                     + item.getString("status").toUpperCase(),
                 11,
-                ink);
+                Color.rgb(28, 35, 31));
         kind.setTypeface(Typeface.create("monospace", Typeface.BOLD));
         kind.setBackground(shape(neon, 20));
         kind.setPadding(dp(10), dp(4), dp(10), dp(4));
@@ -471,15 +568,13 @@ public final class MainActivity extends Activity {
   }
 
   private void send() {
-    title("Send it over.");
-    paragraph(
-        "Text queues on this phone and sends when a route is available. For files, links, and all"
-            + " other tools, use Workspace.");
+    hero("FROM THIS PHONE", "Send it over.",
+        "Text queues here and beams when a route is open. For files and links, use Workspace.");
     EditText compose = field("A thought, a command, a little bit of code…", "", true);
     compose.setTag("compose");
     compose.setMinLines(7);
     body.addView(
-        button(
+        secondary(
             "Paste clipboard",
             () -> {
               ClipboardManager cm = androidx.core.content.ContextCompat.getSystemService(this, ClipboardManager.class);
@@ -504,7 +599,7 @@ public final class MainActivity extends Activity {
             }));
     try (LocalStore db = new LocalStore(this)) {
       List<JSONObject> queue = db.outbox();
-      body.addView(text("OUTBOX · " + queue.size(), 12, muted));
+      sectionLabel("OUTBOX · " + queue.size());
       for (JSONObject item : queue) {
         String value = item.getString("content");
         paragraph(
@@ -536,11 +631,14 @@ public final class MainActivity extends Activity {
   }
 
   private void settings() {
-    title("Stay connected.");
+    hero("POCKET CLOUD", "Stay connected.",
+        "LAN first, internet fallback. Both addresses must reach the same paired server.");
+    sectionLabel("APPEARANCE");
+    LinearLayout look = card();
     Switch theme = new Switch(this);
     theme.setText("Dark theme");
     theme.setTextColor(ink);
-    theme.setPadding(0, dp(8), 0, dp(14));
+    theme.setPadding(0, dp(8), 0, dp(8));
     theme.setChecked(prefs.p.getBoolean("darkTheme", false));
     theme.setOnCheckedChangeListener(
         (button, value) -> {
@@ -548,23 +646,29 @@ public final class MainActivity extends Activity {
           applyTheme();
           render();
         });
-    body.addView(theme);
-    paragraph(prefs.p.getString("status", "Ready to connect"));
-    paragraph(
-        "Auto prefers LAN, switches to internet on failure, and checks LAN again. Both addresses"
-            + " must reach the same paired server.");
-    body.addView(text("LAN ADDRESS", 12, muted));
-    EditText lan = field("http://192.168.1.20:3265", prefs.p.getString("lan", ""), false);
-    body.addView(text("PUBLIC ADDRESS", 12, muted));
-    EditText remote = field("https://9t.example.com", prefs.p.getString("public", ""), false);
+    look.addView(theme);
+    sectionLabel("CONNECTION");
+    LinearLayout conn = card();
+    paragraphIn(conn, prefs.p.getString("status", "Ready to connect"));
+    paragraphIn(conn,
+        "Auto prefers LAN, switches to internet on failure, and checks LAN again.");
+    labelIn(conn, "LAN ADDRESS");
+    EditText lan = fieldIn(conn, "http://192.168.1.20:3265", prefs.p.getString("lan", ""), false);
+    labelIn(conn, "PUBLIC ADDRESS");
+    EditText remote = fieldIn(conn, "https://9t.example.com", prefs.p.getString("public", ""), false);
+    labelIn(conn, "MODE");
     Spinner mode = new Spinner(this);
     String[] labels = {"Automatic · LAN first", "LAN only", "Internet only"};
     mode.setAdapter(
         new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, labels));
+    mode.setBackground(sticker(paper, 14));
+    mode.setPadding(dp(14), dp(4), dp(14), dp(4));
     String current = prefs.p.getString("mode", "auto");
     mode.setSelection(current.equals("lan") ? 1 : current.equals("public") ? 2 : 0);
-    body.addView(mode);
-    body.addView(
+    LinearLayout.LayoutParams modeP = new LinearLayout.LayoutParams(-1, -2);
+    modeP.setMargins(0, dp(6), 0, dp(6));
+    conn.addView(mode, modeP);
+    conn.addView(
         button(
             "Save connection",
             () -> {
@@ -591,13 +695,16 @@ public final class MainActivity extends Activity {
                 toast(e.getMessage());
               }
             }));
-    toggle("Automatically save incoming files", "files", true);
-    toggle("Copy incoming snippets to clipboard", "copy", true);
-    toggle("Files: unmetered connections only", "wifiOnly", false);
+    sectionLabel("DOWNLOADS");
+    LinearLayout downloads = card();
+    toggleIn(downloads, "Automatically save incoming files", "files", true);
+    toggleIn(downloads, "Copy incoming snippets to clipboard", "copy", true);
+    toggleIn(downloads, "Files: unmetered connections only", "wifiOnly", false);
+    labelIn(downloads, "FILE SIZE CAP (MB)");
     EditText max =
-        field("Automatic file limit (MB)", String.valueOf(prefs.p.getLong("maxMb", 500)), false);
+        fieldIn(downloads, "500", String.valueOf(prefs.p.getLong("maxMb", 500)), false);
     max.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-    body.addView(
+    downloads.addView(
         button(
             "Save download limit",
             () -> {
@@ -610,22 +717,23 @@ public final class MainActivity extends Activity {
                 toast("Choose 1–2048 MB");
               }
             }));
-    if (Build.VERSION.SDK_INT < 29) body.addView(button("Allow download storage", this::requestNotifications));
-    body.addView(button("Start live receiving", this::startLive));
-    body.addView(text("BACKGROUND RECEIVING · 9t " + ReceiverDiagnostics.version(this), 12, green));
+    if (Build.VERSION.SDK_INT < 29) downloads.addView(secondary("Allow download storage", this::requestNotifications));
+    sectionLabel("LIVE RECEIVING · 9t " + ReceiverDiagnostics.version(this));
+    LinearLayout live = card();
     receiverStatus = text(ReceiverDiagnostics.summary(this), 14, muted);
-    body.addView(receiverStatus);
+    live.addView(receiverStatus);
     batteryStatus = text(backgroundStatus(), 14, muted);
-    body.addView(batteryStatus);
-    body.addView(button("Allow background receiving", this::requestBackgroundAccess));
-    body.addView(button("Phone app settings", this::openAppSettings));
-    paragraph(
+    live.addView(batteryStatus);
+    live.addView(button("Start live receiving", this::startLive));
+    live.addView(button("Allow background receiving", this::requestBackgroundAccess));
+    live.addView(secondary("Phone app settings", this::openAppSettings));
+    paragraphIn(live,
         "Allow background receiving in Android's prompt so files can arrive while the screen is"
             + " off. If your phone provides extra battery controls, allow background activity and auto-start in app"
             + " settings if offered. Live receiving uses extra battery.");
-    body.addView(button("Receiver details", this::showReceiverDetails));
-    body.addView(
-        button(
+    live.addView(secondary("Receiver details", this::showReceiverDetails));
+    live.addView(
+        secondary(
             "Pause all receiving",
             () -> {
               prefs.p.edit().putBoolean("enabled", false).apply();
@@ -634,26 +742,29 @@ public final class MainActivity extends Activity {
               prefs.status("Receiving paused");
               render();
             }));
-    body.addView(
-        button(
+    live.addView(
+        secondary(
             "Notification settings",
             () ->
                 startActivity(
                     (Build.VERSION.SDK_INT >= 26
                         ? new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
                         : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))))));
-    paragraph(
+    paragraphIn(live,
         "With a LAN address and Automatic or LAN-only mode, receiving keeps the connection to your"
             + " computer active until you pause it, including after a restart. Internet-only"
-            + " receiving uses a five-hour live session, then scheduled checks. The notification"
-            + " shows the last successful connection time. Force-stop and phone battery controls"
+            + " receiving uses a five-hour live session, then scheduled checks. Force-stop and phone battery controls"
             + " can still stop receiving.");
     paragraph(
         "Transfers are encrypted even on HTTP LAN routes. The full Workspace screen requires HTTPS."
             + " LAN-only use needs a server on your local network; a cloud server still needs"
             + " internet or a reachable private route.");
-    body.addView(
-        button(
+    sectionLabel("DANGER ZONE");
+    LinearLayout danger = card();
+    paragraphIn(danger,
+        "Clears local history and queued text on this phone. Downloaded files stay in Downloads/9t. Revoke the phone on the website too.");
+    danger.addView(
+        secondary(
             "Disconnect this phone",
             () ->
                 new AlertDialog.Builder(this)
