@@ -87,7 +87,7 @@ export default function UniversalInbox({
       setBusy(false);
     }
   };
-  const addFiles = async (files: FileList | null) => {
+  const addFiles = async (files: FileList | File[] | null) => {
     if (!files?.length || inFlight.current || !config.modules.files) return;
     inFlight.current = true;
     setBusy(true);
@@ -103,7 +103,7 @@ export default function UniversalInbox({
         setProgress(`Uploading ${added + 1} of ${files.length}…`);
         const form = new FormData();
         form.set("type", "file");
-        form.set("name", file.name.slice(0, 200));
+        form.set("name", (file.name || `pasted-image-${Date.now()}.png`).slice(0, 200));
         form.set("file", file);
         form.set("lifetime", lifetime);
         await api("/api/objects", { method: "POST", body: form });
@@ -176,6 +176,15 @@ export default function UniversalInbox({
                   : "Paste a link worth keeping…"
               }
               rows={2}
+              onPaste={(event) => {
+                if (!config.modules.files || busy) return;
+                const image = Array.from(event.clipboardData.items)
+                  .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+                  ?.getAsFile();
+                if (!image) return;
+                event.preventDefault();
+                void addFiles([image]);
+              }}
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                   e.preventDefault();

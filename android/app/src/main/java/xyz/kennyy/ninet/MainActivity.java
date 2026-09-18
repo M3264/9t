@@ -18,11 +18,7 @@ import org.json.*;
 
 public final class MainActivity extends Activity {
   // Keep the native surfaces on the same visual tokens as the web workspace.
-  private final int bg = Color.rgb(246, 245, 241),
-      paper = Color.WHITE,
-      ink = Color.rgb(36, 43, 49),
-      green = Color.rgb(36, 115, 92),
-      muted = Color.rgb(119, 126, 129);
+  private int bg, paper, ink, green, muted;
   private LinearLayout shell, body, nav;
   private TextView connection;
   private TextView receiverStatus, batteryStatus;
@@ -50,6 +46,7 @@ public final class MainActivity extends Activity {
   public void onCreate(Bundle state) {
     super.onCreate(state);
     prefs = new Prefs(this);
+    applyTheme();
     Notices.channels(this);
     getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     render();
@@ -112,6 +109,19 @@ public final class MainActivity extends Activity {
     return Math.round(n * getResources().getDisplayMetrics().density);
   }
 
+  private void applyTheme() {
+    boolean dark = prefs != null && prefs.p.getBoolean("darkTheme", false);
+    bg = dark ? Color.rgb(23, 29, 30) : Color.rgb(246, 245, 241);
+    paper = dark ? Color.rgb(32, 40, 41) : Color.WHITE;
+    ink = dark ? Color.rgb(237, 240, 231) : Color.rgb(36, 43, 49);
+    green = dark ? Color.rgb(183, 216, 138) : Color.rgb(36, 115, 92);
+    muted = dark ? Color.rgb(162, 173, 167) : Color.rgb(119, 126, 129);
+    getWindow().setStatusBarColor(bg);
+    getWindow().setNavigationBarColor(bg);
+    int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+    getWindow().getDecorView().setSystemUiVisibility(dark ? 0 : flags);
+  }
+
   private GradientDrawable shape(int color, int radius) {
     GradientDrawable d = new GradientDrawable();
     d.setColor(color);
@@ -124,13 +134,14 @@ public final class MainActivity extends Activity {
     v.setText(value);
     v.setTextSize(size);
     v.setTextColor(color);
+    v.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
     v.setPadding(0, dp(6), 0, dp(6));
     return v;
   }
 
   private TextView title(String value) {
     TextView t = text(value, 32, ink);
-    t.setTypeface(null, Typeface.BOLD);
+    t.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
     body.addView(t);
     return t;
   }
@@ -145,7 +156,7 @@ public final class MainActivity extends Activity {
     Button b = new Button(this);
     b.setText(label);
     b.setAllCaps(false);
-    b.setTextColor(Color.WHITE);
+    b.setTextColor(prefs.p.getBoolean("darkTheme", false) ? ink : Color.WHITE);
     b.setTextSize(15);
     b.setBackground(shape(green, 14));
     LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(52));
@@ -234,7 +245,10 @@ public final class MainActivity extends Activity {
       b.setText(name);
       b.setAllCaps(false);
       b.setTextSize(12);
-      b.setTextColor(tab.equals(name) ? Color.WHITE : green);
+      b.setTextColor(
+          tab.equals(name)
+              ? (prefs.p.getBoolean("darkTheme", false) ? ink : Color.WHITE)
+              : green);
       b.setBackground(shape(tab.equals(name) ? green : paper, 12));
       nav.addView(b, new LinearLayout.LayoutParams(0, dp(52), 1));
       b.setOnClickListener(
@@ -489,6 +503,18 @@ public final class MainActivity extends Activity {
 
   private void settings() {
     title("Stay connected.");
+    Switch theme = new Switch(this);
+    theme.setText("Dark theme");
+    theme.setTextColor(ink);
+    theme.setPadding(0, dp(8), 0, dp(14));
+    theme.setChecked(prefs.p.getBoolean("darkTheme", false));
+    theme.setOnCheckedChangeListener(
+        (button, value) -> {
+          prefs.p.edit().putBoolean("darkTheme", value).apply();
+          applyTheme();
+          render();
+        });
+    body.addView(theme);
     paragraph(prefs.p.getString("status", "Ready to connect"));
     paragraph(
         "Auto prefers LAN, switches to internet on failure, and checks LAN again. Both addresses"

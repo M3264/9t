@@ -2,19 +2,19 @@
 
 ## Current update: persistent encrypted phone connection (0.3.0)
 
-- User requested a KDE Connect-style persistent connection because 0.2.2 still delivered only after opening the app. This work is local and not yet committed or pushed at this point in the session.
+- User requested a KDE Connect-style persistent connection because 0.2.2 still delivered only after opening the app. This is now committed and pushed in the current session.
 - Server: `scripts/serve.mjs` wraps Next with an encrypted WebSocket endpoint at `/api/mobile/socket` on the existing HTTP/HTTPS port. `scripts/run-server.mjs`, `npm start`, and `npm run dev` use it. A file watcher plus heartbeat sends only a revision/changed signal; item contents remain in the existing AES-GCM HTTP API. Old servers and clients continue polling.
 - Android: `EventConnection` uses OkHttp, challenge + fresh client nonce authentication, AES-GCM event frames, sequence checks, heartbeat, reconnect/backoff, LAN/public route fallback, and catch-up through `SyncEngine`. `ReceiveLoop` remains the transfer fallback. Version is **0.3.0 / code 4**; the release dependency is OkHttp 4.12.0.
 - Security tests passed: four Node socket integration tests cover encrypted change notifications, session-write suppression, revocation close, wrong-key/replay/oversized-frame rejection, reconnect revisions and nonce binding. Android build passed 13 JVM tests (4 ReceiveLoop, 5 LiveSession, 2 SocketSequence, 2 Protocol), release compilation and lint; no physical Android device is attached.
 - `npm run typecheck` passed. `npm audit` is clean after upgrading direct `ws` to 8.21.3. `git diff --check` passed. The normal `tests/mobile-api.mjs` should be rerun against a fresh isolated server; `--socket` additionally checks real API writes notify a connected phone.
 - Deployment requirement: build a staging Next directory, switch the systemd `NINE_T_BUILD_DIR` drop-in, daemon-reload/restart, then verify `/api/status` and the APK. Existing Nginx passes WebSocket upgrades. Do not build into the live directory. The WSL Windows portproxy remains unchanged because the socket uses the same TCP port.
-- APK URL after signing/publishing: `https://9t.kennyy.xyz/downloads/9t-android-0.3.0.apk`. Current SHA-256 is `47ecdf02ee02d7bea078f4e7ab27667a8cd2bea05e6eeac2e886746d88ee832a`. Preserve the release key. Pairing/server wire HTTP API is unchanged; no re-pair should be required.
+- APK URL after signing/publishing: `https://9t.kennyy.xyz/downloads/9t-android-0.3.0.apk`. Current SHA-256 is `9175773bf2a57fbd7882b8a46acc065656cc30e89d4a083ebbc4caa62b89ad3c`. Preserve the release key. Pairing/server wire HTTP API is unchanged; no re-pair should be required.
 
 
 ## Start here — current handoff
 
 - Repository: `/home/ubuntu/9t`, branch `main`, remote `https://github.com/M3264/9t.git`.
-- Latest committed state: `d01c00c` on `main` / `origin/main`. Android **0.2.2** implementation and documentation changes are currently local and uncommitted; no push has been performed for this update. Earlier implementation commit: `f57b33c`; installer: `c68f345`.
+- Latest committed state: the current Git history includes the persistent connection, web auto-sync, theme toggle, and image-paste fixes. Earlier implementation commit: `f57b33c`; installer: `c68f345`.
 - Live instance: `https://9t.kennyy.xyz`, systemd `9t.service`, port 3265, build `.next-mobile-build`, build ID `0Rx-dCAtCC_vXzzmdmD7S`. User's Windows/WSL laptop installation is separate and cannot be inspected from this host.
 - Android **0.2.2 is published and verified**: https://9t.kennyy.xyz/downloads/9t-android-0.2.2.apk . The live Devices page now links to 0.2.2. APK/signing artifacts are ignored by Git; preserve the original signing key.
 - User tested 0.2.1: the live notification stays visible, but **both files and clipboard arrive only after opening the app**. User pointed to KDE Connect as a working comparison. No physical-phone result exists for 0.2.2 yet.
