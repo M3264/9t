@@ -74,11 +74,11 @@ export default function DeviceManager() {
       </p>
       <p style={{ marginTop: 20 }}>
         <a
-          href="/downloads/9t-android-0.2.0.apk"
+          href="/downloads/9t-android-0.2.1.apk"
           download
           style={{ color: "#28533f", fontWeight: 700 }}
         >
-          Download 9t for Android · v0.2.0
+          Download 9t for Android · v0.2.1
         </a>
         <br />
         <small>

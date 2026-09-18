@@ -1,5 +1,19 @@
 # 9t Android + LAN handoff — 2026-09-17
 
+## Latest update: Android background receiving — 2026-09-18
+
+User tested a laptop/WSL installation successfully after forwarding Windows Wi-Fi IP `10.28.24.8:3265` into Ubuntu. Their Tecno on Android 15 then only synced while the app was visible. Version **0.2.1 / code 2** addresses receiver lifecycle gaps: paired/unpaused activity resume starts live receiving automatically; sticky process recovery preserves the existing five-hour deadline; a bounded partial wake lock keeps screen-off CPU sleep from suspending live polling; pause/disconnect still stop receiving; periodic jobs no longer reset on every activity resume; boot and APK updates restore scheduled jobs. Connect has battery optimization status and a system-settings shortcut with OEM guidance.
+
+Android 15 still imposes its six-hour daily dataSync budget. This is not unlimited real-time reception: live sessions end after five hours, with a persisted roughly 15-minute job subject to OS delays. Doze/manufacturer restrictions and force-stop remain relevant. User must verify on their Tecno; no connected device/emulator was available here. Install over the old app, open once, allow notifications and background battery use, switch apps and send a new file/snippet, then test screen-off, pause/reopen and reboot. Existing pairing/history should be retained by the same-package/same-key upgrade.
+
+- Signed APK: https://9t.kennyy.xyz/downloads/9t-android-0.2.1.apk
+- Local copies: `artifacts/9t-android-0.2.1.apk`, `public/downloads/9t-android-0.2.1.apk` (ignored).
+- SHA-256: `4ea1503d5a7b7d57ce49e261d955bb22cca3e6485160f5894ed58da47de54572`.
+- Signing certificate unchanged: `e1749fd90490890a20260846c1bfda9dd6f2ea790b120074958a83db7a693e39`.
+- Verified release build, five JVM tests (three session-deadline regressions + two existing protocol tests), lint with zero errors / 14 warnings, APK signature, and exact public/local APK hash match. These are not physical-device lifecycle tests.
+- Restarted `9t.service` to expose the newly added public file; status active and public `/api/status` healthy. Same `.next-mobile-release` server build and data. The Devices page download link is updated **in source only**; its deployed older build still links 0.2.0 until the next web rebuild. Use the explicit 0.2.1 URL above.
+- User explicitly requested parallel documentation work. New `docs/network-troubleshooting.md` covers WSL NAT forwarding, firewall, hotspot/IP choice, diagnostics and same-instance pairing. README and installation guide link it; `docs/android.md` documents new receiving behavior and Tecno checks. Windows commands were checked against Microsoft references, not executed on Windows here.
+
 ## Latest addition: guided installation
 
 The workspace/Android work below was committed and pushed as `39dc776`. A subsequent user request added an interactive installer: fresh clones run `./setup.sh`, or `./9t setup` / `npm run setup` with Node already installed. It installs dependencies, builds the app, creates the administrator with a salted password hash, saves actual module/theme/storage/network preferences, and offers foreground startup, a Linux systemd service, or starting later. Optional CLI link: `~/.local/bin/9t`.

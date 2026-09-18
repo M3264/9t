@@ -1,5 +1,21 @@
 # Installing 9t
 
+## Start here
+
+In your Linux/macOS terminal, or **Ubuntu inside WSL** on Windows:
+
+```bash
+git clone https://github.com/M3264/9t.git
+cd 9t
+./setup.sh
+```
+
+Choose **LAN** if your phone will connect through Wi-Fi or a hotspot. Keep the printed port and startup instructions. Open the resulting address, sign in with the administrator account you created, then follow [phone connection and network troubleshooting](./network-troubleshooting.md). **On Windows/WSL, complete that guide's forwarding steps before using the address on your phone.** An address that works on the Windows laptop may be private to WSL.
+
+The initial download/build needs internet access. After installation, a running LAN server can exchange data with the Android client without internet access.
+
+## What setup does
+
 Run `./setup.sh` after cloning the repository. No global CLI package or initial browser setup is required. The shell bootstrap installs Node.js 22 locally under `.tools/node` only if an adequate Node runtime is missing and you agree to the download. It supports Linux/macOS x64 and arm64; use WSL on Windows. It needs curl and tar. Downloads and checksums come from the official Node.js HTTPS distribution site.
 
 The wizard then collects preferences, shows a summary, installs locked npm dependencies, builds a production version, hashes your administrator password, and writes private runtime configuration. Choose foreground startup, a Linux systemd service, or configuration only. The service option needs sudo (unless already root) and runs as the account invoking setup; running the installer as a regular user is preferable.
@@ -19,6 +35,14 @@ The wizard then collects preferences, shows a summary, installs locked npm depen
 LAN mode binds to all interfaces and still requires login. It does not distinguish trusted Wi-Fi from other reachable interfaces: on a cloud host, use its firewall to control external access. Local/public modes bind to 127.0.0.1. Public mode expects your HTTPS proxy to forward to that listener; `.9t/Caddyfile` is a configuration example, not automatic certificate provisioning. The final HTTPS URL is only usable once your proxy and DNS are configured.
 
 The installer does not provision Android signing keys or build an APK. Pair an existing Android client from the installed server's Settings → Android devices & pairing.
+
+## Windows and WSL startup
+
+Run the Linux commands in Ubuntu, and Windows networking commands in **PowerShell as Administrator**, as labeled in the [network guide](./network-troubleshooting.md#windows-with-ubuntu-in-wsl-2). The wizard does not configure Windows forwarding or Windows Firewall; its printed LAN addresses come from Linux interfaces.
+
+The systemd startup option is available only when systemd is running in your distribution. If it is unavailable, choose foreground or later and start with `./9t start`; leave that process running. To enable systemd where supported, follow [Microsoft's WSL systemd instructions](https://learn.microsoft.com/en-us/windows/wsl/systemd). A Linux service starting when the distribution boots does not itself arrange for Windows to launch WSL at sign-in. Keep the laptop awake and WSL running while receiving on your phone.
+
+If you already completed setup, do not rerun it to change the network binding. Edit `NINE_T_HOST` and `PORT` in `.env.production`, then restart the existing service or foreground process. Explicit process environment variables override this file. For ordinary LAN HTTP, use `NINE_T_HOST=0.0.0.0` and `NINE_T_HTTPS=false`. Keep `NINE_T_HTTPS=true` on an existing HTTPS deployment; this setting controls secure session cookies, not TLS termination.
 
 ## Automation
 

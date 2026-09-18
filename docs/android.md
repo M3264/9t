@@ -1,10 +1,10 @@
 # 9t Android — network and transfer client
 
-9t Android 0.2.0 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets.
+9t Android 0.2.1 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets.
 
 ## Install and pair
 
-1. Install the signed `9t-android-0.2.0.apk` (Android 10/API 29 or newer). Android may ask you to allow installation from the app you used to download it.
+1. Install the signed `9t-android-0.2.1.apk` (Android 10/API 29 or newer). Android may ask you to allow installation from the app you used to download it.
 2. Sign into your server, open **Settings → Android devices & pairing** (`/devices`), name the phone, and create a pairing code.
 3. Paste that code into the Android app. Select whether to receive existing items; the default receives newly created items only. Existing items remain available for manual receiving.
 4. Allow notifications and start live receiving. New files save in **Downloads/9t** without visiting a download page. Incoming snippets are copied as plain text while the phone is unlocked; the latest received snippet wins. Links are retained in the inbox without replacing the clipboard.
@@ -38,15 +38,28 @@ An unvalidated Wi-Fi network is still usable: native LAN requests explicitly use
 
 ## Android background and clipboard behavior
 
-- A user-started foreground `dataSync` service shows a notification and polls about every five seconds. Connection failures back off to at most two minutes. Pause stops both live and scheduled receiving.
-- Android 15+ limits this foreground service type to six hours per 24-hour period. The app voluntarily ends a live session after five hours and handles the OS timeout. Opening the app and starting a new live session is subject to Android's remaining allowance.
-- A persisted JobScheduler job provides recovery roughly every 15 minutes; Android may defer it for Doze, battery restrictions, or resource pressure. It has no internet-validation requirement, so offline LAN access is possible. Boot reschedules jobs; it does not illegally start a data-sync foreground service at boot.
+- A foreground `dataSync` service starts automatically when you open a paired, unpaused app, shows a notification, and polls about every five seconds after you switch apps. Connection failures back off to at most two minutes. Pause stops both live and scheduled receiving and stays paused on reopening.
+- Version 0.2.1 requests sticky service recovery after process reclamation and holds a bounded partial CPU wake lock during the live session so screen-off CPU sleep alone does not suspend its polling. Process recovery preserves the original session deadline. This uses more battery and does not bypass Doze, force-stop, or manufacturer restrictions.
+- Android 15+ limits this foreground service type to six hours per 24-hour period. The app voluntarily ends a live session after five hours and handles the OS timeout. Opening the app restarts an ended session; Android controls the actual allowance. Sticky process recovery never extends the app's five-hour session deadline.
+- A persisted JobScheduler job provides recovery roughly every 15 minutes; Android may defer it for Doze, battery restrictions, or resource pressure. It has no internet-validation requirement, so offline LAN access is possible. Repeated app visits leave the existing job intact instead of resetting its schedule. Boot and APK updates restore jobs; it does not illegally start a data-sync foreground service at boot.
 - Force-stop blocks jobs until the user opens the app again. OEM battery managers can delay or stop reception. There is no unconditional always-on promise and no FCM/cloud push dependency.
 - The app **writes incoming text** to the clipboard. It does not monitor other apps' clipboard contents in the background. Phone-to-server clipboard sending requires an explicit Paste or Share action.
 - Locked-phone copying is deferred. An incoming-text notification opens the app to complete copying. Clipboard content is marked sensitive. Android/OEM clipboard behavior still needs verification on the user's actual phone.
 - Target SDK 35; Android 17's target-37 local-network permission requirement will need an explicit migration when raising the target SDK.
 
 References: [foreground service time limits](https://developer.android.com/develop/background-work/services/fgs/timeout), [clipboard restrictions](https://developer.android.com/about/versions/10/privacy/changes#clipboard-data), [local network permissions](https://developer.android.com/privacy-and-security/local-network-permission).
+
+### If receiving stops when you switch apps (including Tecno / Android 15)
+
+1. Install 0.2.1 over the existing app; do not uninstall, so pairing and history remain. Open it once after installing.
+2. In **Connect**, select **Start live receiving** if previously paused. Allow notifications. Confirm the **9t · Live receiving** notification remains after switching to another app.
+3. Open **Connect → Background battery settings**. In Android, select **All apps → 9t → Don't optimize**, or choose **Unrestricted** in the app's battery settings. Labels vary with the phone's Android/HiOS version. If available, also enable background activity and auto-start for 9t. Battery exemption does not remove Android 15's data-sync service time limit.
+4. Send a new small file and snippet from the same paired server while another phone app is visible. Check **Downloads/9t** and paste into an editor. Repeat with the screen locked; files should arrive during live receiving, while clipboard copying intentionally waits until unlocked/opened.
+5. Keep the laptop awake and the server running. LAN sync cannot reach a sleeping laptop or a changed Windows/WSL address. Test the LAN URL in the phone browser to distinguish reachability from background restrictions.
+
+After the live session ends, scheduled sync continues without opening 9t, but Android may delay it beyond 15 minutes. Force-stop disables background work until you open the app. No physical Tecno test has been completed by the developer; verify app switching, screen-off receiving, pause/reopen, and reboot on the actual phone.
+
+Developer regression checks: `LiveSessionTest` covers deadline preservation across process restarts, expired/missing deadlines, and an explicit new session. Release build, unit tests and lint do not substitute for these physical-device checks.
 
 ## Transfer integrity and privacy
 

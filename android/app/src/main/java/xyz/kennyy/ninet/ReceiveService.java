@@ -10,23 +10,51 @@ public final class ReceiveService extends Service {
   static volatile boolean active;
   private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
   private volatile boolean stopped;
-  private long started;
+  private long deadline;
   private int failures;
   private ConnectivityManager.NetworkCallback callback;
+  private PowerManager.WakeLock wakeLock;
   private final Handler handler = new Handler(Looper.getMainLooper());
 
   @Override
-  public void onCreate() {
-    super.onCreate();
-    started = SystemClock.elapsedRealtime();
+  public int onStartCommand(Intent intent, int flags, int id) {
+    Prefs prefs = new Prefs(this);
+    if (intent != null && "pause".equals(intent.getAction())) {
+      prefs.p.edit().putBoolean("enabled", false).apply();
+      SyncJob.cancel(this);
+      prefs.status("Receiving paused");
+      stopSelf();
+      return START_NOT_STICKY;
+    }
+    if (!prefs.paired() || !prefs.p.getBoolean("enabled", true)) {
+      stopSelf();
+      return START_NOT_STICKY;
+    }
+    if (active) return START_STICKY;
+    long now = SystemClock.elapsedRealtime();
+    // A system restart must preserve the original deadline, not buy another session.
+    deadline = LiveSession.deadline(intent != null, prefs.p.getLong("liveDeadline", 0), now);
+    if (deadline == 0) {
+      stopSelf();
+      return START_NOT_STICKY;
+    }
+    prefs.p.edit().putLong("liveDeadline", deadline).apply();
+    SyncJob.schedule(this);
     try {
       startForeground(1, Notices.live(this, "Connecting to your workspace"));
     } catch (RuntimeException e) {
-      new Prefs(this).status("Android blocked live receiving · scheduled sync remains on");
+      prefs.status("Android blocked live receiving · scheduled sync remains on");
       stopSelf();
-      return;
+      return START_NOT_STICKY;
     }
     active = true;
+    // A foreground notification alone does not keep the CPU awake with the screen off.
+    // Bounded to this visible, pausable session and always released on destruction.
+    wakeLock =
+        getSystemService(PowerManager.class)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "9t:live-receiving");
+    wakeLock.acquire(deadline - now);
+    handler.postDelayed(this::endSession, deadline - now);
     callback =
         new ConnectivityManager.NetworkCallback() {
           @Override
@@ -46,28 +74,28 @@ public final class ReceiveService extends Service {
                 .build(),
             callback);
     worker.execute(this::tick);
+    return START_STICKY;
   }
 
-  @Override
-  public int onStartCommand(Intent intent, int flags, int id) {
-    if (intent != null && "pause".equals(intent.getAction())) {
-      new Prefs(this).p.edit().putBoolean("enabled", false).apply();
-      SyncJob.cancel(this);
-      stopSelf();
-    }
-    return START_NOT_STICKY;
+  private void endSession() {
+    new Prefs(this).status("Live session ended · scheduled sync remains on");
+    stopped = true;
+    stopSelf();
   }
 
   private void tick() {
     if (stopped) return;
-    // Leave margin beneath Android 15's six-hour daily dataSync allowance.
-    if (SystemClock.elapsedRealtime() - started > 5 * 3600_000L) {
-      new Prefs(this).status("Live session ended · scheduled sync remains on");
-      handler.post(this::stopSelf);
+    if (SystemClock.elapsedRealtime() >= deadline) {
+      handler.post(this::endSession);
       return;
     }
     try {
-      SyncEngine.run(this, () -> stopped);
+      SyncEngine.run(
+          this,
+          () ->
+              stopped
+                  || Thread.currentThread().isInterrupted()
+                  || !new Prefs(this).p.getBoolean("enabled", true));
       failures = 0;
     } catch (Exception e) {
       failures = Math.min(5, failures + 1);
@@ -85,6 +113,7 @@ public final class ReceiveService extends Service {
   @Override
   public void onTimeout(int startId, int fgsType) {
     new Prefs(this).status("Android paused live receiving · scheduled sync remains on");
+    stopped = true;
     stopSelf();
   }
 
@@ -92,9 +121,11 @@ public final class ReceiveService extends Service {
   public void onDestroy() {
     stopped = true;
     active = false;
+    handler.removeCallbacksAndMessages(null);
     worker.shutdownNow();
     if (callback != null)
       getSystemService(ConnectivityManager.class).unregisterNetworkCallback(callback);
+    if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
     stopForeground(STOP_FOREGROUND_REMOVE);
     super.onDestroy();
   }

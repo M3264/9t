@@ -10,12 +10,14 @@ public final class SyncJob extends JobService {
 
   static void schedule(Context c) {
     // No INTERNET/validated-network constraint: offline Wi-Fi LANs must work.
-    c.getSystemService(JobScheduler.class)
-        .schedule(
-            new JobInfo.Builder(9, new ComponentName(c, SyncJob.class))
-                .setPeriodic(15 * 60 * 1000L)
-                .setPersisted(true)
-                .build());
+    JobScheduler scheduler = c.getSystemService(JobScheduler.class);
+    // Replacing an existing periodic job resets its window and may cancel running work.
+    if (scheduler.getPendingJob(9) != null) return;
+    scheduler.schedule(
+        new JobInfo.Builder(9, new ComponentName(c, SyncJob.class))
+            .setPeriodic(15 * 60 * 1000L)
+            .setPersisted(true)
+            .build());
   }
 
   static void cancel(Context c) {

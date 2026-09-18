@@ -53,6 +53,8 @@ With Node.js already installed, `npm run setup` and `./9t setup` open the same w
 
 For repeatable/unattended installation, see [the installation guide](./docs/installation.md).
 
+Connecting a phone, using Windows/WSL, or troubleshooting Wi-Fi/hotspots? Follow [the network and connection guide](./docs/network-troubleshooting.md). See [the Android guide](./docs/android.md) for pairing and background receiving.
+
 ## Manual installation
 
 Requirements: Node.js 22 or newer.

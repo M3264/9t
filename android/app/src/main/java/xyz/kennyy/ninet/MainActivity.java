@@ -59,7 +59,7 @@ public final class MainActivity extends Activity {
     foreground = true;
     handler.post(refresh);
     if (prefs.paired() && prefs.p.getBoolean("enabled", true)) {
-      SyncJob.schedule(this);
+      ensureLive();
       sync(false);
     }
   }
@@ -540,6 +540,29 @@ public final class MainActivity extends Activity {
               }
             }));
     body.addView(button("Start live receiving", this::startLive));
+    PowerManager power = getSystemService(PowerManager.class);
+    paragraph(
+        power.isIgnoringBatteryOptimizations(getPackageName())
+            ? "Battery optimization: unrestricted."
+            : "Battery optimization is on. For screen-off receiving, allow 9t to run unrestricted"
+                  + " in Android's battery settings.");
+    body.addView(
+        button(
+            "Background battery settings",
+            () -> {
+              try {
+                startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+              } catch (ActivityNotFoundException e) {
+                startActivity(
+                    new Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + getPackageName())));
+              }
+            }));
+    paragraph(
+        "In battery settings, select All apps → 9t → Don't optimize (or Unrestricted). Some phones"
+            + " also need Allow background activity or Auto-start in their app settings. Live"
+            + " receiving uses extra battery while waiting for transfers.");
     body.addView(
         button(
             "Pause all receiving",
@@ -560,8 +583,9 @@ public final class MainActivity extends Activity {
     paragraph(
         "Live receiving shows a persistent notification and checks every few seconds. Android may"
             + " pause it for battery or time limits; scheduled recovery runs about every 15 minutes"
-            + " when allowed. Open 9t to resume live receiving. Force-stopping the app stops all"
-            + " background work.");
+            + " when allowed. Live receiving starts automatically when you open a paired, unpaused"
+            + " app and continues when you leave. Force-stopping the app stops all background"
+            + " work.");
     paragraph(
         "Transfers are encrypted even on HTTP LAN routes. The full Workspace screen requires HTTPS."
             + " LAN-only use needs a server on your local network; a cloud server still needs"
@@ -583,11 +607,15 @@ public final class MainActivity extends Activity {
 
   private void startLive() {
     prefs.p.edit().putBoolean("enabled", true).apply();
-    SyncJob.schedule(this);
     requestNotifications();
+    ensureLive();
+  }
+
+  private void ensureLive() {
+    SyncJob.schedule(this);
+    if (ReceiveService.active) return;
     try {
       startForegroundService(new Intent(this, ReceiveService.class));
-      toast("Live receiving started");
     } catch (Exception e) {
       toast(
           "Android could not start live receiving. Open the app again; scheduled sync remains"
