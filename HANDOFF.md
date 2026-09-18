@@ -1,5 +1,16 @@
 # 9t project handoff — 2026-09-18
 
+## Current work: Tactile Paper + Neon UI rebuild (web) + Android 0.4.1 — PUSHED
+
+User asked for a cooler, more unique UI on both website and Android app. Chose **Tactile Paper + Neon** (warm dotted paper, sticker cards with ink borders + hard shadows, neon `#D9FF4B` highlights) with a topbar + tab-pill shell replacing the sidebar, implemented in per-component CSS modules. Commit `13f06b3` is pushed to `main` (rebased over remote README-only commits `4eb8a15`–`8f66f09`).
+
+- Web: new `Workspace/Capture/Cards/Dialogs.module.css`; rewrote `Workspace.tsx` (no sidebar), `UniversalInbox.tsx` ("Quick Stick"), `ObjectCollection.tsx` (sticker cards, dark code previews), `WorkspaceDialogs.tsx` (sticker modal + inspector sheet); new tokens in `styles/globals.css`. Contrast fix: neon surfaces always use fixed dark `--on-neon` text and dark `--badge-bg` badges, after white-on-neon was unreadable in dark mode. List-view overflow fixed (rows wrap, long names ellipsis, actions drop below on phones).
+- Android 0.4.1 / code 7: same tokens in `MainActivity.java` (neon logo pill, sticker bottom nav, sticker inbox cards, chunky titles). No protocol changes. Signed APK published: https://9t.kennyy.xyz/downloads/9t-android-0.4.1.apk , SHA-256 `29176456fcf3f1b173f7bb6888105d2c66f1e6f00173953e0b7a33c065ad406e`, cert matches all prior releases. Live bytes verified identical; `9t.service` active.
+- `npm run typecheck` + `npm run build` pass. Release `assembleRelease` succeeded; **unit-test/lint counts unverified** — the VPS rebooted mid-session (see below) and wiped the build log. UI edits are presentation-only, but rerun `testDebugUnitTest` + `lintDebug` when resources allow. No physical-device test of 0.4.1 yet.
+- Devices page + README + `docs/android.md` point at 0.4.1 **in source only** — the live web build predates the link change, so `/devices` still shows 0.4.0 until the next web rebuild + restart. Direct 0.4.1 URL above works now.
+- ⚠️ Do NOT build into the live `.next` and walk away: twice built into the serving directory, causing stale chunk hashes → live CSS 500ing as `text/plain` → browser `nosniff` refusal. Fixed both times with `systemctl restart 9t.service` + verified `200 text/css`. Prefer staging `NINE_T_BUILD_DIR` then switch, or build + immediately restart.
+- ⚠️ VPS is undersized for Android work: 2 vCPU, 2 GB RAM (builds leave ~70–100 MB free, swap ~90% used), 19 GB disk at 96% (`~/.gradle` 651 MB, `/var/log` 624 MB). Machine rebooted during the Gradle build (uptime reset, `/tmp` wiped). Do not run web + Gradle builds back-to-back; run `./gradlew --stop` after Android builds. Consider a larger instance or building APKs off-host.
+
 ## Current work: Android 0.4.0 — general compatibility and transfer recovery
 
 User reported that both files and snippets on their local LAN installation stopped arriving while 0.3.1 was hidden (Android 15, battery exemption granted, service reported active). Report shows background sync at 13:34:19, then reopening at 13:40:22. This does not establish a phone-brand-specific root cause. User explicitly wants general phone compatibility, including Android 5; iOS is deferred.
