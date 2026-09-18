@@ -22,7 +22,10 @@ public final class ReceiveService extends Service {
   private long renewWakeAt;
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final Runnable endSession =
-      () -> finish("Cloud live session ended · scheduled sync remains on");
+      () -> {
+        markBudgetExhausted();
+        finish("Cloud allowance used up · scheduled sync remains on");
+      };
   private final Runnable maintainWakeLock =
       new Runnable() {
         @Override
@@ -76,15 +79,23 @@ public final class ReceiveService extends Service {
     }
     long now = SystemClock.elapsedRealtime();
     boolean visibleStart = intent != null && START.equals(intent.getAction());
-    deadline =
-        nextDeviceLink
-            ? Long.MAX_VALUE
-            : LiveSession.deadline(visibleStart, prefs.p.getLong("liveDeadline", 0), now);
+    // Schedule before any refusal: the persisted job is what revives receiving later.
+    SyncJob.schedule(this);
+    if (nextDeviceLink) {
+      deadline = Long.MAX_VALUE;
+    } else if (visibleStart) {
+      deadline = LiveSession.deadline(true, 0, now);
+    } else {
+      deadline =
+          LiveSession.deadline(
+              false,
+              prefs.p.getLong("liveDeadline", 0),
+              now);
+    }
     if (deadline == 0) {
       finish("Open 9t to start a cloud live session · scheduled sync remains on");
       return START_NOT_STICKY;
     }
-    SyncJob.schedule(this);
     handler.removeCallbacks(endSession);
     try {
       // Select exactly one type: selecting both also imposes dataSync's time limit on LAN.
@@ -264,6 +275,18 @@ public final class ReceiveService extends Service {
     }
   }
 
+  /**
+   * Invalidate the saved session on expiry or an Android timeout. Background recovery must not
+   * repeatedly restart a service whose allowance has ended.
+   */
+  private void markBudgetExhausted() {
+    prefs
+        .p
+        .edit()
+        .remove("liveDeadline")
+        .apply();
+  }
+
   private void finish(String message) {
     prefs.status(message);
     ReceiverDiagnostics.event(this, message);
@@ -273,6 +296,7 @@ public final class ReceiveService extends Service {
 
   @Override
   public void onTimeout(int startId, int fgsType) {
+    markBudgetExhausted();
     finish("Android ended the live session · scheduled sync remains on");
   }
 

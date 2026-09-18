@@ -2,6 +2,9 @@ package xyz.kennyy.ninet;
 
 import android.app.job.*;
 import android.content.*;
+import android.os.Build;
+import android.os.PowerManager;
+import android.os.SystemClock;
 import java.util.concurrent.*;
 
 public final class SyncJob extends JobService {
@@ -25,9 +28,44 @@ public final class SyncJob extends JobService {
     c.getSystemService(JobScheduler.class).cancel(9);
   }
 
+  /**
+   * Restarts live receiving when the service is gone. The job is persisted, so this is what brings
+   * the connection back after an OEM kill or a dropped session without the user opening the app.
+   */
+  static void revive(Context c) {
+    Prefs prefs = new Prefs(c);
+    boolean exempt;
+    try {
+      exempt =
+          c.getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(c.getPackageName());
+    } catch (RuntimeException e) {
+      exempt = false;
+    }
+    if (!LiveSession.reviveFromBackground(
+        prefs.paired(),
+        prefs.p.getBoolean("enabled", true),
+        ReceiveService.active,
+        prefs.p.getString("mode", "auto"),
+        prefs.p.getString("lan", ""),
+        exempt,
+        Build.VERSION.SDK_INT,
+        prefs.p.getLong("liveDeadline", 0),
+        SystemClock.elapsedRealtime())) return;
+    try {
+      c.startForegroundService(
+          new Intent(c, ReceiveService.class).setAction(ReceiveService.RESTORE));
+      ReceiverDiagnostics.event(c, "Scheduled job restarted live receiving");
+    } catch (RuntimeException e) {
+      // Android refuses background starts that are not exempted; polling continues regardless.
+      ReceiverDiagnostics.error(c, e);
+    }
+  }
+
   public boolean onStartJob(JobParameters p) {
     int run = ++generation;
     if (task != null) task.cancel(true);
+    // Restore the persistent socket before potentially lengthy file catch-up.
+    revive(this);
     task =
         executor.submit(
             () -> {
@@ -38,7 +76,8 @@ public final class SyncJob extends JobService {
                     "scheduled job");
               } catch (Exception ignored) {
               }
-              if (run == generation) jobFinished(p, false);
+              if (run != generation) return;
+              jobFinished(p, false);
             });
     return true;
   }

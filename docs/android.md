@@ -1,10 +1,10 @@
 # 9t Android — network and transfer client
 
-9t Android 0.3.0 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets.
+9t Android 0.3.1 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets.
 
 ## Install and pair
 
-1. Install the signed `9t-android-0.3.0.apk` (Android 10/API 29 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
+1. Install the signed [9t-android-0.3.1.apk](https://9t.kennyy.xyz/downloads/9t-android-0.3.1.apk) (Android 10/API 29 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
 2. Sign into your server, open **Settings → Android devices & pairing** (`/devices`), name the phone, and create a pairing code.
 3. Paste that code into the Android app. Select whether to receive existing items; the default receives newly created items only. Existing items remain available for manual receiving.
 4. Allow notifications and start live receiving. Accept the **Allow background receiving** battery prompt, also available under Connect. New files save in **Downloads/9t** without visiting a download page. Incoming snippets are copied as plain text while the phone is unlocked; the latest received snippet wins. Links are retained in the inbox without replacing the clipboard.
@@ -46,6 +46,7 @@ An unvalidated Wi-Fi network is still usable: native LAN requests explicitly use
 - **Allow background receiving** requests Android's battery-optimization exemption directly with the user's consent. A foreground notification and wake lock alone do not give network access during Doze. Offline LAN delivery cannot rely on cloud push. A timed partial CPU wake lock is renewed while receiving makes progress and released when the service stops. This uses extra battery; OEM restrictions and force-stop can still stop receiving.
 - Network changes and unlocking trigger a reconnect without opening the app. Retries are coalesced, and notification/reporting failures cannot terminate the receiver. Each HTTP request has a cancellation timer as well as connect/read timeouts so a stalled request can be abandoned. The socket uses a fresh challenge and client nonce for every connection, sequence checks, bounded frames, heartbeat, and automatic route fallback.
 - A persisted JobScheduler job provides recovery roughly every 15 minutes; Android may defer it for Doze, battery restrictions, or resource pressure. It has no internet-validation requirement, so offline LAN access is possible. Repeated app visits leave the existing job intact instead of resetting its schedule. Boot and APK updates restore jobs in both connection modes.
+- **New in 0.3.1:** when a scheduled job finds the live service absent, it attempts to restore the persistent connection before file catch-up. On Android 12+ this recovery requires the battery-optimization exemption. Paused/unpaired devices are not restarted, and an active service is left running. Cloud recovery preserves an existing unexpired session; it cannot reset the five-hour deadline. An Android timeout clears the saved session to prevent repeated refused starts.
 - Connect shows the installed version, last receiver check and last background sync. **Receiver details → Copy details** includes local lifecycle events, timing, error types and battery/network-policy state; it excludes pairing keys, server addresses and item contents. Reopening the app does not overwrite the separate background-sync timestamp. The live notification's timestamp is the last successful network response.
 - Force-stop blocks jobs until the user opens the app again. OEM battery managers can delay or stop reception. There is no unconditional always-on promise and no FCM/cloud push dependency.
 - The app **writes incoming text** to the clipboard. It does not monitor other apps' clipboard contents in the background. Phone-to-server clipboard sending requires an explicit Paste or Share action.
@@ -56,7 +57,7 @@ References: [connected-device service requirements](https://developer.android.co
 
 ### If receiving stops when you switch apps (including Tecno / Android 15)
 
-1. Install 0.3.0 over the existing app; do not uninstall, so pairing and history remain. Open it once after installing. Confirm **9t 0.3.0** in Connect.
+1. Install 0.3.1 over the existing app; do not uninstall, so pairing and history remain. Open it once after installing. Confirm **9t 0.3.1** in Connect.
 2. In **Connect**, select **Start live receiving** if previously paused. Allow notifications. Confirm the **9t · Live receiving** notification remains after switching to another app.
 3. Tap **Connect → Allow background receiving** and approve Android's prompt. Confirm the app reports background battery access allowed. Open **Phone app settings** and allow background activity and auto-start if HiOS offers these controls. With a LAN server, use Automatic or LAN-only with your saved LAN address. Internet-only mode retains Android's data-sync time limit.
 4. Send a new small file and snippet from the same paired server while another phone app is visible. Check **Downloads/9t** and paste into an editor. Repeat with the screen locked; files should arrive during live receiving, while clipboard copying intentionally waits until unlocked/opened.

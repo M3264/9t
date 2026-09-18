@@ -1,5 +1,16 @@
 # 9t project handoff — 2026-09-18
 
+## Current update: background receiver recovery (0.3.1)
+
+- Published **0.3.1 / code 5**: https://9t.kennyy.xyz/downloads/9t-android-0.3.1.apk . Install over the existing app; original release signing certificate verified. SHA-256: `428bcb52c2b24bef782ba11e1106d85c8dcf371884feacf18720736040a330fb`.
+- `SyncJob` now attempts to revive a missing foreground receiver before file catch-up. Android 12+ recovery is gated on the battery-optimization exemption, pairing, receiving enabled, and the service not already active. This restores the persistent socket when Android allows the scheduled job and service start; job execution may be delayed.
+- LAN/Automatic with a saved LAN endpoint retains continuous `connectedDevice` receiving. Cloud recovery only resumes an existing unexpired session; it never creates a fresh background allowance. Expiry/Android timeout clears `liveDeadline`. The earlier experimental 24-hour cooldown/new-session policy was removed before release.
+- Verification: 19 JVM tests passed (11 LiveSession, 4 ReceiveLoop, 2 SocketSequence, 2 Protocol); release build passed; lint zero errors / 17 warnings; `git diff --check` passed. APK package/version/signing certificate verified, and the downloaded public APK hash matches the signed artifact.
+- Published a new versioned APK without replacing earlier APKs. Restarted `9t.service` to expose the new static file; service active and public `/api/status` healthy. No web rebuild performed; use the direct 0.3.1 URL above (the existing Devices page may still link 0.3.0).
+- Deployment correction: the actual systemd drop-in uses `NINE_T_BUILD_DIR=.next`; the previous `.next-mobile-build` statement below is historical. Do not build into the currently serving directory.
+- The 0.3.1 release commit includes recovery changes, tests, documentation, and the signing script default. `docs/android.md` now references 0.3.1. KDE Connect research is included in `docs/kdeconnect-connection-study-2026-09-18.md`.
+- Physical-phone verification remains outstanding. Open the updated app once, approve **Connect → Allow background receiving**, then test new files/snippets while another app is open and while locked. For Tecno/HiOS allow background activity/auto-start if offered. Force-stop requires reopening. Capture **Receiver details → Copy details** if receiving stalls; automated tests do not establish actual screen-off delivery.
+
 ## Current update: persistent encrypted phone connection (0.3.0)
 
 - User requested a KDE Connect-style persistent connection because 0.2.2 still delivered only after opening the app. This is now committed and pushed in the current session.

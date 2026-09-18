@@ -4,11 +4,12 @@ import android.content.*;
 
 public final class BootReceiver extends BroadcastReceiver {
   public void onReceive(Context c, Intent i) {
-    if (!Intent.ACTION_BOOT_COMPLETED.equals(i.getAction())
-        && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(i.getAction())) return;
+    String action = i.getAction();
+    boolean booted = Intent.ACTION_BOOT_COMPLETED.equals(action);
+    if (!booted && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) return;
     Prefs p = new Prefs(c);
-    if (Intent.ACTION_BOOT_COMPLETED.equals(i.getAction()))
-      p.p.edit().remove("liveDeadline").apply();
+    // elapsedRealtime restarts at boot, so a saved session deadline is meaningless now.
+    if (booted) p.p.edit().remove("liveDeadline").apply();
     if (p.paired() && p.p.getBoolean("enabled", true)) SyncJob.schedule(c);
     // Connected-device receiving is permitted at boot; cloud dataSync is not.
     if (LiveSession.restoreAtBoot(
