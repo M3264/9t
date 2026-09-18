@@ -34,6 +34,7 @@ import {
   workspaceApi as api,
 } from "../../lib/client/workspace";
 import { expiryFromLifetime } from "../../lib/shared/lifetimes";
+import styles from "./Dialogs.module.css";
 
 function useDialogFocus(
   ref: React.RefObject<HTMLElement | null>,
@@ -131,7 +132,7 @@ function Modal({
   useDialogFocus(panelRef, close);
   return (
     <div
-      className="modal-field"
+      className={styles.scrim}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -139,11 +140,11 @@ function Modal({
         if (e.currentTarget === e.target) close();
       }}
     >
-      <section className="terminal-modal" ref={panelRef}>
-        <header>
-          <span>{code}</span>
+      <section className={styles.modal} ref={panelRef}>
+        <header className={styles.head}>
+          <span className={styles.headCode}>{code}</span>
           <h2>{title}</h2>
-          <button onClick={close} aria-label="Close">
+          <button className={styles.close} onClick={close} aria-label="Close">
             <X />
           </button>
         </header>
@@ -188,31 +189,30 @@ export function Inspector({
 
   return (
     <div
-      className="inspector-scrim"
+      className={styles.inspScrim}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) close();
       }}
     >
       <div
         ref={panelRef}
-        className="inspector"
+        className={styles.insp}
         role="dialog"
         aria-modal="true"
         aria-label={object.name}
       >
-        <header>
+        <header className={styles.inspHead}>
           <span>
             {object.type} · {object.id.slice(0, 8)}
           </span>
-          <button onClick={close} aria-label="Close inspector">
+          <button className={styles.close} onClick={close} aria-label="Close inspector">
             <X />
           </button>
         </header>
-        <div className={`inspector-type ${object.type}`}>
-          {object.type}
-          <i aria-hidden="true" />
+        <div className={styles.type}>
+          {object.type} ● stuck
         </div>
-        <label>
+        <label className={styles.field}>
           NAME
           <input
             value={name}
@@ -221,7 +221,7 @@ export function Inspector({
           />
         </label>
         {object.type === "snippet" && (
-          <label>
+          <label className={styles.field}>
             CONTENT
             <textarea
               rows={15}
@@ -231,7 +231,7 @@ export function Inspector({
           </label>
         )}
         {object.type === "link" && (
-          <label>
+          <label className={styles.field}>
             URL
             <input
               value={url}
@@ -253,7 +253,7 @@ export function Inspector({
             </a>
           </div>
         )}
-        <label>
+        <label className={styles.field}>
           LIFETIME
           <select
             value={lifetime}
@@ -266,20 +266,20 @@ export function Inspector({
             <option value="7d">7 days from now</option>
           </select>
         </label>
-        <div className="inspect-meta">
-          <span>
-            CREATED <b>{new Date(object.createdAt).toLocaleString()}</b>
-          </span>
-          <span>
-            LIFETIME{" "}
+        <div className={styles.meta}>
+          <div>
+            <span>CREATED</span> <b>{new Date(object.createdAt).toLocaleString()}</b>
+          </div>
+          <div>
+            <span>LIFETIME</span>{" "}
             <b>
               {object.expiresAt
                 ? new Date(object.expiresAt).toLocaleString()
                 : "PERMANENT"}
             </b>
-          </span>
+          </div>
         </div>
-        <div className="inspect-actions">
+        <div className={styles.actionsGrid}>
           <a href={`/o/${object.id}`} target="_blank" rel="noreferrer">
             <ArrowUpRight aria-hidden="true" />
             OPEN
@@ -290,7 +290,7 @@ export function Inspector({
           </button>
           <button onClick={share}>
             <Share2 aria-hidden="true" />
-            SHARE
+            BEAM
           </button>
           <button className="destructive" onClick={remove}>
             <Trash2 aria-hidden="true" />
@@ -298,17 +298,17 @@ export function Inspector({
           </button>
         </div>
         {error && (
-          <p className="form-error" role="alert">
+          <p className={styles.error} role="alert">
             {error}
           </p>
         )}
         <details className="device-handoff">
-          <summary>Open on another device</summary>
+          <summary>Beam to another device</summary>
           <Qr path={`/o/${object.id}`} label={object.name} />
-          <p>Sign in to your workspace on the other device, then scan.</p>
+          <p>Sign in on the other device, then scan. Gone in seconds.</p>
         </details>
         <button
-          className="save-signal"
+          className={styles.primary}
           disabled={saving || !name.trim()}
           onClick={async () => {
             setSaving(true);
@@ -328,7 +328,7 @@ export function Inspector({
             }
           }}
         >
-          {saving ? "Saving…" : "Save changes"}{" "}
+          {saving ? "Sticking…" : "Stick changes"}{" "}
           <ArrowUpRight aria-hidden="true" />
         </button>
       </div>
@@ -369,22 +369,22 @@ export function CreateDialog({
   };
 
   return (
-    <Modal title="Add to 9t" code="NEW ITEM" close={close}>
-      <div className="mode-switch" role="tablist" aria-label="Item type">
+    <Modal title="Stick something" code="NEW STICK" close={close}>
+      <div className={styles.modeRow} role="tablist" aria-label="Item type">
         {types.map((t) => (
           <button
             key={t}
             type="button"
             role="tab"
             aria-selected={type === t}
-            className={type === t ? "active" : ""}
+            data-on={type === t}
             onClick={() => setType(t)}
           >
             {t}
           </button>
         ))}
       </div>
-      <form className="signal-form" onSubmit={submit}>
+      <form className={styles.form} onSubmit={submit}>
         <input type="hidden" name="type" value={type} />
         <label>
           NAME

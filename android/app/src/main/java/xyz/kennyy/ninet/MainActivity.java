@@ -17,8 +17,8 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public final class MainActivity extends Activity {
-  // Keep the native surfaces on the same visual tokens as the web workspace.
-  private int bg, paper, ink, green, muted;
+  // Tactile Paper + Neon — same tokens as web workspace.
+  private int bg, paper, ink, green, muted, neon, lineInk;
   private LinearLayout shell, body, nav;
   private TextView connection;
   private TextView receiverStatus, batteryStatus;
@@ -111,11 +111,13 @@ public final class MainActivity extends Activity {
 
   private void applyTheme() {
     boolean dark = prefs != null && prefs.p.getBoolean("darkTheme", false);
-    bg = dark ? Color.rgb(23, 29, 30) : Color.rgb(246, 245, 241);
-    paper = dark ? Color.rgb(32, 40, 41) : Color.WHITE;
-    ink = dark ? Color.rgb(237, 240, 231) : Color.rgb(36, 43, 49);
-    green = dark ? Color.rgb(183, 216, 138) : Color.rgb(36, 115, 92);
-    muted = dark ? Color.rgb(162, 173, 167) : Color.rgb(119, 126, 129);
+    bg = dark ? Color.rgb(18, 22, 20) : Color.rgb(236, 231, 218);
+    paper = dark ? Color.rgb(30, 36, 33) : Color.rgb(255, 253, 246);
+    ink = dark ? Color.rgb(242, 240, 230) : Color.rgb(28, 35, 31);
+    green = dark ? Color.rgb(183, 216, 138) : Color.rgb(29, 107, 79);
+    muted = dark ? Color.rgb(162, 173, 167) : Color.rgb(111, 120, 112);
+    neon = Color.rgb(217, 255, 75);
+    lineInk = dark ? Color.rgb(10, 13, 12) : Color.rgb(28, 35, 31);
     getWindow().setStatusBarColor(bg);
     getWindow().setNavigationBarColor(bg);
     int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
@@ -126,6 +128,14 @@ public final class MainActivity extends Activity {
     GradientDrawable d = new GradientDrawable();
     d.setColor(color);
     d.setCornerRadius(dp(radius));
+    return d;
+  }
+
+  private GradientDrawable sticker(int color, int radius) {
+    GradientDrawable d = new GradientDrawable();
+    d.setColor(color);
+    d.setCornerRadius(dp(radius));
+    d.setStroke(dp(2), lineInk);
     return d;
   }
 
@@ -140,8 +150,8 @@ public final class MainActivity extends Activity {
   }
 
   private TextView title(String value) {
-    TextView t = text(value, 32, ink);
-    t.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+    TextView t = text(value, 28, ink);
+    t.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
     body.addView(t);
     return t;
   }
@@ -154,12 +164,16 @@ public final class MainActivity extends Activity {
 
   private Button button(String label, Runnable action) {
     Button b = new Button(this);
-    b.setText(label);
+    b.setText("● " + label);
     b.setAllCaps(false);
-    b.setTextColor(prefs.p.getBoolean("darkTheme", false) ? ink : Color.WHITE);
+    boolean dark = prefs.p.getBoolean("darkTheme", false);
+    b.setTextColor(dark ? neon : Color.WHITE);
     b.setTextSize(15);
-    b.setBackground(shape(green, 14));
-    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(52));
+    b.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+    GradientDrawable d = sticker(dark ? Color.rgb(28, 35, 31) : ink, 26);
+    b.setBackground(d);
+    b.setElevation(dp(3));
+    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(54));
     p.setMargins(0, dp(8), 0, dp(8));
     b.setLayoutParams(p);
     b.setOnClickListener(v -> action.run());
@@ -174,7 +188,8 @@ public final class MainActivity extends Activity {
     e.setText(value);
     e.setTextSize(15);
     e.setPadding(dp(14), dp(12), dp(14), dp(12));
-    e.setBackground(shape(paper, 12));
+    e.setBackground(sticker(paper, 14));
+    e.setElevation(dp(2));
     e.setSingleLine(!multiline);
     if (multiline) {
       e.setMinLines(4);
@@ -218,13 +233,21 @@ public final class MainActivity extends Activity {
     setContentView(shell);
     LinearLayout header = new LinearLayout(this);
     header.setGravity(Gravity.CENTER_VERTICAL);
-    header.setPadding(dp(20), dp(10), dp(20), dp(8));
-    TextView logo = text("9t", 30, green);
-    logo.setTypeface(null, Typeface.BOLD);
+    header.setPadding(dp(16), dp(10), dp(16), dp(8));
+    TextView logo = text("9t", 22, ink);
+    logo.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+    logo.setBackground(sticker(neon, 12));
+    logo.setPadding(dp(12), dp(4), dp(12), dp(4));
+    logo.setElevation(dp(2));
     header.addView(logo);
-    connection = text("YOUR POCKET WORKSPACE", 11, muted);
+    connection = text("● POCKET CLOUD", 11, ink);
+    connection.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    connection.setBackground(sticker(paper, 20));
+    connection.setPadding(dp(10), dp(6), dp(10), dp(6));
     connection.setGravity(Gravity.END);
-    header.addView(connection, new LinearLayout.LayoutParams(0, -2, 1));
+    LinearLayout.LayoutParams connP = new LinearLayout.LayoutParams(0, -2, 1);
+    connP.setMargins(dp(12), 0, 0, 0);
+    header.addView(connection, connP);
     shell.addView(header);
     ScrollView scroll = new ScrollView(this);
     scroll.setFillViewport(true);
@@ -238,26 +261,30 @@ public final class MainActivity extends Activity {
       return;
     }
     nav = new LinearLayout(this);
-    nav.setPadding(dp(6), dp(6), dp(6), dp(6));
-    nav.setBackgroundColor(paper);
+    nav.setPadding(dp(8), dp(8), dp(8), dp(8));
+    nav.setBackground(sticker(paper, 20));
+    nav.setElevation(dp(4));
+    LinearLayout.LayoutParams navP = new LinearLayout.LayoutParams(-1, -2);
+    navP.setMargins(dp(12), dp(4), dp(12), dp(12));
     for (String name : new String[] {"Inbox", "Workspace", "Send", "Connect"}) {
       Button b = new Button(this);
-      b.setText(name);
+      b.setText(tab.equals(name) ? "● " + name : name);
       b.setAllCaps(false);
       b.setTextSize(12);
-      b.setTextColor(
-          tab.equals(name)
-              ? (prefs.p.getBoolean("darkTheme", false) ? ink : Color.WHITE)
-              : green);
-      b.setBackground(shape(tab.equals(name) ? green : paper, 12));
-      nav.addView(b, new LinearLayout.LayoutParams(0, dp(52), 1));
+      b.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+      boolean active = tab.equals(name);
+      b.setTextColor(active ? ink : muted);
+      GradientDrawable nb = active ? sticker(neon, 18) : shape(paper, 18);
+      b.setBackground(nb);
+      if (active) b.setElevation(dp(2));
+      nav.addView(b, new LinearLayout.LayoutParams(0, dp(50), 1));
       b.setOnClickListener(
           v -> {
             tab = name;
             render();
           });
     }
-    shell.addView(nav);
+    shell.addView(nav, navP);
     updateStatus();
     switch (tab) {
       case "Workspace":
@@ -275,11 +302,14 @@ public final class MainActivity extends Activity {
   }
 
   private void onboarding() {
-    title("Good things.\nRight here.");
+    title("Drop it.\nBeam it.");
     paragraph(
-        "Your 9t workspace, with files delivered straight to your phone and snippets ready to"
-            + " paste.");
-    TextView badge = text("LAN FIRST  ·  ENCRYPTED  ·  YOUR SERVER", 12, green);
+        "Your 9t stash lives here — files land in Downloads/9t, snippets are ready to paste.");
+    TextView badge = text("● LAN FIRST  ·  ENCRYPTED  ·  NEON FAST", 12, ink);
+    badge.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    badge.setBackground(sticker(neon, 20));
+    badge.setPadding(dp(12), dp(8), dp(12), dp(8));
+    badge.setElevation(dp(2));
     body.addView(badge);
     body.addView(text("Connect your workspace", 21, ink));
     paragraph(
@@ -335,8 +365,8 @@ public final class MainActivity extends Activity {
   }
 
   private void inbox() {
-    title("Already here.");
-    paragraph(prefs.p.getString("status", "Connect to receive your first items."));
+    title("Stuck here.");
+    paragraph(prefs.p.getString("status", "Beam something to 9t. It lands here."));
     body.addView(
         button(
             ReceiveService.active ? "Refresh inbox" : "Start live receiving",
@@ -353,19 +383,23 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(12), dp(16), dp(12));
-        card.setBackground(shape(paper, 18));
+        card.setBackground(sticker(paper, 16));
+        card.setElevation(dp(3));
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
         cp.setMargins(0, dp(7), 0, dp(7));
         body.addView(card, cp);
-        card.addView(
-            text(
-                item.getString("type").toUpperCase()
+        TextView kind = text(
+                "● " + item.getString("type").toUpperCase()
                     + " · "
                     + item.getString("status").toUpperCase(),
                 11,
-                green));
+                ink);
+        kind.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+        kind.setBackground(shape(neon, 20));
+        kind.setPadding(dp(10), dp(4), dp(10), dp(4));
+        card.addView(kind);
         TextView name = text(item.getString("name"), 18, ink);
-        name.setTypeface(null, Typeface.BOLD);
+        name.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         card.addView(name);
         String preview =
             item.optString(

@@ -27,6 +27,7 @@ import {
   timeAgo as ago,
   timeUntil as until,
 } from "../../lib/client/workspace";
+import styles from "./Cards.module.css";
 
 const iconFor = { snippet: Code2, file: FileText, link: Link2 };
 
@@ -61,36 +62,33 @@ export function ObjectList({
 }) {
   if (!objects.length)
     return (
-      <div className="zero-state">
-        <div className="empty-illustration">
+      <div className={styles.zero}>
+        <div className={styles.zeroBadge}>
           {searching ? <Search /> : trash ? <Trash2 /> : <FolderOpen />}
         </div>
-        <span className="eyebrow">
-          {searching ? "KEEP LOOKING" : "A LITTLE ROOM FOR POSSIBILITY"}
-        </span>
         <h2>
           {searching
-            ? "Nothing matched that search."
+            ? "Nothing stuck here."
             : trash
-              ? "All clear here."
-              : "Your next useful thing starts here."}
+              ? "All clear."
+              : "Blank board. Loud ideas."}
         </h2>
         <p>
           {searching
             ? "Try a different name, a word from a snippet, or a link."
             : trash
-              ? "Deleted items will appear here. You can restore them before they expire."
-              : "Save a thought. Drop a file. Keep a link. It’ll be waiting on your other devices."}
+              ? "Deleted things chill here before they vanish."
+              : "Stick a thought. Beam a file. Drop a link. It'll be on your phone before you look up."}
         </p>
         {!trash && !searching && (
-          <button className="primary-button" onClick={create}>
-            Add your first item <ArrowUpRight />
+          <button className={styles.zeroCta} onClick={create}>
+            Stick your first thing <ArrowUpRight />
           </button>
         )}
       </div>
     );
   return (
-    <ul className={`object-collection ${layout}`}>
+    <ul className={`${styles.grid} ${layout === "list" ? styles.list : ""}`}>
       {objects.map((o) => {
         const Icon = iconFor[o.type];
         const extension = o.name.includes(".")
@@ -102,9 +100,9 @@ export function ObjectList({
         } catch {}
         return (
           <li key={o.id}>
-            <article className={`object-card ${o.type}`}>
-              <div className="card-top">
-                <span className={`object-kind ${o.type}`}>
+            <article className={styles.card}>
+              <div className={styles.top}>
+                <span className={styles.kind} data-t={o.type}>
                   <Icon />
                   {o.type === "snippet"
                     ? o.language || "Snippet"
@@ -113,7 +111,8 @@ export function ObjectList({
                       : "Link"}
                 </span>
                 <button
-                  className={`icon-button pin-button ${o.pinned ? "is-pinned" : ""}`}
+                  className={styles.pin}
+                  data-on={!!o.pinned}
                   aria-label={`${o.pinned ? "Unpin" : "Pin"} ${o.name}`}
                   aria-pressed={!!o.pinned}
                   onClick={() => patch(o, { pinned: !o.pinned })}
@@ -122,7 +121,8 @@ export function ObjectList({
                 </button>
               </div>
               <button
-                className={`object-preview ${o.type}`}
+                className={styles.preview}
+                data-t={o.type}
                 onClick={() => open(o)}
                 aria-label={`Open ${o.name}`}
               >
@@ -140,28 +140,28 @@ export function ObjectList({
                       ))}
                   </pre>
                 ) : o.type === "file" ? (
-                  <div className="file-preview">
-                    <div className="file-sheet">
+                  <div className={styles.fileInner}>
+                    <div className={styles.sheet}>
                       <FileText />
                       <b>{extension}</b>
                     </div>
                     <span>{bytes(o.sizeBytes)}</span>
                   </div>
                 ) : (
-                  <div className="link-preview">
-                    <span className="link-monogram">
-                      {domain[0].toUpperCase()}
+                  <div className={styles.linkInner}>
+                    <span className={styles.mono}>
+                      {domain[0]?.toUpperCase() || "↗"}
                     </span>
                     <strong>{domain}</strong>
-                    <span>
-                      <Globe /> Saved for a little later <ArrowUpRight />
-                    </span>
+                    <small>
+                      <Globe /> TAP TO BEAM OPEN <ArrowUpRight />
+                    </small>
                   </div>
                 )}
               </button>
-              <div className="card-description">
-                <button onClick={() => open(o)}>{o.name}</button>
-                <p>
+              <div className={styles.body}>
+                <button className={styles.title} onClick={() => open(o)}>{o.name}</button>
+                <p className={styles.sub}>
                   {o.type === "link"
                     ? domain
                     : o.type === "file"
@@ -169,16 +169,17 @@ export function ObjectList({
                       : `${o.content?.split("\n").length || 0} lines · ${o.language || "Plain text"}`}
                 </p>
               </div>
-              <div className="card-footer">
-                <span className="item-age">
+              <div className={styles.foot}>
+                <span className={styles.age}>
                   {o.expiresAt
                     ? `${until(o.expiresAt)} left`
-                    : `Updated ${ago(o.updatedAt)}`}
+                    : `${ago(o.updatedAt)} ago`}
                 </span>
-                <div className="card-actions">
+                <div className={styles.actionsRow}>
                   {trash ? (
                     <>
                       <button
+                        className={styles.act}
                         onClick={() => restore(o)}
                         aria-label={`Restore ${o.name}`}
                       >
@@ -186,6 +187,7 @@ export function ObjectList({
                         <span>Restore</span>
                       </button>
                       <button
+                        className={styles.act}
                         onClick={() => remove(o, true)}
                         aria-label={`Permanently delete ${o.name}`}
                       >
@@ -196,33 +198,36 @@ export function ObjectList({
                     <>
                       {o.type === "file" ? (
                         <a
+                          className={styles.act}
                           href={`/api/files/${o.id}`}
                           aria-label={`Download ${o.name}`}
                         >
                           <Download />
-                          <span>Download</span>
+                          <span>Grab</span>
                         </a>
                       ) : o.type === "link" ? (
                         <a
+                          className={styles.act}
                           href={o.url}
                           target="_blank"
                           rel="noreferrer"
                           aria-label={`Visit ${o.name}`}
                         >
                           <ArrowUpRight />
-                          <span>Open link</span>
+                          <span>Open</span>
                         </a>
                       ) : (
                         <button
+                          className={styles.act}
                           onClick={async () => {
                             try {
                               await navigator.clipboard.writeText(
                                 o.content || "",
                               );
-                              notify("Snippet copied");
+                              notify("Copied. Go paste it.");
                             } catch {
                               notify(
-                                "Couldn’t copy. Open the item to select its text.",
+                                "Couldn’t copy. Open it to grab the text.",
                               );
                             }
                           }}
@@ -233,6 +238,7 @@ export function ObjectList({
                         </button>
                       )}
                       <button
+                        className={styles.act}
                         onClick={() => open(o)}
                         aria-label={`Details for ${o.name}`}
                       >
@@ -274,18 +280,17 @@ export function Board({
   const clamp = (value: number) => Math.max(0, Math.min(100, value));
   if (!objects.length)
     return (
-      <div className="zero-state">
-        <Move />
-        <h2>A place to see it your way.</h2>
+      <div className={styles.zero}>
+        <div className={styles.zeroBadge}><Move /></div>
+        <h2>Throw things around.</h2>
         <p>
-          Add items to your workspace, then arrange them here. Board uses your
-          existing collection.
+          Add stuff to your stash, then drag it anywhere here. This board is yours.
         </p>
       </div>
     );
   return (
     <div
-      className="spatial-board"
+      className={styles.board}
       ref={board}
       aria-label="Board. Drag items or use arrow keys to arrange them."
     >
@@ -298,7 +303,7 @@ export function Board({
         const Icon = iconFor[o.type];
         return (
           <button
-            className={`board-note ${o.type}`}
+            className={styles.note}
             key={o.id}
             aria-label={`Open ${o.name}. Arrow keys move this item.`}
             style={{
@@ -373,7 +378,7 @@ export function Board({
             }}
           >
             <Move />
-            <small>{o.type}</small>
+            <small style={{ font: "9px var(--mono)", color: "var(--muted)" }}>{o.type}</small>
             <Icon />
             <b>{o.name}</b>
             <span>{previewOf(o)}</span>
@@ -398,37 +403,36 @@ export function ShareList({
 }) {
   if (!shares.length)
     return (
-      <div className="zero-state">
-        <div aria-hidden="true">↗</div>
-        <h2>No shared links</h2>
-        <p>Open an item to create an expiring public link.</p>
+      <div className={styles.zero}>
+        <div className={styles.zeroBadge}>↗</div>
+        <h2>No beams out</h2>
+        <p>Open anything and beam it as a public link with expiry + QR.</p>
       </div>
     );
 
   return (
-    <ul className="share-log">
+    <ul className={styles.shareList}>
       {shares.map((s) => (
         <li key={s.id}>
-          <article>
+          <article className={styles.shareCard}>
             <ArrowUpRight aria-hidden="true" />
-            <div>
-              <small>{s.object.type.toUpperCase()} · SHARED LINK</small>
-              <h3>{s.object.name}</h3>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <small style={{ font: "9px var(--mono)", color: "var(--muted)" }}>{s.object.type.toUpperCase()} · BEAM</small>
+              <h3 style={{ margin: "6px 0", fontSize: 15 }}>{s.object.name}</h3>
               <code>/s/{s.token.slice(0, 9)}••••</code>
             </div>
-            <dl>
-              <dt>OPENED</dt>
-              <dd>{s.accessCount}×</dd>
-              <dt>EXPIRES</dt>
-              <dd>{s.expiresAt ? until(s.expiresAt) : "∞"}</dd>
+            <dl style={{ display: "flex", gap: 14, fontSize: 11, margin: 0 }}>
+              <div><dt style={{ fontSize: 9, color: "var(--muted)" }}>HITS</dt><dd style={{ margin: 0, fontWeight: 800 }}>{s.accessCount}×</dd></div>
+              <div><dt style={{ fontSize: 9, color: "var(--muted)" }}>LEFT</dt><dd style={{ margin: 0, fontWeight: 800 }}>{s.expiresAt ? until(s.expiresAt) : "∞"}</dd></div>
             </dl>
             <button
+              className={styles.act}
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(
                     `${location.origin}/s/${s.token}`,
                   );
-                  notify("Link copied");
+                  notify("Beam copied");
                 } catch {
                   notify("Copy failed");
                 }
@@ -438,11 +442,12 @@ export function ShareList({
               COPY
             </button>
             <button
+              className={styles.act}
               onClick={() => revoke(s)}
               aria-label={`Revoke ${s.object.name}`}
             >
               <X aria-hidden="true" />
-              REVOKE
+              CUT
             </button>
           </article>
         </li>

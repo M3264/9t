@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import {
   ArrowUpRight,
-  Check,
   Clock3,
   FileUp,
   LoaderCircle,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import { ApiError, workspaceApi as api } from "../../lib/client/workspace";
 import type { WorkspaceConfig } from "../../types/workspace";
+import styles from "./Capture.module.css";
 
 export default function UniversalInbox({
   config,
@@ -73,8 +73,8 @@ export default function UniversalInbox({
       await saved();
       notify(
         type === "link"
-          ? "Link saved. Ready on your other devices."
-          : "Snippet saved. Ready on your other devices.",
+          ? "Link stuck. Beam it anywhere."
+          : "Snipped. Ready on your phone.",
       );
     } catch (e) {
       setError(
@@ -100,7 +100,7 @@ export default function UniversalInbox({
           throw new Error(
             `${file.name} exceeds the ${config.maxSizeMb} MB limit.`,
           );
-        setProgress(`Uploading ${added + 1} of ${files.length}…`);
+        setProgress(`Beaming ${added + 1} of ${files.length}…`);
         const form = new FormData();
         form.set("type", "file");
         form.set("name", (file.name || `pasted-image-${Date.now()}.png`).slice(0, 200));
@@ -116,7 +116,7 @@ export default function UniversalInbox({
     } finally {
       if (added) {
         await saved();
-        notify(`${added} ${added === 1 ? "file" : "files"} uploaded.`);
+        notify(`${added} ${added === 1 ? "file" : "files"} beamed.`);
       }
       inFlight.current = false;
       setBusy(false);
@@ -125,7 +125,7 @@ export default function UniversalInbox({
   };
   if (!canText && !config.modules.files)
     return (
-      <div className="modules-empty">
+      <div className={styles.empty}>
         <h2>Make room for what you use.</h2>
         <p>
           Enable Files, Snippets, or Links in Settings to start your collection.
@@ -134,7 +134,8 @@ export default function UniversalInbox({
     );
   return (
     <section
-      className={`capture-zone ${dragging ? "is-dragging" : ""} ${!canText ? "files-only" : ""}`}
+      className={styles.wrap}
+      data-drag={dragging}
       aria-label="Quick capture"
       onDragOver={(e) => {
         if (config.modules.files) {
@@ -151,131 +152,134 @@ export default function UniversalInbox({
         void addFiles(e.dataTransfer.files);
       }}
     >
-      <div className="capture-editor">
-        <div className="capture-label">
-          <span>
-            <Plus /> QUICK CAPTURE
-          </span>
-          <span className="capture-tag">Less friction. More flow.</span>
-        </div>
-        {canText ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void addText();
-            }}
-          >
-            <textarea
-              aria-label="Text or link to save"
-              value={value}
-              maxLength={500000}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={
-                config.modules.snippets
-                  ? "What do you want to keep?"
-                  : "Paste a link worth keeping…"
-              }
-              rows={2}
-              onPaste={(event) => {
-                if (!config.modules.files || busy) return;
-                const image = Array.from(event.clipboardData.items)
-                  .find((item) => item.kind === "file" && item.type.startsWith("image/"))
-                  ?.getAsFile();
-                if (!image) return;
-                event.preventDefault();
-                void addFiles([image]);
+      <div className={styles.grid}>
+        <div className={styles.editor}>
+          <div className={styles.label}>
+            <b>
+              <Plus /> QUICK STICK
+            </b>
+            <span>Drop it → find it anywhere</span>
+          </div>
+          {canText ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void addText();
               }}
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                  e.preventDefault();
-                  void addText();
+            >
+              <textarea
+                className={styles.textarea}
+                aria-label="Text or link to save"
+                value={value}
+                maxLength={500000}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={
+                  config.modules.snippets
+                    ? "Stick a thought, command, code…"
+                    : "Paste a link worth beaming…"
                 }
-              }}
-            />
-            <div className="capture-bottom">
-              <div className="capture-tools">
-                {config.modules.files && (
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label="Attach files"
-                    disabled={busy}
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <Paperclip />
-                  </button>
-                )}
-                <label className="keep-select">
-                  <Clock3 />
-                  <select
-                    aria-label="Keep captured items for"
-                    value={lifetime}
-                    onChange={(e) => setLifetime(e.target.value)}
-                  >
-                    <option value="forever">Keep forever</option>
-                    <option value="1h">Keep 1 hour</option>
-                    <option value="1d">Keep 1 day</option>
-                    <option value="7d">Keep 7 days</option>
-                  </select>
-                </label>
+                rows={2}
+                onPaste={(event) => {
+                  if (!config.modules.files || busy) return;
+                  const image = Array.from(event.clipboardData.items)
+                    .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+                    ?.getAsFile();
+                  if (!image) return;
+                  event.preventDefault();
+                  void addFiles([image]);
+                }}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    void addText();
+                  }
+                }}
+              />
+              <div className={styles.row}>
+                <div className={styles.tools}>
+                  {config.modules.files && (
+                    <button
+                      className={styles.attach}
+                      type="button"
+                      aria-label="Attach files"
+                      disabled={busy}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Paperclip />
+                    </button>
+                  )}
+                  <label className={styles.keep}>
+                    <Clock3 />
+                    <select
+                      aria-label="Keep captured items for"
+                      value={lifetime}
+                      onChange={(e) => setLifetime(e.target.value)}
+                    >
+                      <option value="forever">Forever</option>
+                      <option value="1h">1 hour</option>
+                      <option value="1d">1 day</option>
+                      <option value="7d">7 days</option>
+                    </select>
+                  </label>
+                </div>
+                <button className={styles.save} disabled={busy || !value.trim()}>
+                  {busy ? <LoaderCircle className="spin" /> : <ArrowUpRight />}
+                  <span>{busy ? "Sticking" : "Stick it"}</span>
+                </button>
               </div>
-              <button className="capture-save" disabled={busy || !value.trim()}>
-                {busy ? <LoaderCircle className="spin" /> : <ArrowUpRight />}
-                <span>{busy ? "Saving" : "Save"}</span>
-              </button>
+            </form>
+          ) : (
+            <div className={styles.fileIntro}>
+              <h2>
+                From here. <span>To there.</span>
+              </h2>
+              <p>Beam a file and grab it on your phone.</p>
+              <label className={styles.keep}>
+                <Clock3 />
+                <select
+                  aria-label="Keep captured items for"
+                  value={lifetime}
+                  onChange={(e) => setLifetime(e.target.value)}
+                >
+                  <option value="forever">Forever</option>
+                  <option value="1h">1 hour</option>
+                  <option value="1d">1 day</option>
+                  <option value="7d">7 days</option>
+                </select>
+              </label>
             </div>
-          </form>
-        ) : (
-          <div className="capture-file-intro">
-            <h2>
-              From this device.
+          )}
+        </div>
+        {config.modules.files ? (
+          <button
+            className={styles.drop}
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
+          >
+            <span className={styles.emblem}>
+              {busy ? <LoaderCircle className="spin" /> : <FileUp />}
+            </span>
+            <span>
+              <strong>
+                {progress ||
+                  (dragging
+                    ? "Let go. We got it."
+                    : "Drop a file. Beam it.")}
+              </strong>
               <br />
-              To your next.
-            </h2>
-            <p>Upload a file and take it with you.</p>
-            <label className="keep-select">
-              <Clock3 />
-              <select
-                aria-label="Keep captured items for"
-                value={lifetime}
-                onChange={(e) => setLifetime(e.target.value)}
-              >
-                <option value="forever">Keep forever</option>
-                <option value="1h">Keep 1 hour</option>
-                <option value="1d">Keep 1 day</option>
-                <option value="7d">Keep 7 days</option>
-              </select>
-            </label>
+              <small>
+                or <u>browse files</u> · up to {config.maxSizeMb} MB
+              </small>
+            </span>
+          </button>
+        ) : (
+          <div className={styles.sideNote}>
+            <Smartphone />
+            <strong>Pick it up on your next device.</strong>
+            <p>Everything you stick here shows up on your phone in seconds.</p>
           </div>
         )}
       </div>
-      {config.modules.files ? (
-        <button
-          className="capture-drop"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-        >
-          <span className="upload-emblem">
-            {busy ? <LoaderCircle className="spin" /> : <FileUp />}
-          </span>
-          <strong>
-            {progress ||
-              (dragging
-                ? "Let it go. We’ve got it."
-                : "Drop a file. Take it anywhere.")}
-          </strong>
-          <span>
-            or <u>browse files</u> <ArrowUpRight />
-          </span>
-          <small>Up to {config.maxSizeMb} MB per file</small>
-        </button>
-      ) : (
-        <div className="capture-handoff">
-          <Smartphone />
-          <strong>Pick it up on your next device.</strong>
-          <p>Open your workspace to find everything you’ve saved.</p>
-        </div>
-      )}
       <input
         hidden
         type="file"
@@ -287,7 +291,7 @@ export default function UniversalInbox({
         }}
       />
       {error && (
-        <p className="capture-error" role="alert">
+        <p className={styles.error} role="alert">
           {error}
         </p>
       )}
