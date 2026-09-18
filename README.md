@@ -179,4 +179,6 @@ The HTTPS Nginx example is `deploy/nginx/9t.conf`; its certificate paths assume 
 - [Android client](./docs/android.md) — pairing, background receiving, and releases
 - [TODO](./TODO.md) — planned work, including multi-user ownership and S3 storage
 
+
+[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
 9t is currently designed for a single owner. PostgreSQL, multi-user ownership, automated exposure switching, and S3 storage remain on the roadmap.
