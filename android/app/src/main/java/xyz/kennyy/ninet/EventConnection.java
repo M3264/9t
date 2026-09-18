@@ -243,8 +243,9 @@ final class EventConnection implements AutoCloseable {
     disconnect();
     prefs.p.edit().putString("socketStatus", "Polling fallback · reconnecting").apply();
     routeIndex++;
+    // Avoid minute-long gaps when a public proxy drops the socket.
     long delay =
-        routeIndex < routes.size() ? 250 : Math.min(60000, 1000L << Math.min(6, failures++));
+        routeIndex < routes.size() ? 250 : Math.min(10000, 1000L << Math.min(3, failures++));
     pending = executor.schedule(this::connect, delay, TimeUnit.MILLISECONDS);
   }
 

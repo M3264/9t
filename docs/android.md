@@ -16,7 +16,7 @@ Pairing codes contain an access key and are only displayed when created. Keep th
 
 The APK minimum is Android 5.0 (API 21). Notifications, foreground startup, battery diagnostics, key storage, and downloads have version-specific paths. Java library desugaring supplies the newer Java APIs on older Android. Native inbox, text sending and receiving do not depend on a modern WebView. The embedded full website needs a sufficiently current WebView and trusted HTTPS; very old WebViews are not guaranteed to run the modern website. iOS remains separate future work.
 
-Version 0.4.0 also keeps a 15-second reconciliation poll while push is connected, prioritizes snippets before file downloads, retries overlapping sync requests, and avoids reconnecting for every network-capability update. Receiver details distinguish socket heartbeats from change notifications and show the active transfer phase. These changes address identified failure paths; automated checks alone cannot confirm screen-off delivery on every manufacturer's firmware.
+Version 0.4.1 keeps a 5-second reconciliation poll while push is connected and retries a public socket within at most 10 seconds after a failure. This makes public-link delivery converge nearly as quickly as LAN when a proxy or carrier drops a change frame. The encrypted WebSocket remains the immediate path; polling is only the recovery path. Receiver details distinguish socket heartbeats from change notifications and show the active transfer phase. These changes address identified failure paths; automated checks alone cannot confirm screen-off delivery on every manufacturer's firmware.
 
 ## Screens and feature coverage
 

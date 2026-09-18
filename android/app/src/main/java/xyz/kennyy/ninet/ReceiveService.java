@@ -50,7 +50,9 @@ public final class ReceiveService extends Service {
             this,
             loop::request,
             connected -> {
-              loop.setInterval(connected ? 15000 : 5000);
+              // Public WebSocket connections can lose a frame in carrier NATs or proxies.
+              // Keep reconciliation short so the recovery path converges quickly.
+              loop.setInterval(connected ? 5000 : 3000);
               if (!connected) loop.request();
             });
     wakeLock =
