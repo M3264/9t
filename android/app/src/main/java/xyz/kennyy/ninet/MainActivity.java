@@ -17,10 +17,12 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public final class MainActivity extends Activity {
-  private final int bg = Color.rgb(245, 245, 238),
-      ink = Color.rgb(33, 53, 43),
-      green = Color.rgb(37, 79, 58),
-      muted = Color.rgb(101, 117, 106);
+  // Keep the native surfaces on the same visual tokens as the web workspace.
+  private final int bg = Color.rgb(246, 245, 241),
+      paper = Color.WHITE,
+      ink = Color.rgb(36, 43, 49),
+      green = Color.rgb(36, 115, 92),
+      muted = Color.rgb(119, 126, 129);
   private LinearLayout shell, body, nav;
   private TextView connection;
   private TextView receiverStatus, batteryStatus;
@@ -161,7 +163,7 @@ public final class MainActivity extends Activity {
     e.setText(value);
     e.setTextSize(15);
     e.setPadding(dp(14), dp(12), dp(14), dp(12));
-    e.setBackground(shape(Color.WHITE, 12));
+    e.setBackground(shape(paper, 12));
     e.setSingleLine(!multiline);
     if (multiline) {
       e.setMinLines(4);
@@ -226,14 +228,14 @@ public final class MainActivity extends Activity {
     }
     nav = new LinearLayout(this);
     nav.setPadding(dp(6), dp(6), dp(6), dp(6));
-    nav.setBackgroundColor(Color.WHITE);
+    nav.setBackgroundColor(paper);
     for (String name : new String[] {"Inbox", "Workspace", "Send", "Connect"}) {
       Button b = new Button(this);
       b.setText(name);
       b.setAllCaps(false);
       b.setTextSize(12);
       b.setTextColor(tab.equals(name) ? Color.WHITE : green);
-      b.setBackground(shape(tab.equals(name) ? green : Color.WHITE, 12));
+      b.setBackground(shape(tab.equals(name) ? green : paper, 12));
       nav.addView(b, new LinearLayout.LayoutParams(0, dp(52), 1));
       b.setOnClickListener(
           v -> {
@@ -337,7 +339,7 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(12), dp(16), dp(12));
-        card.setBackground(shape(Color.WHITE, 18));
+        card.setBackground(shape(paper, 18));
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
         cp.setMargins(0, dp(7), 0, dp(7));
         body.addView(card, cp);

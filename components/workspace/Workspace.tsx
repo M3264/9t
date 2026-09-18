@@ -226,6 +226,42 @@ function WorkspaceInner() {
     if (phase === "desk") loadObjects(view);
   }, [phase, view, loadObjects]);
 
+  // Keep an open browser tab current without repeatedly downloading the collection.
+  // The server socket carries only a revision signal; the normal cookie-authenticated
+  // API remains the source of truth for the actual objects.
+  useEffect(() => {
+    if (phase !== "desk") return;
+    let socket: WebSocket | null = null;
+    let stopped = false;
+    let retry: number | undefined;
+    let delay = 1000;
+    const connect = () => {
+      if (stopped) return;
+      const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+      socket = new WebSocket(`${scheme}//${location.host}/api/mobile/socket`);
+      socket.onopen = () => { delay = 1000; };
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data) as { type?: string };
+          if (message.type === "ready" || message.type === "changed") loadObjects(view);
+        } catch {}
+      };
+      socket.onerror = () => socket?.close();
+      socket.onclose = () => {
+        if (!stopped) {
+          retry = window.setTimeout(connect, delay);
+          delay = Math.min(30000, delay * 2);
+        }
+      };
+    };
+    connect();
+    return () => {
+      stopped = true;
+      if (retry) window.clearTimeout(retry);
+      socket?.close();
+    };
+  }, [phase, view, loadObjects]);
+
   // Theme
   useEffect(() => {
     if (!config) return;

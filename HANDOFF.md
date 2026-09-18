@@ -8,7 +8,7 @@
 - Security tests passed: four Node socket integration tests cover encrypted change notifications, session-write suppression, revocation close, wrong-key/replay/oversized-frame rejection, reconnect revisions and nonce binding. Android build passed 13 JVM tests (4 ReceiveLoop, 5 LiveSession, 2 SocketSequence, 2 Protocol), release compilation and lint; no physical Android device is attached.
 - `npm run typecheck` passed. `npm audit` is clean after upgrading direct `ws` to 8.21.3. `git diff --check` passed. The normal `tests/mobile-api.mjs` should be rerun against a fresh isolated server; `--socket` additionally checks real API writes notify a connected phone.
 - Deployment requirement: build a staging Next directory, switch the systemd `NINE_T_BUILD_DIR` drop-in, daemon-reload/restart, then verify `/api/status` and the APK. Existing Nginx passes WebSocket upgrades. Do not build into the live directory. The WSL Windows portproxy remains unchanged because the socket uses the same TCP port.
-- APK URL after signing/publishing: `https://9t.kennyy.xyz/downloads/9t-android-0.3.0.apk`. Preserve the release key. Pairing/server wire HTTP API is unchanged; no re-pair should be required.
+- APK URL after signing/publishing: `https://9t.kennyy.xyz/downloads/9t-android-0.3.0.apk`. Current SHA-256 is `47ecdf02ee02d7bea078f4e7ab27667a8cd2bea05e6eeac2e886746d88ee832a`. Preserve the release key. Pairing/server wire HTTP API is unchanged; no re-pair should be required.
 
 
 ## Start here — current handoff

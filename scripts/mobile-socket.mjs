@@ -30,10 +30,25 @@ export function attachMobileSocket(server, dbPath, { heartbeatMs = 20000, authTi
   let observer, timer, reading = false, dirty = false, closed = false;
 
   const read = async () => JSON.parse(await readFile(dbPath, "utf8"));
+  const webSession = (req, data) => {
+    const match = /(?:^|;\s*)9t_session=([^;]+)/.exec(req.headers.cookie || "");
+    if (!match) return null;
+    const hash = createHash("sha256").update(decodeURIComponent(match[1])).digest("hex");
+    const session = data.sessions?.[hash];
+    if (!session || Date.parse(session.expiresAt) <= Date.now()) return null;
+    if (session.deviceId && !data.devices?.[session.deviceId]) return null;
+    if (!data.instanceId) return null;
+    return { id: session.deviceId, instance: data.instanceId, web: true };
+  };
   const revision = (data) => createHash("sha256")
     .update(JSON.stringify([data.objects, data.config?.modules])).digest("hex");
   const send = (ws, state, type, rev) => {
     if (ws.readyState !== WebSocket.OPEN) return;
+    if (state.web) {
+      ws.send(JSON.stringify({ type, sequence: ++state.sequence, revision: rev, serverTime: Date.now() }));
+      state.revision = rev;
+      return;
+    }
     if (ws.bufferedAmount > 16384) { ws.terminate(); return; }
     ws.send(JSON.stringify(sealSocket(state.key, `${state.aad}:event:${state.clientNonce}`, {
       type, sequence: ++state.sequence, revision: rev, serverTime: Date.now(),
@@ -47,8 +62,8 @@ export function attachMobileSocket(server, dbPath, { heartbeatMs = 20000, authTi
     try {
       const data = await read(), rev = revision(data);
       for (const [ws, state] of clients) {
-        if (!state.key) continue;
-        if (data.instanceId !== state.instance || data.devices?.[state.id]?.key !== state.key) {
+        if (!state.web && !state.key) continue;
+        if (data.instanceId !== state.instance || (state.id && !data.devices?.[state.id])) {
           ws.close(4003, "Pairing revoked");
         } else if (state.revision !== rev || heartbeat) {
           send(ws, state, state.revision !== rev ? "changed" : "heartbeat", rev);
@@ -90,10 +105,22 @@ export function attachMobileSocket(server, dbPath, { heartbeatMs = 20000, authTi
     if (closed || wss.clients.size >= 128) {
       socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n"); return;
     }
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws));
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   };
   server.on("upgrade", upgrade);
-  wss.on("connection", (ws) => {
+  wss.on("connection", async (ws, req) => {
+    let initialData;
+    try { initialData = await read(); } catch { ws.close(1011, "Store unavailable"); return; }
+    const browser = webSession(req, initialData);
+    if (browser) {
+      const state = { ...browser, sequence: 0, alive: true, revision: "" };
+      clients.set(ws, state);
+      ws.on("error", () => {});
+      ws.on("pong", () => { state.alive = true; });
+      ws.on("close", () => clients.delete(ws));
+      send(ws, state, "ready", revision(initialData));
+      return;
+    }
     const challenge = randomBytes(32).toString("base64url");
     const state = { challenge, sequence: 0, alive: true, authenticating: false };
     clients.set(ws, state);
