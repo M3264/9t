@@ -1,4 +1,16 @@
-# 9t Android + LAN handoff — 2026-09-17
+# 9t project handoff — 2026-09-18
+
+
+## Start here — current handoff
+
+- Repository: `/home/ubuntu/9t`, branch `main`, remote `https://github.com/M3264/9t.git`.
+- Latest implementation commit: `f57b33c`, pushed to `origin/main`; includes Android 0.2.1 and setup/network documentation. Installer commit: `c68f345`. The handoff-only commit following it updates this orientation.
+- Live instance: `https://9t.kennyy.xyz`, systemd `9t.service`, port 3265, build `.next-mobile-release`. User's Windows/WSL laptop installation is separate and cannot be inspected from this host.
+- Current APK is published and verified; use the 0.2.1 URL below. Source and documentation are pushed. APK/signing artifacts are deliberately ignored by Git; keep the original signing key for upgrades.
+- Next: user installs 0.2.1 over their existing app on Tecno/Android 15, allows background battery use, and checks reception while another app is visible and with the screen locked. No physical-phone result for this update has been received yet.
+- Remaining website deployment task: rebuild/deploy the Devices page to show the 0.2.1 download link. Its source is updated, but the live web build still advertises 0.2.0. Do not overwrite the old versioned APK with new bytes.
+- Limits: five-hour live session, Android-controlled scheduled fallback; no unconditional always-on guarantee. Local laptop must remain reachable/awake. Native HTTP LAN transfers work; embedded Workspace still requires trusted HTTPS.
+- Read `docs/installation.md`, `docs/network-troubleshooting.md`, and `docs/android.md` for current operational instructions. Earlier sections below preserve historical implementation details; their old uncommitted/deployment statements do not describe the current Git state.
 
 ## Latest update: Android background receiving — 2026-09-18
 
