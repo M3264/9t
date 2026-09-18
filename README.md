@@ -2,8 +2,6 @@
   <img src="./public/9t-mark.svg" alt="9t" width="96" />
 </p>
 
-<h1 align="center">9t</h1>
-
 <p align="center">
   A quiet, self-hosted workspace for moving the things you need between your devices.
 </p>
