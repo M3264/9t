@@ -18,8 +18,9 @@ final class SyncEngine {
     boolean stopped();
   }
 
-  static void run(Context context, Cancel cancel) throws Exception {
+  static void run(Context context, Cancel cancel, String source) throws Exception {
     if (!running.compareAndSet(false, true)) return;
+    boolean startedInBackground = !ReceiverDiagnostics.visible && !"open app".equals(source);
     Prefs p = new Prefs(context);
     try (LocalStore db = new LocalStore(context)) {
       if (!p.paired() || !p.p.getBoolean("enabled", true)) return;
@@ -102,13 +103,24 @@ final class SyncEngine {
       }
       copyPending(context);
       if (changed) p.p.edit().putLong("inboxVersion", System.currentTimeMillis()).apply();
-      p.p.edit().putLong("lastSync", System.currentTimeMillis()).apply();
+      long completedAt = System.currentTimeMillis();
+      SharedPreferences.Editor diagnostic =
+          p.p
+              .edit()
+              .putLong("lastSync", completedAt)
+              .putString("lastSyncSource", source)
+              .putInt("lastTransferErrors", errors)
+              .remove("receiverLastErrorKind");
+      if (startedInBackground && !ReceiverDiagnostics.visible)
+        diagnostic.putLong("lastBackgroundSync", completedAt);
+      diagnostic.apply();
       p.status(
           errors > 0
               ? errors + " transfer(s) need attention · retrying"
               : "Up to date · " + p.p.getString("route", "Connected"));
     } catch (Exception e) {
       p.status(e.getMessage() == null ? "Waiting for connection" : e.getMessage());
+      ReceiverDiagnostics.error(context, e);
       throw e;
     } finally {
       running.set(false);
@@ -148,6 +160,7 @@ final class SyncEngine {
                 p.p
                     .edit()
                     .remove("pendingClip")
+                    .putLong("lastClipboardAt", System.currentTimeMillis())
                     .putString("clipboardStatus", "Latest snippet copied")
                     .apply();
               } catch (Exception e) {
@@ -237,6 +250,7 @@ final class SyncEngine {
     db.update(id, "status", "saved");
     db.update(id, "error", null);
     partial.delete();
+    new Prefs(c).p.edit().putLong("lastFileSavedAt", System.currentTimeMillis()).apply();
     Notices.saved(c, filename, uri, item.optString("mimeType", "application/octet-stream"));
   }
 }

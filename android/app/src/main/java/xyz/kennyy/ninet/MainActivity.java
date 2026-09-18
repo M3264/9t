@@ -23,6 +23,7 @@ public final class MainActivity extends Activity {
       muted = Color.rgb(101, 117, 106);
   private LinearLayout shell, body, nav;
   private TextView connection;
+  private TextView receiverStatus, batteryStatus;
   private Prefs prefs;
   private String tab = "Inbox";
   private WebView web;
@@ -57,16 +58,19 @@ public final class MainActivity extends Activity {
   protected void onResume() {
     super.onResume();
     foreground = true;
+    ReceiverDiagnostics.visibility(this, true);
     handler.post(refresh);
     if (prefs.paired() && prefs.p.getBoolean("enabled", true)) {
       ensureLive();
       sync(false);
+      offerBackgroundAccess();
     }
   }
 
   @Override
   protected void onPause() {
     foreground = false;
+    ReceiverDiagnostics.visibility(this, false);
     handler.removeCallbacks(refresh);
     super.onPause();
   }
@@ -173,6 +177,8 @@ public final class MainActivity extends Activity {
   }
 
   private void render() {
+    receiverStatus = null;
+    batteryStatus = null;
     renderedVersion = prefs.p.getLong("inboxVersion", 0);
     if (web != null) {
       web.destroy();
@@ -308,6 +314,8 @@ public final class MainActivity extends Activity {
       String route = prefs.p.getString("route", "NOT CONNECTED");
       connection.setText((ReceiveService.active ? "● LIVE · " : "○ ") + route.toUpperCase());
     }
+    if (receiverStatus != null) receiverStatus.setText(ReceiverDiagnostics.summary(this));
+    if (batteryStatus != null) batteryStatus.setText(backgroundStatus());
   }
 
   private void inbox() {
@@ -515,6 +523,7 @@ public final class MainActivity extends Activity {
                     .commit();
                 Transport.lanRetryAt = 0;
                 toast("Connection saved");
+                if (prefs.p.getBoolean("enabled", true)) ensureLive();
                 sync(false);
               } catch (Exception e) {
                 toast(e.getMessage());
@@ -540,29 +549,18 @@ public final class MainActivity extends Activity {
               }
             }));
     body.addView(button("Start live receiving", this::startLive));
-    PowerManager power = getSystemService(PowerManager.class);
+    body.addView(text("BACKGROUND RECEIVING · 9t " + ReceiverDiagnostics.version(this), 12, green));
+    receiverStatus = text(ReceiverDiagnostics.summary(this), 14, muted);
+    body.addView(receiverStatus);
+    batteryStatus = text(backgroundStatus(), 14, muted);
+    body.addView(batteryStatus);
+    body.addView(button("Allow background receiving", this::requestBackgroundAccess));
+    body.addView(button("Phone app settings", this::openAppSettings));
     paragraph(
-        power.isIgnoringBatteryOptimizations(getPackageName())
-            ? "Battery optimization: unrestricted."
-            : "Battery optimization is on. For screen-off receiving, allow 9t to run unrestricted"
-                  + " in Android's battery settings.");
-    body.addView(
-        button(
-            "Background battery settings",
-            () -> {
-              try {
-                startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
-              } catch (ActivityNotFoundException e) {
-                startActivity(
-                    new Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + getPackageName())));
-              }
-            }));
-    paragraph(
-        "In battery settings, select All apps → 9t → Don't optimize (or Unrestricted). Some phones"
-            + " also need Allow background activity or Auto-start in their app settings. Live"
-            + " receiving uses extra battery while waiting for transfers.");
+        "Allow background receiving in Android's prompt so files can arrive while the screen is"
+            + " off. On Tecno/HiOS, also allow background activity and auto-start in Phone app"
+            + " settings if offered. Live receiving uses extra battery.");
+    body.addView(button("Receiver details", this::showReceiverDetails));
     body.addView(
         button(
             "Pause all receiving",
@@ -581,11 +579,11 @@ public final class MainActivity extends Activity {
                     new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()))));
     paragraph(
-        "Live receiving shows a persistent notification and checks every few seconds. Android may"
-            + " pause it for battery or time limits; scheduled recovery runs about every 15 minutes"
-            + " when allowed. Live receiving starts automatically when you open a paired, unpaused"
-            + " app and continues when you leave. Force-stopping the app stops all background"
-            + " work.");
+        "With a LAN address and Automatic or LAN-only mode, receiving keeps the connection to your"
+            + " computer active until you pause it, including after a restart. Internet-only"
+            + " receiving uses a five-hour live session, then scheduled checks. The notification"
+            + " shows the last successful connection time. Force-stop and phone battery controls"
+            + " can still stop receiving.");
     paragraph(
         "Transfers are encrypted even on HTTP LAN routes. The full Workspace screen requires HTTPS."
             + " LAN-only use needs a server on your local network; a cloud server still needs"
@@ -611,12 +609,86 @@ public final class MainActivity extends Activity {
     ensureLive();
   }
 
+  private String backgroundStatus() {
+    boolean exempt =
+        getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName());
+    boolean restricted = getSystemService(ActivityManager.class).isBackgroundRestricted();
+    return (exempt
+            ? "Android background battery access: allowed."
+            : "Android background battery access: restricted. Tap Allow background receiving.")
+        + (restricted ? " Background activity is also restricted in Phone app settings." : "");
+  }
+
+  private void offerBackgroundAccess() {
+    if (prefs.p.getBoolean("backgroundPromptV3", false)
+        || getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName()))
+      return;
+    prefs.p.edit().putBoolean("backgroundPromptV3", true).apply();
+    new AlertDialog.Builder(this)
+        .setTitle("Receive in the background")
+        .setMessage(
+            "Allow 9t to receive files and text while another app is open or the screen is locked."
+                + " Android will ask to allow background battery use. This uses extra battery.")
+        .setPositiveButton("Continue", (d, w) -> requestBackgroundAccess())
+        .setNegativeButton("Later", null)
+        .show();
+  }
+
+  private void requestBackgroundAccess() {
+    if (getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName())) {
+      if (getSystemService(ActivityManager.class).isBackgroundRestricted()) openAppSettings();
+      else toast("Android background battery access is already allowed.");
+      return;
+    }
+    try {
+      startActivity(
+          new Intent(
+              Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+              Uri.parse("package:" + getPackageName())));
+    } catch (ActivityNotFoundException | SecurityException e) {
+      try {
+        startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+      } catch (ActivityNotFoundException missing) {
+        openAppSettings();
+      }
+    }
+  }
+
+  private void openAppSettings() {
+    startActivity(
+        new Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:" + getPackageName())));
+  }
+
+  private void showReceiverDetails() {
+    String report = ReceiverDiagnostics.report(this);
+    TextView content = text(report, 14, ink);
+    content.setPadding(dp(20), dp(10), dp(20), dp(10));
+    content.setTextIsSelectable(true);
+    ScrollView scroll = new ScrollView(this);
+    scroll.addView(content);
+    new AlertDialog.Builder(this)
+        .setTitle("Receiver details")
+        .setView(scroll)
+        .setPositiveButton(
+            "Copy details",
+            (d, w) -> {
+              getSystemService(ClipboardManager.class)
+                  .setPrimaryClip(ClipData.newPlainText("9t receiver details", report));
+              toast("Receiver details copied");
+            })
+        .setNegativeButton("Close", null)
+        .show();
+  }
+
   private void ensureLive() {
     SyncJob.schedule(this);
-    if (ReceiveService.active) return;
     try {
-      startForegroundService(new Intent(this, ReceiveService.class));
+      startForegroundService(
+          new Intent(this, ReceiveService.class).setAction(ReceiveService.START));
     } catch (Exception e) {
+      ReceiverDiagnostics.error(this, e);
       toast(
           "Android could not start live receiving. Open the app again; scheduled sync remains"
               + " enabled.");
@@ -637,7 +709,8 @@ public final class MainActivity extends Activity {
             SyncEngine.run(
                 this,
                 () ->
-                    !prefs.p.getBoolean("enabled", true) || Thread.currentThread().isInterrupted());
+                    !prefs.p.getBoolean("enabled", true) || Thread.currentThread().isInterrupted(),
+                "open app");
           } catch (Exception ignored) {
           }
           runOnUiThread(

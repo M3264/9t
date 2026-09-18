@@ -6,6 +6,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.*;
 import javax.crypto.Cipher;
 import org.json.JSONObject;
 
@@ -14,6 +15,11 @@ final class Transport {
   final Prefs prefs;
   final JSONObject credentials;
   static volatile long lanRetryAt;
+  private static final ScheduledThreadPoolExecutor timeouts = new ScheduledThreadPoolExecutor(1);
+
+  static {
+    timeouts.setRemoveOnCancelPolicy(true);
+  }
 
   static final class Route {
     final String url, label;
@@ -108,6 +114,9 @@ final class Transport {
     conn.setRequestProperty("Content-Type", "application/json");
     byte[] bytes = env.toString().getBytes(StandardCharsets.UTF_8);
     conn.setFixedLengthStreamingMode(bytes.length);
+    // A read timeout alone cannot bound a blocked write or a response that trickles
+    // forever. Close the request so the receiver can retry or use its other route.
+    ScheduledFuture<?> timeout = timeouts.schedule(conn::disconnect, 30, TimeUnit.SECONDS);
     try {
       try (OutputStream out = conn.getOutputStream()) {
         out.write(bytes);
@@ -140,8 +149,10 @@ final class Transport {
                   StandardCharsets.UTF_8));
       if (result.has("error"))
         throw new RemoteError(result.optString("error"), result.optInt("code"));
+      prefs.p.edit().putLong("lastNetworkAt", System.currentTimeMillis()).apply();
       return result;
     } finally {
+      timeout.cancel(false);
       conn.disconnect();
     }
   }

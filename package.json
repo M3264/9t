@@ -6,7 +6,7 @@
     "9t": "bin/9t.mjs"
   },
   "scripts": {
-    "dev": "next dev -H 0.0.0.0 -p 3265",
+    "dev": "node scripts/serve.mjs --dev",
     "build": "next build",
     "start": "node scripts/run-server.mjs",
     "setup": "node bin/9t.mjs setup",
@@ -21,6 +21,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "ws": "8.21.3",
     "zod": "3.23.8"
   },
   "devDependencies": {

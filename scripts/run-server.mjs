@@ -30,15 +30,8 @@ export async function runServer(root, args = []) {
     );
   const child = spawn(
     process.execPath,
-    [
-      join(root, "node_modules/next/dist/bin/next"),
-      "start",
-      "-H",
-      host,
-      "-p",
-      port,
-    ],
-    { cwd: root, env, stdio: "inherit" },
+    [join(root, "scripts/serve.mjs")],
+    { cwd: root, env: { ...env, PORT: port, NINE_T_HOST: host }, stdio: "inherit" },
   );
   const stop = () => child.kill("SIGTERM");
   process.once("SIGINT", stop);

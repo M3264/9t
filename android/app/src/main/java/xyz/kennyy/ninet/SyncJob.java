@@ -5,7 +5,8 @@ import android.content.*;
 import java.util.concurrent.*;
 
 public final class SyncJob extends JobService {
-  private volatile boolean stopped;
+  private volatile int generation;
+  private Future<?> task;
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
   static void schedule(Context c) {
@@ -25,25 +26,31 @@ public final class SyncJob extends JobService {
   }
 
   public boolean onStartJob(JobParameters p) {
-    stopped = false;
-    executor.execute(
-        () -> {
-          try {
-            SyncEngine.run(this, () -> stopped);
-          } catch (Exception ignored) {
-          }
-          if (!stopped) jobFinished(p, false);
-        });
+    int run = ++generation;
+    if (task != null) task.cancel(true);
+    task =
+        executor.submit(
+            () -> {
+              try {
+                SyncEngine.run(
+                    this,
+                    () -> run != generation || Thread.currentThread().isInterrupted(),
+                    "scheduled job");
+              } catch (Exception ignored) {
+              }
+              if (run == generation) jobFinished(p, false);
+            });
     return true;
   }
 
   public boolean onStopJob(JobParameters p) {
-    stopped = true;
+    generation++;
+    if (task != null) task.cancel(true);
     return true;
   }
 
   public void onDestroy() {
-    stopped = true;
+    generation++;
     executor.shutdownNow();
     super.onDestroy();
   }

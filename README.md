@@ -55,6 +55,8 @@ For repeatable/unattended installation, see [the installation guide](./docs/inst
 
 Connecting a phone, using Windows/WSL, or troubleshooting Wi-Fi/hotspots? Follow [the network and connection guide](./docs/network-troubleshooting.md). See [the Android guide](./docs/android.md) for pairing and background receiving.
 
+The Android client uses an encrypted persistent connection when the server supports it, with encrypted HTTP catch-up and polling fallback. Existing installations should update the server with `git pull`, `npm ci`, `npm run build`, and their normal service restart before installing the matching client release.
+
 ## Manual installation
 
 Requirements: Node.js 22 or newer.

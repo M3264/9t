@@ -1,6 +1,8 @@
 // Integration test: requires an ISOLATED initialized-by-this-test server.
 // Never run against production. Example: node tests/mobile-api.mjs http://127.0.0.1:3274
 import assert from "node:assert/strict";
+import { WebSocket } from "ws";
+import { sealSocket, openSocket } from "../scripts/mobile-socket.mjs";
 import {
   createCipheriv,
   createDecipheriv,
@@ -109,6 +111,34 @@ r = await raw(
   ),
 );
 assert.equal(r.status, 401, "wrong peer rejected");
+let eventSocket, socketClosed, nextEvent;
+if (process.argv.includes("--socket")) {
+  eventSocket = new WebSocket(base.replace("http:", "ws:") + "/api/mobile/socket");
+  const queued = [], waiting = [];
+  eventSocket.on("message", raw => {
+    const value = JSON.parse(raw.toString());
+    if (waiting.length) waiting.shift()(value); else queued.push(value);
+  });
+  eventSocket.on("error", () => {});
+  socketClosed = new Promise(resolve => eventSocket.once("close", resolve));
+  const next = () => queued.length ? Promise.resolve(queued.shift()) : new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { eventSocket.terminate(); reject(Error("Push event timeout")); }, 5000);
+    waiting.push(value => { clearTimeout(timer); resolve(value); });
+  });
+  const hello = await next(), clientNonce = randomUUID();
+  const socketAad = `9t:socket:v1:${pair.instanceId}:${pair.id}:${hello.challenge}`;
+  eventSocket.send(JSON.stringify({ id: pair.id, ...sealSocket(pair.key, socketAad + ":subscribe", {
+    action: "subscribe", challenge: hello.challenge, clientNonce,
+  }) }));
+  let sequence = 0;
+  nextEvent = async () => {
+    const event = openSocket(pair.key, socketAad + ":event:" + clientNonce, await next());
+    assert.equal(event.sequence, ++sequence);
+    return event;
+  };
+  assert.equal((await nextEvent()).type, "ready");
+}
+try {
 const transferId = randomUUID();
 await rpc({
   action: "sendText",
@@ -120,6 +150,11 @@ await rpc({
   content: "Hello 📱\nclipboard as text",
   transferId,
 });
+if (nextEvent) {
+  let event;
+  do { event = await nextEvent(); } while (event.type === "heartbeat");
+  assert.equal(event.type, "changed", "API write must notify the already-connected phone");
+}
 let sync = await rpc({ action: "sync" });
 assert.equal(sync.objects.length, 1, "idempotent retry");
 const snippet = sync.objects[0];
@@ -227,3 +262,7 @@ assert.equal(r.status, 401, "device web session revoked");
 console.log(
   "PASS: auth, CSRF, pairing, encrypted text/files, Java-compatible envelopes, replay/tamper/staleness, idempotency, chunk resume, module/trash filtering, web sessions, device revocation.",
 );
+
+if (socketClosed) assert.equal(await socketClosed, 4003, "Revoke must close the live connection");
+if (eventSocket) console.log("PASS: same-port WebSocket auth, live API change notification and revocation.");
+} finally { eventSocket?.terminate(); }

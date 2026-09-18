@@ -3,6 +3,7 @@ package xyz.kennyy.ninet;
 import android.app.*;
 import android.content.*;
 import android.net.Uri;
+import android.os.Build;
 
 final class Notices {
   static void channels(Context c) {
@@ -30,16 +31,22 @@ final class Notices {
             1,
             new Intent(c, ReceiveService.class).setAction("pause"),
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-    return new Notification.Builder(c, "connection")
-        .setSmallIcon(R.drawable.ic_ninet)
-        .setContentTitle("9t · Live receiving")
-        .setContentText(text)
-        .setContentIntent(home(c))
-        .setOngoing(true)
-        .setOnlyAlertOnce(true)
-        .setVisibility(Notification.VISIBILITY_PRIVATE)
-        .addAction(new Notification.Action.Builder(null, "Pause", stop).build())
-        .build();
+    long lastConnection = new Prefs(c).p.getLong("lastNetworkAt", 0);
+    Notification.Builder notification =
+        new Notification.Builder(c, "connection")
+            .setSmallIcon(R.drawable.ic_ninet)
+            .setContentTitle("9t · Live receiving")
+            .setContentText(text)
+            .setContentIntent(home(c))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setWhen(lastConnection)
+            .setShowWhen(lastConnection > 0)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .addAction(new Notification.Action.Builder(null, "Pause", stop).build());
+    if (Build.VERSION.SDK_INT >= 31)
+      notification.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+    return notification.build();
   }
 
   static void clip(Context c) {

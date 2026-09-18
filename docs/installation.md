@@ -44,6 +44,12 @@ The systemd startup option is available only when systemd is running in your dis
 
 If you already completed setup, do not rerun it to change the network binding. Edit `NINE_T_HOST` and `PORT` in `.env.production`, then restart the existing service or foreground process. Explicit process environment variables override this file. For ordinary LAN HTTP, use `NINE_T_HOST=0.0.0.0` and `NINE_T_HTTPS=false`. Keep `NINE_T_HTTPS=true` on an existing HTTPS deployment; this setting controls secure session cookies, not TLS termination.
 
+### Persistent phone receiving
+
+Current 9t servers expose the encrypted phone event socket at `/api/mobile/socket` on the same port as the web app. `npm start` runs the 9t server wrapper that serves Next and upgrades this path; do not replace it with a raw `next start` command if you want push notifications. The Android client still performs its normal encrypted HTTP catch-up, so it falls back to polling when the socket is unavailable.
+
+After pulling a release that adds socket support, update an existing checkout with `git pull`, run `npm ci` and `npm run build`, then restart the existing service or foreground process. Keep the service's configured data directory and signing/pairing data; do not rerun setup or delete `data/`. A reverse proxy must pass WebSocket upgrades; the existing 9t Nginx configuration does this with HTTP/1.1 Upgrade and Connection headers. WSL portproxy rules do not change because the socket uses the same TCP port as HTTP.
+
 ## Automation
 
 Example `preferences.json` (keep it outside the checkout or remove it after use):

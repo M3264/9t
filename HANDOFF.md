@@ -1,18 +1,60 @@
 # 9t project handoff — 2026-09-18
 
+## Current update: persistent encrypted phone connection (0.3.0)
+
+- User requested a KDE Connect-style persistent connection because 0.2.2 still delivered only after opening the app. This work is local and not yet committed or pushed at this point in the session.
+- Server: `scripts/serve.mjs` wraps Next with an encrypted WebSocket endpoint at `/api/mobile/socket` on the existing HTTP/HTTPS port. `scripts/run-server.mjs`, `npm start`, and `npm run dev` use it. A file watcher plus heartbeat sends only a revision/changed signal; item contents remain in the existing AES-GCM HTTP API. Old servers and clients continue polling.
+- Android: `EventConnection` uses OkHttp, challenge + fresh client nonce authentication, AES-GCM event frames, sequence checks, heartbeat, reconnect/backoff, LAN/public route fallback, and catch-up through `SyncEngine`. `ReceiveLoop` remains the transfer fallback. Version is **0.3.0 / code 4**; the release dependency is OkHttp 4.12.0.
+- Security tests passed: four Node socket integration tests cover encrypted change notifications, session-write suppression, revocation close, wrong-key/replay/oversized-frame rejection, reconnect revisions and nonce binding. Android build passed 13 JVM tests (4 ReceiveLoop, 5 LiveSession, 2 SocketSequence, 2 Protocol), release compilation and lint; no physical Android device is attached.
+- `npm run typecheck` passed. `npm audit` is clean after upgrading direct `ws` to 8.21.3. `git diff --check` passed. The normal `tests/mobile-api.mjs` should be rerun against a fresh isolated server; `--socket` additionally checks real API writes notify a connected phone.
+- Deployment requirement: build a staging Next directory, switch the systemd `NINE_T_BUILD_DIR` drop-in, daemon-reload/restart, then verify `/api/status` and the APK. Existing Nginx passes WebSocket upgrades. Do not build into the live directory. The WSL Windows portproxy remains unchanged because the socket uses the same TCP port.
+- APK URL after signing/publishing: `https://9t.kennyy.xyz/downloads/9t-android-0.3.0.apk`. Preserve the release key. Pairing/server wire HTTP API is unchanged; no re-pair should be required.
+
 
 ## Start here — current handoff
 
 - Repository: `/home/ubuntu/9t`, branch `main`, remote `https://github.com/M3264/9t.git`.
-- Latest implementation commit: `f57b33c`, pushed to `origin/main`; includes Android 0.2.1 and setup/network documentation. Installer commit: `c68f345`. The handoff-only commit following it updates this orientation.
-- Live instance: `https://9t.kennyy.xyz`, systemd `9t.service`, port 3265, build `.next-mobile-release`. User's Windows/WSL laptop installation is separate and cannot be inspected from this host.
-- Current APK is published and verified; use the 0.2.1 URL below. Source and documentation are pushed. APK/signing artifacts are deliberately ignored by Git; keep the original signing key for upgrades.
-- Next: user installs 0.2.1 over their existing app on Tecno/Android 15, allows background battery use, and checks reception while another app is visible and with the screen locked. No physical-phone result for this update has been received yet.
-- Remaining website deployment task: rebuild/deploy the Devices page to show the 0.2.1 download link. Its source is updated, but the live web build still advertises 0.2.0. Do not overwrite the old versioned APK with new bytes.
-- Limits: five-hour live session, Android-controlled scheduled fallback; no unconditional always-on guarantee. Local laptop must remain reachable/awake. Native HTTP LAN transfers work; embedded Workspace still requires trusted HTTPS.
+- Latest committed state: `d01c00c` on `main` / `origin/main`. Android **0.2.2** implementation and documentation changes are currently local and uncommitted; no push has been performed for this update. Earlier implementation commit: `f57b33c`; installer: `c68f345`.
+- Live instance: `https://9t.kennyy.xyz`, systemd `9t.service`, port 3265, build `.next-mobile-build`, build ID `0Rx-dCAtCC_vXzzmdmD7S`. User's Windows/WSL laptop installation is separate and cannot be inspected from this host.
+- Android **0.2.2 is published and verified**: https://9t.kennyy.xyz/downloads/9t-android-0.2.2.apk . The live Devices page now links to 0.2.2. APK/signing artifacts are ignored by Git; preserve the original signing key.
+- User tested 0.2.1: the live notification stays visible, but **both files and clipboard arrive only after opening the app**. User pointed to KDE Connect as a working comparison. No physical-phone result exists for 0.2.2 yet.
+- Deployment is complete. Next: user installs 0.2.2 over the existing app, approves background battery access, and tests another-app and screen-off receiving. If it still stalls, collect **Connect → Receiver details → Copy details**. Do not replace an older versioned APK with new bytes.
+- Limits in 0.2.2: LAN computer connections use `connectedDevice` without the application's five-hour cutoff; cloud-only/Internet-only receiving retains time-limited `dataSync` and scheduled fallback. Android battery exemption is requested directly with consent. OEM restrictions and force-stop still apply; the laptop must remain reachable/awake. Native HTTP LAN transfers work; embedded Workspace requires trusted HTTPS.
 - Read `docs/installation.md`, `docs/network-troubleshooting.md`, and `docs/android.md` for current operational instructions. Earlier sections below preserve historical implementation details; their old uncommitted/deployment statements do not describe the current Git state.
 
-## Latest update: Android background receiving — 2026-09-18
+## Latest update: persistent LAN receiving and diagnostics (0.2.2) — 2026-09-18
+
+The 0.2.1 phone test failed despite the notification remaining visible. Inspected KDE Connect's public Android source and Android's official foreground-service and Doze documentation. KDE Connect uses `connectedDevice`, while 9t previously always used `dataSync`. A visible notification/wake lock alone does not exempt networking from Doze. Without device logs, these are identified gaps, not a proven diagnosis of the specific Tecno freeze.
+
+Implemented:
+
+- Select `connectedDevice` for a configured LAN endpoint in Automatic/LAN-only mode, with `CHANGE_NETWORK_STATE`, Wi-Fi retention without internet validation, sticky recovery and enabled/paired boot/update restoration. Select **only** `dataSync` for cloud-only or Internet-only mode; preserve its five-hour deadline on process recovery and never start it from boot.
+- Direct **Allow background receiving** system battery-exemption request, one-time explanation after upgrading, live battery/background-status text and an app-settings shortcut for HiOS controls.
+- Separate `ReceiveLoop` coalesces reconnects, never overlaps its own work, schedules retries even when error reporting throws, and rejects stale/canceled callbacks. Notification-update exceptions cannot terminate future polling. Scheduled jobs now retain per-run cancellation across restarts. Network changes and unlock trigger reconnection/copying without opening 9t.
+- Renewable timed partial wake lock while the receiver progresses, released on stop. HTTP requests have a 30-second cancellation timer as well as connect/read timeouts.
+- Connect displays **0.2.2**, last receiver check and last background sync. **Receiver details → Copy details** preserves separate background timestamps and reports lifecycle events, error classes, transfer/clipboard timing, battery restrictions and Data Saver state. Reports exclude endpoint URLs, pairing credentials and item contents. The notification timestamp reflects the last successful network response.
+- Server wire protocol is unchanged: no laptop-server upgrade or new pairing is required for this APK.
+
+Artifacts and completed checks:
+
+- Package `xyz.kennyy.ninet`, version **0.2.2 / code 3**, minimum API 29, target/compile 35; 103,041-byte signed APK.
+- Local APK: `artifacts/9t-android-0.2.2.apk`; published file: `public/downloads/9t-android-0.2.2.apk`; URL: https://9t.kennyy.xyz/downloads/9t-android-0.2.2.apk .
+- SHA-256: `f45bd2690290db7bfd9106f5c52e04bb5442b7cbefe2396e8ce02dbf19e2f2e6`.
+- Signing certificate matches all prior releases: `e1749fd90490890a20260846c1bfda9dd6f2ea790b120074958a83db7a693e39`. Older 0.2.0 and 0.2.1 public APK files retain their recorded hashes.
+- Release build and **11 JVM tests passed**, zero failures/errors/skips. Tests cover protocol integrity, cloud deadlines and boot eligibility, exception recovery, reconnect coalescing, pause cancellation and stale callback races.
+- Android lint: **zero errors, 15 warnings**. The added `BatteryLife` warning concerns the intentional direct exemption request for core offline-LAN receiving; other warnings concern existing preferences, localization, backup and space queries. Do not describe lint as warning-free.
+- `node --test tests/*.test.mjs`: **8 passed**, including Java/Node encryption interoperability and installer/store checks.
+- Final production web build and TypeScript passed; existing middleware/proxy deprecation warning remains. `tests/mobile-api.mjs` passed against fresh isolated data: authenticated pairing, encrypted text/files, replay/tamper/stale rejection, idempotency, chunk resumption, filtering, web sessions and revocation. Browser check `/tmp/9t-022-web-smoke.cjs` passed: authenticated Devices UI, pairing/revocation, exact 0.2.2 link, APK download, mobile layout and no page errors. These were fixture tests, not authenticated production tests.
+- Deployed the tested `.next-mobile-build` via the existing systemd drop-in. `9t.service` is active; local and public `/api/status` return initialized/healthy. Downloaded public APK bytes exactly match the signed local artifact and hash above. The live JS bundle `/_next/static/chunks/07ol492ani3ul.js` contains the new download link.
+- Old `.next-mobile-release` remains available for rollback; previous drop-in saved at `/tmp/9t-mobile-build-before-022.conf`. Restore that file to `/etc/systemd/system/9t.service.d/mobile-build.conf`, daemon-reload and restart if needed. Do not build into `.next-mobile-build` while it is serving production. `next-env.d.ts` now references its generated types.
+- Isolated server on 3274 was stopped and its fixture data removed. Production account/data configuration was retained. `git diff --check` passed.
+- **No physical Android test**: `adb devices -l` returned no attached device. Automated JVM checks are not proof of Tecno/HiOS runtime behavior.
+
+Next user test: install 0.2.2 over the old app, approve **Allow background receiving**, use the saved laptop LAN address in Automatic/LAN-only mode, then send a new file and snippet while another app is visible and while locked. If delivery still stalls, request **Connect → Receiver details → Copy details** rather than guessing from the notification alone. Phone/HiOS background activity and auto-start may require separate settings.
+
+Earlier sections below are historical, including their old Git, download and deployment statements.
+
+## Earlier update: Android background receiving (0.2.1) — 2026-09-18
 
 User tested a laptop/WSL installation successfully after forwarding Windows Wi-Fi IP `10.28.24.8:3265` into Ubuntu. Their Tecno on Android 15 then only synced while the app was visible. Version **0.2.1 / code 2** addresses receiver lifecycle gaps: paired/unpaused activity resume starts live receiving automatically; sticky process recovery preserves the existing five-hour deadline; a bounded partial wake lock keeps screen-off CPU sleep from suspending live polling; pause/disconnect still stop receiving; periodic jobs no longer reset on every activity resume; boot and APK updates restore scheduled jobs. Connect has battery optimization status and a system-settings shortcut with OEM guidance.
 
