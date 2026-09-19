@@ -5,7 +5,7 @@ import { Component, ReactNode } from "react";
 export function Brand() {
   return (
     <a className="brand" href="/" aria-label="9t home">
-      <img src="/9t-mark.svg" alt="9t" width={44} height={33} />
+      <img src="/9t-mark.svg" width={44} height={33} />
       <span>
         <b>9t</b>
       </span>
