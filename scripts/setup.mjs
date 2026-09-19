@@ -216,6 +216,7 @@ export async function writeInstallation(root, p, password) {
         ]),
       ),
       exposure: p.exposure === "public" ? "public" : "lan",
+      domain: p.exposure === "public" ? new URL(p.publicUrl).host : null,
       theme: p.theme,
       maxSizeMb: p.maxSizeMb,
       trashRetentionDays: p.trashRetentionDays,

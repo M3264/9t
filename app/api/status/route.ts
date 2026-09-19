@@ -13,5 +13,10 @@ export async function GET(req: Request) {
     authenticated: true,
     config: d.config,
     username: d.user?.username,
+    runtime: {
+      host: process.env.NINE_T_HOST || "0.0.0.0",
+      port: Number(process.env.PORT || 3265),
+      https: process.env.NINE_T_HTTPS === "true",
+    },
   });
 }

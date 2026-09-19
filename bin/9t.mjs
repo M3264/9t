@@ -88,6 +88,7 @@ const help = () =>
   9t restore <id|name>
   9t config export [--output file]
   9t config import <file|->
+  9t doctor [--domain host]
   9t logout`);
 
 try {
@@ -233,6 +234,23 @@ try {
         });
         console.log("Config imported.");
       } else throw new Error("Usage: 9t config export|import");
+    } else if (command === "doctor") {
+      const status = await json("/api/status");
+      const runtime = status.runtime || {};
+      console.log(`Exposure: ${status.config.exposure}${status.config.domain ? ` (${status.config.domain})` : ""}`);
+      console.log(`Listener: ${runtime.host || "?"}:${runtime.port || "?"}${runtime.https ? " (Secure cookies on)" : " (Secure cookies off)"}`);
+      const override = flag("domain", "");
+      const q = override || status.config.domain || "";
+      if (!q) {
+        console.log("Diagnostics: no public hostname set — use --domain or save one in Settings.");
+      } else {
+        const diag = await json(`/api/diagnostics?domain=${encodeURIComponent(q)}`);
+        if (!diag.domain) console.log(`Diagnostics: ${diag.message}`);
+        else {
+          console.log(`DNS: ${diag.dns.error || `A ${diag.dns.a.join(", ") || "—"}${diag.dns.aaaa.length ? ` AAAA ${diag.dns.aaaa.join(", ")}` : ""}`}`);
+          console.log(`HTTPS: ${diag.https.ok ? `reachable (${diag.https.status})` : diag.https.error}`);
+        }
+      }
     } else help();
   }
 } catch (error) {

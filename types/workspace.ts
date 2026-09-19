@@ -26,6 +26,7 @@ export type WorkspaceConfig = {
     board: boolean;
   };
   exposure: string;
+  domain?: string | null;
   theme: Theme;
   maxSizeMb: number;
   trashRetentionDays: number;

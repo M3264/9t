@@ -29,6 +29,7 @@ export type AppConfig = {
     board: boolean;
   };
   exposure: "lan" | "public" | "hybrid";
+  domain: string | null;
   theme: "system" | "light" | "dark";
   maxSizeMb: number;
   trashRetentionDays: number;
@@ -73,6 +74,7 @@ const initial: Data = {
     initialized: false,
     modules: { snippets: true, files: true, links: true, board: false },
     exposure: "public",
+    domain: null,
     theme: "system",
     maxSizeMb: 500,
     trashRetentionDays: 7,

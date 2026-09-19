@@ -627,11 +627,16 @@ export function SettingsDialog({
   const [max, setMax] = useState(config.maxSizeMb);
   const [theme, setTheme] = useState<Theme>(config.theme);
   const [trashDays, setTrashDays] = useState(config.trashRetentionDays ?? 7);
+  const [exposure, setExposure] = useState(config.exposure || "lan");
+  const [domain, setDomain] = useState(config.domain || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [raw, setRaw] = useState("");
   const [rawErrors, setRawErrors] = useState<string[]>([]);
   const [rawOk, setRawOk] = useState("");
+  const [diag, setDiag] = useState<any>(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+  const [diagError, setDiagError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const themes = [
     { id: "system" as Theme, label: "System", icon: <Monitor /> },
@@ -714,6 +719,97 @@ export function SettingsDialog({
           <span>days (0 = purge on sweep)</span>
         </label>
       </div>
+      <div className="settings-line">
+        <label>
+          EXPOSURE
+          <select
+            aria-label="Exposure mode"
+            value={exposure}
+            onChange={(e) => setExposure(e.target.value)}
+          >
+            <option value="lan">LAN — reachable on your network</option>
+            <option value="public">Public — behind an HTTPS proxy</option>
+            <option value="hybrid">Hybrid — LAN plus public URL</option>
+          </select>
+        </label>
+      </div>
+      <div className="settings-line">
+        <label>
+          PUBLIC HOSTNAME
+          <input
+            type="text"
+            value={domain}
+            inputMode="url"
+            placeholder="9t.example.com"
+            onChange={(e) => setDomain(e.target.value)}
+          />
+          <span>bare hostname, no https:// — used for diagnostics</span>
+        </label>
+      </div>
+      </details>
+      <details className="settings-disclosure">
+        <summary>Exposure diagnostics</summary>
+        <div className="settings-section-heading">
+          <p>Check DNS and HTTPS for your public hostname. Uses the saved hostname unless you type another.</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, margin: "0 16px 12px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={diagBusy}
+            onClick={async () => {
+              setDiagBusy(true);
+              setDiagError("");
+              try {
+                const q = (domain || config.domain || "").trim();
+                setDiag(
+                  await api(
+                    `/api/diagnostics${q ? `?domain=${encodeURIComponent(q)}` : ""}`,
+                  ),
+                );
+              } catch (err) {
+                setDiagError(err instanceof ApiError ? err.message : "Diagnostics failed.");
+              } finally {
+                setDiagBusy(false);
+              }
+            }}
+          >
+            {diagBusy ? "Checking…" : "Run diagnostics"}
+          </button>
+        </div>
+        {diagError && (
+          <p className="form-error settings-error" role="alert" style={{ margin: "0 16px 12px" }}>
+            {diagError}
+          </p>
+        )}
+        {diag && (
+          <div style={{ margin: "0 16px 12px", fontSize: 12.5 }}>
+            {diag.domain ? (
+              <>
+                <p><b>Hostname:</b> {diag.domain}</p>
+                <p>
+                  <b>DNS:</b>{" "}
+                  {diag.dns?.error
+                    ? diag.dns.error
+                    : `A ${diag.dns?.a?.join(", ") || "—"}${diag.dns?.aaaa?.length ? ` · AAAA ${diag.dns.aaaa.join(", ")}` : ""}`}
+                </p>
+                <p>
+                  <b>HTTPS:</b>{" "}
+                  {diag.https?.ok
+                    ? `reachable (status ${diag.https?.status})`
+                    : diag.https?.error || "unreachable"}
+                </p>
+                <p style={{ color: "var(--muted)" }}>
+                  Listener {diag.runtime?.host}:{diag.runtime?.port}
+                  {diag.runtime?.https ? " · Secure cookies on" : " · Secure cookies off"}.
+                  {exposure === "lan" && " LAN mode still requires login."}
+                </p>
+              </>
+            ) : (
+              <p>{diag.message || "No hostname set."}</p>
+            )}
+          </div>
+        )}
       </details>
       <details className="settings-disclosure">
         <summary>Config import / export</summary>
@@ -844,6 +940,8 @@ export function SettingsDialog({
                 maxSizeMb: max,
                 trashRetentionDays: trashDays,
                 theme,
+                exposure,
+                domain: domain.trim() ? domain.trim().toLowerCase() : null,
               }),
             });
             saved();

@@ -165,6 +165,16 @@ export const objectPatchSchema = z
   })
   .strict();
 
+// Bare public hostname (no scheme/port/path). Empty string is treated as null by callers.
+const domainSchema = z
+  .string()
+  .trim()
+  .max(253)
+  .regex(
+    /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)*$/i,
+    "Use a bare hostname like 9t.example.com.",
+  );
+
 export const configPatchSchema = z
   .object({
     modules: z
@@ -179,6 +189,7 @@ export const configPatchSchema = z
     maxSizeMb: z.number().int().min(1).max(2048).optional(),
     trashRetentionDays: z.number().int().min(0).max(365).optional(),
     exposure: z.enum(["lan", "public", "hybrid"]).optional(),
+    domain: domainSchema.nullable().optional(),
   })
   .strict();
 
@@ -196,8 +207,17 @@ export const fullConfigSchema = z
     maxSizeMb: z.number().int().min(1).max(2048),
     trashRetentionDays: z.number().int().min(0).max(365),
     exposure: z.enum(["lan", "public", "hybrid"]),
+    domain: domainSchema.nullable(),
   })
   .strict();
+
+export function normalizeDomain(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed ? trimmed : null;
+}
 
 export type FullConfig = z.infer<typeof fullConfigSchema>;
 
