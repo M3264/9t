@@ -1,5 +1,5 @@
 import { readFile } from "fs/promises";
-import { mutate, readData } from "@/lib/server/store";
+import { mutate, readData } from "@/lib/server/db";
 import { safeObjectPath } from "@/lib/server/security";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";

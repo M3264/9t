@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { verifyPassword } from "@/lib/server/auth";
-import { mutate, readData } from "@/lib/server/store";
+import { mutate, readData } from "@/lib/server/db";
 import {
   authRateLimit,
   loginSchema,

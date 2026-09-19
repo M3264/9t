@@ -1,6 +1,6 @@
 import { resolve4, resolve6 } from "node:dns/promises";
 import { authenticated, unauthorized } from "@/lib/server/auth";
-import { readData } from "@/lib/server/store";
+import { readData } from "@/lib/server/db";
 import { normalizeDomain, rateLimit, rateLimitResponse } from "@/lib/server/security";
 
 export const runtime = "nodejs";

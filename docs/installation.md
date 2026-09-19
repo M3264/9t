@@ -34,14 +34,15 @@ Update with `git pull` then `docker compose up -d --build`. Backups default to `
 
 ### Optional Postgres (migration target)
 
-The app still stores data in JSON files. To prepare the PostgreSQL schema that a future release will use as primary storage:
+The app stores data in JSON files unless `NINE_T_DATABASE_URL` is set, in which case it uses Postgres through the same storage interface (file blobs stay in `NINE_T_DATA_DIR/objects` either way). To switch:
 
 ```bash
 POSTGRES_PASSWORD=$(openssl rand -hex 16) docker compose --profile db up -d --build
 docker compose exec 9t npm run migrate
+docker compose exec 9t npm run pg-import
 ```
 
-`migrate` is idempotent (tracked in `schema_migrations`). Point the app at it with `NINE_T_DATABASE_URL=postgresql://9t:<password>@db:5432/9t` once a release supports it; until then the variable is ignored.
+`migrate` is idempotent (tracked in `schema_migrations`). `pg-import` copies `data/9t.json` metadata once and refuses to overwrite without `--force`. Then set `NINE_T_DATABASE_URL=postgresql://9t:<password>@db:5432/9t` and restart. The phone event socket still works (it polls the store on its heartbeat in Postgres mode instead of watching the JSON file). Back up Postgres separately with `pg_dump`; the JSON/file backup only covers `NINE_T_DATA_DIR`.
 
 ## What setup does
 

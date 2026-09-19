@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { cookies } from "next/headers";
 import { verifyPassword } from "@/lib/server/auth";
-import { readData } from "@/lib/server/store";
+import { readData } from "@/lib/server/db";
 import { authRateLimit, rateLimitResponse } from "@/lib/server/security";
 import { z } from "zod";
 

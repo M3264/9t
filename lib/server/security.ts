@@ -1,6 +1,6 @@
 import { z } from "zod";
 import path from "path";
-import { uploadDir } from "./store";
+import { uploadDir } from "./db";
 
 // ---- Limits ----
 export const MAX_PASSWORD_LEN = 128;

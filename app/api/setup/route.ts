@@ -1,5 +1,5 @@
 import { createSession, makePassword } from "@/lib/server/auth";
-import { mutate } from "@/lib/server/store";
+import { mutate } from "@/lib/server/db";
 import {
   authRateLimit,
   rateLimitResponse,

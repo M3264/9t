@@ -1,6 +1,6 @@
 import { open } from "fs/promises";
 import { createHash, randomBytes } from "crypto";
-import { readData, mutate } from "@/lib/server/store";
+import { readData, mutate } from "@/lib/server/db";
 import { seal, unseal, type Envelope } from "@/lib/server/mobile-crypto";
 import {
   safeObjectPath,

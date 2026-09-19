@@ -1,5 +1,5 @@
 import { createSession, verifyPassword } from "@/lib/server/auth";
-import { readData } from "@/lib/server/store";
+import { readData } from "@/lib/server/db";
 import {
   authRateLimit,
   loginSchema,

@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "crypto";
 import { authenticated, unauthorized } from "@/lib/server/auth";
 import { makePassword } from "@/lib/server/auth";
-import { mutate, readData } from "@/lib/server/store";
+import { mutate, readData } from "@/lib/server/db";
 import {
   csrfCheck,
   csrfResponse,

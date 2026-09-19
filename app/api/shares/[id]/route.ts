@@ -1,5 +1,5 @@
 import { authenticated, unauthorized } from "@/lib/server/auth";
-import { mutate } from "@/lib/server/store";
+import { mutate } from "@/lib/server/db";
 import { csrfCheck, csrfResponse } from "@/lib/server/security";
 
 export async function DELETE(

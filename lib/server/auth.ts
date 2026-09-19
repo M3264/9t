@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
-import { mutate, readData } from "./store";
+import { mutate, readData } from "./db";
 
 const COOKIE = "9t_session";
 const MAX_PASSWORD_BYTES = 128;

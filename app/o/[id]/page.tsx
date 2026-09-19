@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { authenticated } from "@/lib/server/auth";
-import { readData } from "@/lib/server/store";
+import { readData } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
 

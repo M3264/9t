@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { authenticated, unauthorized } from "@/lib/server/auth";
-import { readData } from "@/lib/server/store";
+import { readData } from "@/lib/server/db";
 import { safeObjectPath } from "@/lib/server/security";
 
 export async function GET(

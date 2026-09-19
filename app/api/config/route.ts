@@ -1,5 +1,5 @@
 import { authenticated, unauthorized } from "@/lib/server/auth";
-import { mutate, readData } from "@/lib/server/store";
+import { mutate, readData } from "@/lib/server/db";
 import {
   configPatchSchema,
   configViolations,

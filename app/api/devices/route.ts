@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "crypto";
 import { authenticated, unauthorized } from "@/lib/server/auth";
-import { mutate, readData } from "@/lib/server/store";
+import { mutate, readData } from "@/lib/server/db";
 import { csrfCheck, csrfResponse } from "@/lib/server/security";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "no-store" };

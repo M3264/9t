@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
 import { authenticated, unauthorized } from "@/lib/server/auth";
-import { addObject, readData } from "@/lib/server/store";
+import { addObject, readData } from "@/lib/server/db";
 import { safeObjectPath } from "@/lib/server/security";
 import { csrfCheck, csrfResponse } from "@/lib/server/security";
 import { expiryFromLifetime } from "@/lib/shared/lifetimes";
