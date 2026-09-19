@@ -176,6 +176,35 @@ export const configPatchSchema = z
       })
       .optional(),
     theme: z.enum(["system", "light", "dark"]).optional(),
-    maxSizeMb: z.number().int().positive().max(2048).optional(),
+    maxSizeMb: z.number().int().min(1).max(2048).optional(),
+    trashRetentionDays: z.number().int().min(0).max(365).optional(),
+    exposure: z.enum(["lan", "public", "hybrid"]).optional(),
   })
   .strict();
+
+// Full config document for export/import. Strict: unknown keys rejected so
+// typos fail loudly instead of silently dropping settings.
+export const fullConfigSchema = z
+  .object({
+    modules: z.object({
+      snippets: z.boolean(),
+      files: z.boolean(),
+      links: z.boolean(),
+      board: z.boolean(),
+    }),
+    theme: z.enum(["system", "light", "dark"]),
+    maxSizeMb: z.number().int().min(1).max(2048),
+    trashRetentionDays: z.number().int().min(0).max(365),
+    exposure: z.enum(["lan", "public", "hybrid"]),
+  })
+  .strict();
+
+export type FullConfig = z.infer<typeof fullConfigSchema>;
+
+export function configViolations(issues: z.ZodIssue[]) {
+  return issues.map((i) => ({
+    field: i.path.join(".") || "(root)",
+    code: i.code,
+    message: i.message,
+  }));
+}

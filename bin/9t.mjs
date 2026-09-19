@@ -86,6 +86,8 @@ const help = () =>
   9t share <id|name> [--lifetime 1d]
   9t trash <id|name>
   9t restore <id|name>
+  9t config export [--output file]
+  9t config import <file|->
   9t logout`);
 
 try {
@@ -203,6 +205,34 @@ try {
         body: JSON.stringify({ restore: true }),
       });
       console.log(`Restored ${o.name}`);
+    } else if (command === "config") {
+      const sub = args[0];
+      if (sub === "export") {
+        const doc = await json("/api/config?format=export");
+        const text = JSON.stringify(doc, null, 2);
+        const output = flag("output", "");
+        if (output) {
+          writeFileSync(output, text + "\n", { mode: 0o600 });
+          console.log(output);
+        } else console.log(text);
+      } else if (sub === "import") {
+        const src = args[1];
+        if (!src) throw new Error("Usage: 9t config import <file|->");
+        const text = src === "-" ? readFileSync(0, "utf8") : readFileSync(src, "utf8");
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error("Invalid JSON.");
+        }
+        const doc = parsed?.config ?? parsed;
+        await api("/api/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(doc?.kind === "9t-config" ? parsed : doc),
+        });
+        console.log("Config imported.");
+      } else throw new Error("Usage: 9t config export|import");
     } else help();
   }
 } catch (error) {

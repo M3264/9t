@@ -1,21 +1,38 @@
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  violations?: Array<{ field: string; code: string; message: string }>;
+  constructor(
+    message: string,
+    status: number,
+    violations?: Array<{ field: string; code: string; message: string }>,
+  ) {
     super(message);
     this.status = status;
+    this.violations = violations;
   }
 }
 
 export async function workspaceApi(url: string, init?: RequestInit): Promise<any> {
   const response = await fetch(url, init);
-  let data: { error?: string } = {};
+  let data: {
+    error?: string;
+    violations?: Array<{ field: string; code: string; message: string }>;
+  } = {};
   try {
     data = await response.json();
   } catch {
     data = {};
   }
-  if (!response.ok)
-    throw new ApiError(data.error || "Something went wrong", response.status);
+  if (!response.ok) {
+    const detail = (data.violations || [])
+      .map((v) => `${v.field}: ${v.message}`)
+      .join("; ");
+    throw new ApiError(
+      detail ? `${data.error || "Invalid config"} — ${detail}` : data.error || "Something went wrong",
+      response.status,
+      data.violations,
+    );
+  }
   return data;
 }
 

@@ -626,8 +626,13 @@ export function SettingsDialog({
   const [modules, setModules] = useState(config.modules);
   const [max, setMax] = useState(config.maxSizeMb);
   const [theme, setTheme] = useState<Theme>(config.theme);
+  const [trashDays, setTrashDays] = useState(config.trashRetentionDays ?? 7);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [raw, setRaw] = useState("");
+  const [rawErrors, setRawErrors] = useState<string[]>([]);
+  const [rawOk, setRawOk] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
   const themes = [
     { id: "system" as Theme, label: "System", icon: <Monitor /> },
     { id: "light" as Theme, label: "Light", icon: <Sun /> },
@@ -696,6 +701,128 @@ export function SettingsDialog({
           <span>MB</span>
         </label>
       </div>
+      <div className="settings-line">
+        <label>
+          KEEP TRASHED ITEMS
+          <input
+            type="number"
+            value={trashDays}
+            min={0}
+            max={365}
+            onChange={(e) => setTrashDays(+e.target.value)}
+          />
+          <span>days (0 = purge on sweep)</span>
+        </label>
+      </div>
+      </details>
+      <details className="settings-disclosure">
+        <summary>Config import / export</summary>
+        <div className="settings-section-heading">
+          <p>Download a backup of your settings, or restore one. Import validates before saving.</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, margin: "0 16px 12px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={async () => {
+              setRawErrors([]);
+              setRawOk("");
+              try {
+                const doc = await api("/api/config?format=export");
+                const text = JSON.stringify(doc, null, 2);
+                setRaw(text);
+                const blob = new Blob([text], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "9t-config.json";
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+              } catch (err) {
+                setRawErrors([err instanceof ApiError ? err.message : "Export failed."]);
+              }
+            }}
+          >
+            Export config
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => fileRef.current?.click()}
+          >
+            Load file…
+          </button>
+          <input
+            hidden
+            type="file"
+            accept="application/json,.json"
+            ref={fileRef}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setRaw(await f.text());
+              setRawErrors([]);
+              setRawOk("");
+              e.target.value = "";
+            }}
+          />
+        </div>
+        <div style={{ margin: "0 16px 12px" }}>
+          <label className={styles.field} style={{ marginBottom: 8 }}>
+            RAW CONFIG (JSON)
+            <textarea
+              rows={10}
+              value={raw}
+              onChange={(e) => {
+                setRaw(e.target.value);
+                setRawErrors([]);
+                setRawOk("");
+              }}
+              placeholder='{"modules": {"snippets": true, ...}, "theme": "system", ...} or full export envelope'
+              spellCheck={false}
+              style={{ fontFamily: "var(--mono)" }}
+            />
+          </label>
+          {rawErrors.length > 0 && (
+            <ul className="form-error" role="alert" style={{ margin: "8px 0", paddingLeft: 18 }}>
+              {rawErrors.map((m, i) => (
+                <li key={i}>{m}</li>
+              ))}
+            </ul>
+          )}
+          {rawOk && <p style={{ fontSize: 12 }}>{rawOk}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!raw.trim()}
+              onClick={async () => {
+                setRawErrors([]);
+                setRawOk("");
+                try {
+                  const parsed = JSON.parse(raw);
+                  await api("/api/config", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(parsed),
+                  });
+                  setRawOk("Config valid — applied. Reloading…");
+                  saved();
+                } catch (err) {
+                  if (err instanceof SyntaxError) setRawErrors(["Invalid JSON."]);
+                  else if (err instanceof ApiError) {
+                    if (err.violations?.length)
+                      setRawErrors(
+                        err.violations.map((v) => `${v.field}: ${v.message}`),
+                      );
+                    else setRawErrors([err.message]);
+                  } else setRawErrors(["Import failed."]);
+                }
+              }}
+            >
+              Validate & apply
+            </button>
+          </div>
+        </div>
       </details>
       {error && (
         <p className="form-error settings-error" role="alert">
@@ -712,7 +839,12 @@ export function SettingsDialog({
             await api("/api/config", {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ modules, maxSizeMb: max, theme }),
+              body: JSON.stringify({
+                modules,
+                maxSizeMb: max,
+                trashRetentionDays: trashDays,
+                theme,
+              }),
             });
             saved();
           } catch (err) {
