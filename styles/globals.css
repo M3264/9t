@@ -1,58 +1,56 @@
-/* 9t / Tactile Paper + Neon. Sticker cards, hard shadows, paper grain. */
+/* Quiet neutral surfaces with a muted lavender accent. */
+@font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Bold.ttf") format("truetype"); font-weight: 600 900; font-style: normal; font-display: swap; }
 :root {
-  --bg: #ece7da;
-  --paper: #fffdf6;
-  --paper-2: #f6f1e3;
-  --ink: #1c231f;
-  --ink-soft: #2a3430;
-  --muted: #6f7870;
-  --line: #ddd5c2;
-  --ink-line: #1c231f;
-  --soft: #f1ecdd;
-  --blue: #1d6b4f;
-  --blue-ink: #144d38;
-  --blue-soft: #e2efe2;
-  --blue-ring: #1d6b4f2e;
-  --neon: #d9ff4b;
-  --neon-ink: #1a2b12;
-  --on-neon: #1c231f;
-  --badge-bg: #1c231f;
-  --badge-fg: #d9ff4b;
-  --punch: #ff5c38;
-  --accent: #d9ff4b;
-  --danger: #be443c;
-  --ok: #1d6b4f;
-  --sticker-shadow: 4px 4px 0 var(--ink-line);
-  --sticker-shadow-sm: 2.5px 2.5px 0 var(--ink-line);
-  --r-lg: 18px;
-  --r-md: 14px;
+  --bg: #f7f6f9;
+  --paper: #ffffff;
+  --paper-2: #f2eff6;
+  --ink: #292532;
+  --ink-soft: #46404f;
+  --muted: #736d7d;
+  --line: #e7e2ed;
+  --ink-line: var(--line);
+  --soft: #f1eef5;
+  --blue: #786294;
+  --blue-ink: #604c7c;
+  --blue-soft: #eee8f6;
+  --blue-ring: #78629420;
+  --on-accent: #ffffff;
+  --neon: var(--blue-soft);
+  --neon-ink: var(--blue-ink);
+  --on-neon: var(--blue-ink);
+  --badge-bg: var(--blue-soft);
+  --badge-fg: var(--blue-ink);
+  --punch: #786294;
+  --accent: #e0d5ef;
+  --danger: #b44552;
+  --ok: #42715d;
+  --sticker-shadow: none;
+  --sticker-shadow-sm: none;
+  --r-lg: 16px;
+  --r-md: 13px;
   --r-sm: 10px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --display: system-ui, -apple-system, "Space Grotesk", "Sora", sans-serif;
+  --display: "Space Grotesk", system-ui, sans-serif;
   color-scheme: light;
 }
 html[data-theme="dark"] {
-  --bg: #121614;
-  --paper: #1e2421;
-  --paper-2: #252d29;
-  --ink: #f2f0e6;
-  --ink-soft: #e2e6da;
-  --muted: #a2ada7;
-  --line: #35403d;
-  --ink-line: #0a0d0c;
-  --soft: #283330;
-  --blue: #b7d88a;
-  --blue-ink: #d5ecaa;
-  --blue-soft: #303d2d;
-  --blue-ring: #b7d88a30;
-  --neon: #d9ff4b;
-  --neon-ink: #16220f;
-  --on-neon: #1c231f;
-  --badge-bg: #1c231f;
-  --badge-fg: #d9ff4b;
-  --danger: #ff958c;
-  --sticker-shadow: 4px 4px 0 #000;
-  --sticker-shadow-sm: 2.5px 2.5px 0 #000;
+  --bg: #19171e;
+  --paper: #23202a;
+  --paper-2: #2a2632;
+  --ink: #f0ecf5;
+  --ink-soft: #d7d0e0;
+  --muted: #b0a7bc;
+  --line: #393341;
+  --soft: #2c2735;
+  --blue: #c0acd9;
+  --blue-ink: #d5c5e9;
+  --blue-soft: #383044;
+  --blue-ring: #c0acd926;
+  --on-accent: #251c30;
+  --accent: #524163;
+  --danger: #f2a3ae;
+  --ok: #a2d0b9;
   color-scheme: dark;
 }
 * {
@@ -63,14 +61,9 @@ body {
   margin: 0;
   min-height: 100%;
   background: var(--bg);
-  background-image: radial-gradient(color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px);
-  background-size: 22px 22px;
   color: var(--ink);
   font-family: var(--display), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-}
-html[data-theme="dark"] body {
-  background-image: radial-gradient(#ffffff14 1px, transparent 1px);
 }
 button,
 input,
@@ -125,7 +118,7 @@ textarea:focus-visible {
 }
 ::selection {
   background: var(--accent);
-  color: #1d3026;
+  color: var(--ink);
 }
 h1,
 h2,
@@ -3172,3 +3165,21 @@ html[data-theme="dark"] .link-monogram {
   color: var(--muted);
   text-align: center;
 }
+
+/* Shared access and preference surfaces. */
+.login-screen, .access-screen { display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
+.login-screen > .access-form, .access-panel { width: min(380px, 100%); min-height: 0; padding: 24px 0; margin: auto; }
+.login-screen form > .brand { display: inline-flex; margin-bottom: 26px; }
+.access-panel > .brand { margin-bottom: 24px; }
+.access-panel .access-form { width: 100%; padding: 0; }
+.login-screen h1, .access-form h2 { font-size: 30px; font-weight: 700; letter-spacing: -.05em; }
+.primary-button, .transmit, .save-signal, .handoff-action, .add-button { background: var(--blue); color: var(--on-accent); }
+.primary-button:hover, .transmit:hover, .save-signal:hover { background: var(--blue-ink); color: var(--on-accent); }
+.settings-disclosure { margin: 0 24px 20px; border: 1px solid var(--line); border-radius: 12px; }
+.settings-disclosure summary { padding: 16px; min-height: 48px; cursor: pointer; font-size: 13px; }
+.settings-disclosure .settings-grid { margin-inline: 16px; }
+.settings-disclosure .settings-section-heading { margin: 0 16px 12px; }
+.settings-disclosure .settings-line { margin: 16px; }
+.settings-disclosure .settings-line label { max-width: none; }
+.settings-disclosure summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }

@@ -1,4 +1,33 @@
-# 9t project handoff — 2026-09-18
+# 9t project handoff — 2026-09-19
+
+
+## Current work: simplified lavender website — DEPLOYED, SOURCE UNCOMMITTED
+
+User loved the minimal Android 0.4.3 UI and requested the same simplicity for the website, including a new homepage logo color. User chose **Muted lavender** via clarification.
+
+- Updated web palette to lavender/neutral surfaces in light and dark modes. Bundled Space Grotesk font assets/license under `public/fonts/` and uses them across the website. Homepage/shared SVG retains its shape with flat lavender fill `#8c72ad`; removed prior gradient and CSS recoloring. Updated PWA manifest colors.
+- Simplified workspace header, one-column capture composer with a compact upload strip, collection filters below capture, compact list default (respects explicitly saved grid preference), calmer grid cards, simpler copy, mobile icon dock without duplicate secondary navigation, softer borders without hard shadows/tilts/dotted background. Search, grid/list, Board, pinned/shared/trash views retained.
+- Simplified login/setup to a centered form with the logo; settings preferences collapse into a native details section. Inspector/dialog styling and action labels updated. Fixed 320px grid overflow during browser verification.
+- Final production build + TypeScript passed. The host rebooted during the original Turbopack build; switched to `NINE_T_BUILD_DIR=.next-lavender NODE_OPTIONS=--max-old-space-size=384 npm run build -- --webpack`. `next.config.mjs` now caps build CPUs at 1 and enables webpack memory optimization. Build log: `artifacts/lavender-build.log`. Existing middleware deprecation warning remains.
+- Browser checks passed against isolated fixture data on port 3273: capture/save, search, type filters, list/grid, settings disclosure, theme changes, inspector, login, font/palette loading, and no horizontal overflow at 320/390/1365px. No page errors. Script/log: `artifacts/lavender-review.cjs`, `artifacts/lavender-review.log`. Actual browser screenshots reviewed: `artifacts/lavender-{desktop,grid,mobile,mobile-dark,settings,inspector,login}.png`. These are fixture screenshots, not owner content.
+- Deployed the tested `.next-lavender` build by updating `/etc/systemd/system/9t.service.d/mobile-build.conf`, daemon-reload and restarting `9t.service`. Service active; public status healthy; both live CSS assets 200 text/css; live SVG/manifest palette and font files verified; APK 0.4.3 download HTTP 200. Devices page now includes the 0.4.3 source link in the deployed bundle. No production user-data changes.
+- **Current live build is `.next-lavender`. Never build into it while serving.** Original `.next` preserved. Rollback drop-in is `artifacts/lavender-previous-service.conf`; install to existing systemd drop-in, daemon-reload/restart to roll back. `.gitignore`, generated Next types and tsconfig include staging directory.
+- All source changes remain uncommitted, including prior Android 0.4.3 work below. No commit/push made. APK itself was not changed during this website task.
+
+
+## Current work: Android 0.4.3 native redesign — PUBLISHED, SOURCE UNCOMMITTED
+
+User explicitly rejected 0.4.2's default fonts, structure, arrangement and lack of icons; asked to read this handoff and improve the APK to match the website. Website styling was retained.
+
+- Bundled static Space Grotesk Regular/Bold (SIL OFL included under `android/app/src/main/assets/fonts/`). Uses asset loading compatible with API 21. Native headings, body text, inputs, buttons, navigation, spinner and dialogs use the bundled fonts; snippet previews intentionally use monospace.
+- New `PocketArt.java` draws resolution-independent line icons and the dotted paper background. Icon + label bottom navigation, icon actions, neon primary actions and dark snippet previews. Fixed neon logo/active navigation contrast in dark mode and legacy Android system-bar contrast.
+- Inbox: new hero, compact sync row, local search across name/text/URL, Everything/Files/Snippets/Links filters, illustrated empty state, compact item actions. Background item refresh preserves search/filter controls instead of rebuilding the screen.
+- Send: side-by-side Paste/Send actions, queued-item cards. Draft survives tab changes and saved-instance recreation. Connect: expandable Appearance, Your workspace, Files & clipboard, Background receiving, Disconnect sections. Expanded sections persist during this activity and saved-instance recreation. Disconnect clears the new in-memory UI state.
+- Version **0.4.3 / code 9**, min SDK 21, same release signing certificate. APK published and public bytes verified identical: https://9t.kennyy.xyz/downloads/9t-android-0.4.3.apk . SHA-256 `d840cdd9cdac69dd519c532cf6cdf714056906ad610cc44307cd0dbbfc27b9a2`. Local `artifacts/9t-android-0.4.3.apk` and `public/downloads/9t-android-0.4.3.apk` (ignored). Install over existing app to retain pairing/history.
+- Final Gradle `assembleRelease testDebugUnitTest lintDebug` passed: **20 tests, 0 failures/errors/skips; lint 0 errors, 22 warnings**. Verified manifest version/minSDK, bundled fonts/license, and v1/v2/v3 signing. `git diff --check` passes. Log `/tmp/9t-043-verified.log`. Initial 256m heap/192m metaspace run exhausted metaspace; final successful run used one worker, 384m heap/384m metaspace, no persistent daemon. Fixed two new API-23-only Switch tint calls to use API-21 drawable tint before release. Stopped Gradle afterward.
+- Restarted existing `9t.service` (sudo required) to expose new static APK; service active, public status healthy, live CSS HTTP 200 with text/css. **No web rebuild.** Devices download link updated to 0.4.3 in source only; existing live bundle still has its older link. README, Android docs and signing-script default updated. No commit/push performed.
+- **No Android device/emulator is attached. No actual visual/device runtime validation or screenshots.** Build/tests/lint do not establish appearance on a physical phone. Review Inbox/Send/Connect in both themes, large text, search/filter behavior, composer retention and existing sync on user's device next.
+
 
 ## Current work: Android 0.4.2 native UI restyle — PUSHED
 

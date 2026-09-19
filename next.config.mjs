@@ -2,6 +2,7 @@
 const nextConfig = {
   distDir: process.env.NINE_T_BUILD_DIR || ".next",
   typedRoutes: true,
+  experimental: { cpus: 1, webpackMemoryOptimizations: true },
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
   async headers() {

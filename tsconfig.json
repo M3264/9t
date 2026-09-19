@@ -38,7 +38,9 @@
     ".next-mobile-build/types/**/*.ts",
     ".next-mobile-build/dev/types/**/*.ts",
     ".next-mobile-release/types/**/*.ts",
-    ".next-mobile-release/dev/types/**/*.ts"
+    ".next-mobile-release/dev/types/**/*.ts",
+    ".next-lavender/types/**/*.ts",
+    ".next-lavender/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

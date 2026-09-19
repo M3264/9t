@@ -51,21 +51,8 @@ export function SetupScreen({ done }: { done: () => void }) {
 
   return (
     <div className="access-screen">
-      <section className="access-poster" aria-hidden="true">
-        <Brand />
-        <div>
-          <small>YOUR SELF-HOSTED WORKSPACE</small>
-          <h1>
-            Put it in 9t.
-            <br />
-            <i>Get it anywhere.</i>
-          </h1>
-        </div>
-        <footer>
-          Private by default <span>Yours, everywhere</span>
-        </footer>
-      </section>
       <section className="access-panel">
+        <Brand />
         <div className="step-index" aria-live="polite">
           STEP {step} OF 2
         </div>
@@ -196,13 +183,9 @@ export function LoginScreen({ done }: { done: () => void }) {
 
   return (
     <div className="login-screen">
-      <section className="login-story"><Brand /><div><span className="story-eyebrow">A HOME FOR YOUR EVERYDAY THINGS</span><h2>Good things.<br />One place.</h2><p>The link you’ll need later. The thought you don’t want to lose. The file going with you.</p><div className="story-tags"><span>Files</span><span>Snippets</span><span>Links</span></div></div><small>Your workspace, on your own terms.</small></section>
+
       <form className="access-form" onSubmit={submit} aria-label="Sign in to 9t">
         <Brand />
-        <div className="login-status">
-          <i aria-hidden="true" />
-          Your personal workspace
-        </div>
         <h1>Welcome back.</h1><p>Sign in to pick up where you left off.</p>
         <label>
           USERNAME
@@ -243,7 +226,7 @@ export function LoginScreen({ done }: { done: () => void }) {
           <ArrowUpRight aria-hidden="true" />
         </button>
         <footer>
-          <span>9t · self-hosted</span> <span>Authentication required</span>
+          <span>9t · self-hosted</span> <span>Your space, everywhere</span>
         </footer>
       </form>
     </div>

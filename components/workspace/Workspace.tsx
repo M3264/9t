@@ -24,6 +24,7 @@ import {
   ShareDialog as ShareModal,
 } from "./WorkspaceDialogs";
 import {
+  Command,
   LayoutGrid,
   Code2,
   FileText,
@@ -91,13 +92,13 @@ function WorkspaceInner() {
   const [view, setView] = useState<View>("all");
   const [query, setQuery] = useState("");
   const [pinnedOnly, setPinnedOnly] = useState(false);
-  const [layout, setLayout] = useState<"grid" | "list">("grid");
+  const [layout, setLayout] = useState<"grid" | "list">("list");
   const [sort, setSort] = useState<"recent" | "name">("recent");
   const [loadError, setLoadError] = useState("");
   const requestId = useRef(0);
   useEffect(() => {
     try {
-      if (localStorage.getItem("9t-layout") === "list") setLayout("list");
+      if (localStorage.getItem("9t-layout") === "grid") setLayout("grid");
     } catch {}
   }, []);
   const changeLayout = (next: "grid" | "list") => {
@@ -486,7 +487,7 @@ function WorkspaceInner() {
           </span>
           <span className={styles.logoText}>
             <b>9t</b>
-            <span>POCKET CLOUD</span>
+            <span>Your workspace</span>
           </span>
         </button>
 
@@ -496,7 +497,7 @@ function WorkspaceInner() {
             ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search files, snippets, links…"
+            placeholder="Find something…"
             aria-label="Search items"
           />
           {query ? (
@@ -515,7 +516,7 @@ function WorkspaceInner() {
             title="Commands · Ctrl K"
             onClick={() => setModal("commands")}
           >
-            <Search />
+            <Command />
           </button>
           <button
             className={styles.iconBtn}
@@ -534,79 +535,24 @@ function WorkspaceInner() {
         </div>
       </header>
 
-      <nav className={styles.tabsBar} aria-label="Workspace views">
-        {tabs
-          .filter((t) => t.show)
-          .map((t) => {
-            const Icon = navIcons[t.id as keyof typeof navIcons];
-            const active = view === t.id && !pinnedOnly;
-            return (
-              <button
-                key={t.id}
-                className={`${styles.tab} ${active ? styles.tabActive : ""}`}
-                aria-pressed={active}
-                onClick={() => navigate(t.id)}
-              >
-                <Icon />
-                {t.label}
-                {t.count !== undefined && <small>{t.count}</small>}
-              </button>
-            );
-          })}
-        <button
-          className={`${styles.tab} ${pinnedOnly ? styles.tabActive : ""}`}
-          aria-pressed={pinnedOnly}
-          onClick={() => navigate("all", true)}
-        >
-          <Pin />
-          Pinned
-        </button>
-        <button
-          className={`${styles.tab} ${view === "shares" ? styles.tabActive : ""}`}
-          aria-pressed={view === "shares"}
-          onClick={() => navigate("shares")}
-        >
-          <Share2 />
-          Shared
-        </button>
-        <button
-          className={`${styles.tab} ${view === "trash" ? styles.tabActive : ""}`}
-          aria-pressed={view === "trash"}
-          onClick={() => navigate("trash")}
-        >
-          <Trash2 />
-          Trash
-        </button>
-      </nav>
 
       <main className={styles.main}>
         <div className={styles.hero}>
           <div>
-            <span className={styles.eyebrow}>
-              <i /> BEAM IT · KEEP IT · FIND IT
-            </span>
-            <h1>
-              {pinnedOnly ? (
-                <>Pinned <em>stash.</em></>
-              ) : view === "all" && !query ? (
-                <>Drop it. <em>Beam it.</em></>
-              ) : (
-                <>{title}.</>
-              )}
-            </h1>
+            <h1>{pinnedOnly ? "Your essentials." : view === "all" && !query ? "Everything, right here." : query ? "Find your things." : `${title}.`}</h1>
             <p>
               {view === "all" && !pinnedOnly && !query
-                ? "A file, a thought, a link. Stick it here. Grab it on your phone."
+                ? "A little space for your files, thoughts and links."
                 : view === "trash"
-                  ? `Deleted items hang around for ${config?.trashRetentionDays || 7} days, then poof.`
+                  ? `Deleted items stay here for ${config?.trashRetentionDays || 7} days.`
                   : view === "shares"
-                    ? "Only what you beamed out. Everything else stays home."
+                    ? "Manage the links you’ve shared."
                     : pinnedOnly
-                      ? "Your everyday carries. Always on top."
+                      ? "The things you reach for most."
                       : view === "board"
                         ? "Drag it around. Make it yours."
                         : query
-                          ? `Matching “${query}” across your stash.`
+                          ? `Results for “${query}”.`
                           : "Less hunting. More finding."}
             </p>
           </div>
@@ -629,10 +575,54 @@ function WorkspaceInner() {
           />
         )}
 
+      <nav className={styles.tabsBar} aria-label="Workspace views">
+        {tabs
+          .filter((t) => t.show)
+          .map((t) => {
+            const Icon = navIcons[t.id as keyof typeof navIcons];
+            const active = view === t.id && !pinnedOnly;
+            return (
+              <button
+                key={t.id}
+                className={`${styles.tab} ${active ? styles.tabActive : ""}`}
+                aria-pressed={active}
+                onClick={() => navigate(t.id)}
+              >
+                <Icon />
+                {t.label}
+              </button>
+            );
+          })}
+        <button
+          className={`${styles.tab} ${styles.secondaryTab} ${pinnedOnly ? styles.tabActive : ""}`}
+          aria-pressed={pinnedOnly}
+          onClick={() => navigate("all", true)}
+        >
+          <Pin />
+          Pinned
+        </button>
+        <button
+          className={`${styles.tab} ${styles.secondaryTab} ${view === "shares" ? styles.tabActive : ""}`}
+          aria-pressed={view === "shares"}
+          onClick={() => navigate("shares")}
+        >
+          <Share2 />
+          Shared
+        </button>
+        <button
+          className={`${styles.tab} ${styles.secondaryTab} ${view === "trash" ? styles.tabActive : ""}`}
+          aria-pressed={view === "trash"}
+          onClick={() => navigate("trash")}
+        >
+          <Trash2 />
+          Trash
+        </button>
+      </nav>
+
         <section aria-label="Your items">
           <div className={styles.sectionHead}>
             <h2 id="collection" tabIndex={-1}>
-              {query ? "Matches" : view === "all" && !pinnedOnly ? "Fresh drops" : title}
+              {query ? "Matches" : view === "all" && !pinnedOnly ? "Your items" : title}
               <span className={styles.count}>{view === "shares" ? shares.length : visible.length}</span>
             </h2>
             <div className={styles.controls}>
@@ -673,8 +663,8 @@ function WorkspaceInner() {
         </section>
 
         <footer className={styles.footer}>
-          <span>● YOUR SERVER · YOUR STASH</span>
-          <span>PUT IT IN 9T → GET IT ANYWHERE</span>
+          <span>Your space. Your server.</span>
+          <span>9t</span>
         </footer>
       </main>
 
@@ -712,7 +702,7 @@ function WorkspaceInner() {
           save={async (body) => {
             if (!(await patch(selected, body)))
               throw new Error("Changes could not be saved.");
-            flash("Stuck! Item updated");
+            flash("Item updated");
           }}
           share={() => setModal("share")}
           pin={() => patch(selected, { pinned: !selected.pinned })}
@@ -726,7 +716,7 @@ function WorkspaceInner() {
           saved={async () => {
             setModal(null);
             await loadObjects(view);
-            flash("Stuck to the board");
+            flash("Item saved");
           }}
         />
       )}
@@ -736,7 +726,7 @@ function WorkspaceInner() {
           close={() => setModal(null)}
           created={async () => {
             await loadObjects(view);
-            flash("Beam link ready");
+            flash("Share link ready");
           }}
         />
       )}
@@ -758,7 +748,7 @@ function WorkspaceInner() {
             await refresh();
             navigate("all");
             await loadObjects("all");
-            flash("Settings stuck");
+            flash("Settings saved");
           }}
         />
       )}

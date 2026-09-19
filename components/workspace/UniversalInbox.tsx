@@ -8,7 +8,6 @@ import {
   LoaderCircle,
   Paperclip,
   Plus,
-  Smartphone,
 } from "lucide-react";
 import { ApiError, workspaceApi as api } from "../../lib/client/workspace";
 import type { WorkspaceConfig } from "../../types/workspace";
@@ -73,8 +72,8 @@ export default function UniversalInbox({
       await saved();
       notify(
         type === "link"
-          ? "Link stuck. Beam it anywhere."
-          : "Snipped. Ready on your phone.",
+          ? "Link saved"
+          : "Snippet saved",
       );
     } catch (e) {
       setError(
@@ -100,7 +99,7 @@ export default function UniversalInbox({
           throw new Error(
             `${file.name} exceeds the ${config.maxSizeMb} MB limit.`,
           );
-        setProgress(`Beaming ${added + 1} of ${files.length}…`);
+        setProgress(`Uploading ${added + 1} of ${files.length}…`);
         const form = new FormData();
         form.set("type", "file");
         form.set("name", (file.name || `pasted-image-${Date.now()}.png`).slice(0, 200));
@@ -116,7 +115,7 @@ export default function UniversalInbox({
     } finally {
       if (added) {
         await saved();
-        notify(`${added} ${added === 1 ? "file" : "files"} beamed.`);
+        notify(`${added} ${added === 1 ? "file" : "files"} saved.`);
       }
       inFlight.current = false;
       setBusy(false);
@@ -156,9 +155,8 @@ export default function UniversalInbox({
         <div className={styles.editor}>
           <div className={styles.label}>
             <b>
-              <Plus /> QUICK STICK
+              <Plus /> Quick capture
             </b>
-            <span>Drop it → find it anywhere</span>
           </div>
           {canText ? (
             <form
@@ -175,8 +173,8 @@ export default function UniversalInbox({
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={
                   config.modules.snippets
-                    ? "Stick a thought, command, code…"
-                    : "Paste a link worth beaming…"
+                    ? "A thought, a link, a little bit of code…"
+                    : "Paste a link…"
                 }
                 rows={2}
                 onPaste={(event) => {
@@ -224,16 +222,16 @@ export default function UniversalInbox({
                 </div>
                 <button className={styles.save} disabled={busy || !value.trim()}>
                   {busy ? <LoaderCircle className="spin" /> : <ArrowUpRight />}
-                  <span>{busy ? "Sticking" : "Stick it"}</span>
+                  <span>{busy ? "Saving…" : "Save"}</span>
                 </button>
               </div>
             </form>
           ) : (
             <div className={styles.fileIntro}>
               <h2>
-                From here. <span>To there.</span>
+                Your files, together.
               </h2>
-              <p>Beam a file and grab it on your phone.</p>
+              <p>Drop a file below to save it.</p>
               <label className={styles.keep}>
                 <Clock3 />
                 <select
@@ -263,22 +261,15 @@ export default function UniversalInbox({
               <strong>
                 {progress ||
                   (dragging
-                    ? "Let go. We got it."
-                    : "Drop a file. Beam it.")}
+                    ? "Drop to upload"
+                    : "Drop files here")}
               </strong>
-              <br />
               <small>
                 or <u>browse files</u> · up to {config.maxSizeMb} MB
               </small>
             </span>
           </button>
-        ) : (
-          <div className={styles.sideNote}>
-            <Smartphone />
-            <strong>Pick it up on your next device.</strong>
-            <p>Everything you stick here shows up on your phone in seconds.</p>
-          </div>
-        )}
+        ) : null}
       </div>
       <input
         hidden

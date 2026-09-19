@@ -210,7 +210,7 @@ export function Inspector({
           </button>
         </header>
         <div className={styles.type}>
-          {object.type} ● stuck
+          {object.type}
         </div>
         <label className={styles.field}>
           NAME
@@ -290,7 +290,7 @@ export function Inspector({
           </button>
           <button onClick={share}>
             <Share2 aria-hidden="true" />
-            BEAM
+            SHARE
           </button>
           <button className="destructive" onClick={remove}>
             <Trash2 aria-hidden="true" />
@@ -303,9 +303,9 @@ export function Inspector({
           </p>
         )}
         <details className="device-handoff">
-          <summary>Beam to another device</summary>
+          <summary>Open on another device</summary>
           <Qr path={`/o/${object.id}`} label={object.name} />
-          <p>Sign in on the other device, then scan. Gone in seconds.</p>
+          <p>Sign in on the other device, then scan this code.</p>
         </details>
         <button
           className={styles.primary}
@@ -328,7 +328,7 @@ export function Inspector({
             }
           }}
         >
-          {saving ? "Sticking…" : "Stick changes"}{" "}
+          {saving ? "Saving…" : "Save changes"}{" "}
           <ArrowUpRight aria-hidden="true" />
         </button>
       </div>
@@ -369,7 +369,7 @@ export function CreateDialog({
   };
 
   return (
-    <Modal title="Stick something" code="NEW STICK" close={close}>
+    <Modal title="Add something" code="NEW ITEM" close={close}>
       <div className={styles.modeRow} role="tablist" aria-label="Item type">
         {types.map((t) => (
           <button
@@ -653,10 +653,11 @@ export function SettingsDialog({
           ))}
         </div>
       </div>
-      <div className="settings-section-heading">
-        <h3>Your modules</h3>
-        <p>Keep what you use. Hide what you don’t.</p>
-      </div>
+      <details className="settings-disclosure">
+        <summary>Workspace preferences</summary>
+        <div className="settings-section-heading">
+          <p>Choose what appears in your workspace.</p>
+        </div>
       <div className="settings-grid">
         {Object.entries(modules).map(([key, value]) => (
           <button
@@ -694,15 +695,8 @@ export function SettingsDialog({
           />
           <span>MB</span>
         </label>
-        <div>
-          <small>ACCESS</small>
-          <b>{config.exposure.toUpperCase()}</b>
-        </div>
-        <div>
-          <small>AUTH</small>
-          <b>ON</b>
-        </div>
       </div>
+      </details>
       {error && (
         <p className="form-error settings-error" role="alert">
           {error}

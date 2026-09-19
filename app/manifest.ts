@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest & {
     description: "Put it in 9t. Get it anywhere.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f7f9fc",
-    theme_color: "#1877e8",
+    background_color: "#f7f6f9",
+    theme_color: "#786294",
     icons: [
       {
         src: "/9t-mark.svg",

@@ -68,21 +68,21 @@ export function ObjectList({
         </div>
         <h2>
           {searching
-            ? "Nothing stuck here."
+            ? "Nothing found."
             : trash
               ? "All clear."
-              : "Blank board. Loud ideas."}
+              : "A little space for everything."}
         </h2>
         <p>
           {searching
             ? "Try a different name, a word from a snippet, or a link."
             : trash
-              ? "Deleted things chill here before they vanish."
-              : "Stick a thought. Beam a file. Drop a link. It'll be on your phone before you look up."}
+              ? "Items you delete will appear here."
+              : "Save a file, snippet or link. Find it here whenever you need it."}
         </p>
         {!trash && !searching && (
           <button className={styles.zeroCta} onClick={create}>
-            Stick your first thing <ArrowUpRight />
+            Add your first item <ArrowUpRight />
           </button>
         )}
       </div>
@@ -154,7 +154,7 @@ export function ObjectList({
                     </span>
                     <strong>{domain}</strong>
                     <small>
-                      <Globe /> TAP TO BEAM OPEN <ArrowUpRight />
+                      <Globe /> View link <ArrowUpRight />
                     </small>
                   </div>
                 )}
@@ -173,7 +173,7 @@ export function ObjectList({
                 <span className={styles.age}>
                   {o.expiresAt
                     ? `${until(o.expiresAt)} left`
-                    : `${ago(o.updatedAt)} ago`}
+                    : ago(o.updatedAt) === "now" ? "Just now" : `${ago(o.updatedAt)} ago`}
                 </span>
                 <div className={styles.actionsRow}>
                   {trash ? (
@@ -203,7 +203,7 @@ export function ObjectList({
                           aria-label={`Download ${o.name}`}
                         >
                           <Download />
-                          <span>Grab</span>
+                          <span>Download</span>
                         </a>
                       ) : o.type === "link" ? (
                         <a

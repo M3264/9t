@@ -17,9 +17,13 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public final class MainActivity extends Activity {
-  // Tactile Paper + Neon — same tokens as web workspace.
-  private int bg, paper, ink, green, muted, neon, lineInk;
+  // Muted lavender — shared with the web workspace.
+  private int bg, paper, ink, accent, muted, accentSoft, accentInk, onAccent, lineInk;
   private LinearLayout shell, body, nav;
+  private Typeface regularFont, boldFont;
+  private String inboxFilter = "all", inboxQuery = "", composeDraft = "";
+  private LinearLayout inboxItems;
+  private final Set<String> openSettings = new HashSet<>();
   private TextView connection;
   private TextView receiverStatus, batteryStatus;
   private Prefs prefs;
@@ -46,11 +50,31 @@ public final class MainActivity extends Activity {
   public void onCreate(Bundle state) {
     super.onCreate(state);
     prefs = new Prefs(this);
+    regularFont = Typeface.createFromAsset(getAssets(), "fonts/SpaceGrotesk-Regular.ttf");
+    boldFont = Typeface.createFromAsset(getAssets(), "fonts/SpaceGrotesk-Bold.ttf");
     applyTheme();
+    if (state != null) {
+      tab = state.getString("tab", "Inbox");
+      composeDraft = state.getString("composeDraft", "");
+      inboxQuery = state.getString("inboxQuery", "");
+      inboxFilter = state.getString("inboxFilter", "all");
+      ArrayList<String> expanded = state.getStringArrayList("openSettings");
+      if (expanded != null) openSettings.addAll(expanded);
+    }
     Notices.channels(this);
     getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     render();
     handleSend(getIntent());
+  }
+
+  @Override
+  protected void onSaveInstanceState(Bundle state) {
+    state.putString("tab", tab);
+    state.putString("composeDraft", composeDraft);
+    state.putString("inboxQuery", inboxQuery);
+    state.putString("inboxFilter", inboxFilter);
+    state.putStringArrayList("openSettings", new ArrayList<>(openSettings));
+    super.onSaveInstanceState(state);
   }
 
   @Override
@@ -111,17 +135,21 @@ public final class MainActivity extends Activity {
 
   private void applyTheme() {
     boolean dark = prefs != null && prefs.p.getBoolean("darkTheme", false);
-    bg = dark ? Color.rgb(18, 22, 20) : Color.rgb(236, 231, 218);
-    paper = dark ? Color.rgb(30, 36, 33) : Color.rgb(255, 253, 246);
-    ink = dark ? Color.rgb(242, 240, 230) : Color.rgb(28, 35, 31);
-    green = dark ? Color.rgb(183, 216, 138) : Color.rgb(29, 107, 79);
-    muted = dark ? Color.rgb(162, 173, 167) : Color.rgb(111, 120, 112);
-    neon = Color.rgb(217, 255, 75);
-    lineInk = dark ? Color.rgb(10, 13, 12) : Color.rgb(28, 35, 31);
-    getWindow().setStatusBarColor(bg);
-    getWindow().setNavigationBarColor(bg);
-    int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-    getWindow().getDecorView().setSystemUiVisibility(dark ? 0 : flags);
+    bg = Color.parseColor(dark ? "#19171e" : "#f7f6f9");
+    paper = Color.parseColor(dark ? "#23202a" : "#ffffff");
+    ink = Color.parseColor(dark ? "#f0ecf5" : "#292532");
+    accent = Color.parseColor(dark ? "#c0acd9" : "#786294");
+    accentInk = Color.parseColor(dark ? "#d5c5e9" : "#604c7c");
+    onAccent = Color.parseColor(dark ? "#251c30" : "#ffffff");
+    muted = Color.parseColor(dark ? "#b0a7bc" : "#736d7d");
+    accentSoft = Color.parseColor(dark ? "#383044" : "#eee8f6");
+    lineInk = Color.parseColor(dark ? "#393341" : "#e7e2ed");
+    getWindow().setStatusBarColor(Build.VERSION.SDK_INT >= 23 ? bg : Color.parseColor("#292532"));
+    getWindow().setNavigationBarColor(Build.VERSION.SDK_INT >= 26 ? bg : Color.parseColor("#292532"));
+    int flags = 0;
+    if (!dark && Build.VERSION.SDK_INT >= 23) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+    if (!dark && Build.VERSION.SDK_INT >= 26) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+    getWindow().getDecorView().setSystemUiVisibility(flags);
   }
 
   private GradientDrawable shape(int color, int radius) {
@@ -142,16 +170,17 @@ public final class MainActivity extends Activity {
   private TextView text(String value, int size, int color) {
     TextView v = new TextView(this);
     v.setText(value);
+    v.setIncludeFontPadding(false);
     v.setTextSize(size);
     v.setTextColor(color);
-    v.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+    v.setTypeface(regularFont);
     v.setPadding(0, dp(6), 0, dp(6));
     return v;
   }
 
   private TextView title(String value) {
-    TextView t = text(value, 28, ink);
-    t.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+    TextView t = text(value, 36, ink);
+    t.setTypeface(boldFont);
     body.addView(t);
     return t;
   }
@@ -163,10 +192,10 @@ public final class MainActivity extends Activity {
   }
 
   private void eyebrow(String value) {
-    TextView b = text("● " + value, 11, neon);
-    b.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    TextView b = text(value, 10, accentInk);
+    b.setTypeface(boldFont);
     GradientDrawable d = new GradientDrawable();
-    d.setColor(Color.rgb(28, 35, 31));
+    d.setColor(accentSoft);
     d.setCornerRadius(dp(20));
     d.setStroke(dp(2), lineInk);
     b.setBackground(d);
@@ -184,7 +213,7 @@ public final class MainActivity extends Activity {
 
   private void sectionLabel(String value) {
     TextView t = text(value, 11, muted);
-    t.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    t.setTypeface(boldFont);
     t.setPadding(0, dp(16), 0, dp(2));
     body.addView(t);
   }
@@ -209,7 +238,7 @@ public final class MainActivity extends Activity {
 
   private TextView labelIn(LinearLayout parent, String value) {
     TextView t = text(value, 11, muted);
-    t.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    t.setTypeface(boldFont);
     t.setPadding(0, dp(10), 0, 0);
     parent.addView(t);
     return t;
@@ -222,6 +251,7 @@ public final class MainActivity extends Activity {
     e.setHint(hint);
     e.setText(value);
     e.setTextSize(15);
+    e.setTypeface(regularFont);
     e.setPadding(dp(14), dp(12), dp(14), dp(12));
     e.setBackground(sticker(paper, 14));
     e.setSingleLine(!multiline);
@@ -242,44 +272,102 @@ public final class MainActivity extends Activity {
     Switch sw = new Switch(this);
     sw.setText(label);
     sw.setTextColor(ink);
+    styleSwitch(sw);
     sw.setPadding(0, dp(10), 0, dp(10));
     sw.setChecked(prefs.p.getBoolean(key, fallback));
     sw.setOnCheckedChangeListener((b, value) -> prefs.p.edit().putBoolean(key, value).apply());
     parent.addView(sw);
   }
 
-  private Button secondary(String label, Runnable action) {
+  private PocketArt icon(String name, int color, int size) {
+    PocketArt d = new PocketArt(name, color, getResources().getDisplayMetrics().density);
+    d.setBounds(0, 0, dp(size), dp(size));
+    return d;
+  }
+
+  private String actionIcon(String label) {
+    String l = label.toLowerCase(Locale.ROOT);
+    if (l.contains("paste") || l.contains("copy")) return "copy";
+    if (l.contains("pause")) return "pause";
+    if (l.contains("refresh") || l.contains("again")) return "refresh";
+    if (l.contains("remove") || l.contains("disconnect")) return "close";
+    if (l.contains("save")) return "check";
+    if (l.contains("send")) return "Send";
+    if (l.contains("download") || l.contains("receive")) return "download";
+    if (l.contains("background")) return "shield";
+    if (l.contains("connection") || l.contains("phone")) return "Connect";
+    return "arrow";
+  }
+
+  private android.graphics.drawable.Drawable touchSurface(int color, int radius) {
+    return new android.graphics.drawable.RippleDrawable(
+        android.content.res.ColorStateList.valueOf(0x25786294), sticker(color, radius), null);
+  }
+
+  private void styleSwitch(Switch sw) {
+    sw.setTypeface(regularFont);
+    sw.setTextSize(14);
+    sw.setMinHeight(dp(56));
+    sw.setSwitchPadding(dp(16));
+    if (sw.getThumbDrawable() != null) sw.getThumbDrawable().mutate().setTintList(new android.content.res.ColorStateList(
+        new int[][] {new int[] {android.R.attr.state_checked}, new int[] {}},
+        new int[] {accent, muted}));
+    if (sw.getTrackDrawable() != null) sw.getTrackDrawable().mutate().setTintList(new android.content.res.ColorStateList(
+        new int[][] {new int[] {android.R.attr.state_checked}, new int[] {}},
+        new int[] {accentSoft, bg}));
+  }
+
+  private Button action(String label, boolean primary, Runnable run) {
     Button b = new Button(this);
     b.setText(label);
     b.setAllCaps(false);
-    b.setTextColor(ink);
+    int foreground = primary ? onAccent : ink;
+    b.setTextColor(foreground);
     b.setTextSize(14);
-    b.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
-    b.setBackground(sticker(paper, 26));
-    b.setElevation(dp(2));
-    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(52));
-    p.setMargins(0, dp(6), 0, dp(6));
-    b.setLayoutParams(p);
-    b.setOnClickListener(v -> action.run());
+    b.setTypeface(boldFont);
+    b.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+    b.setPadding(dp(16), dp(10), dp(16), dp(10));
+    b.setCompoundDrawables(icon(actionIcon(label), foreground, 20), null, null, null);
+    b.setCompoundDrawablePadding(dp(12));
+    b.setBackground(touchSurface(primary ? accent : paper, 12));
+    b.setMinHeight(dp(52));
+    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+    lp.setMargins(0, dp(6), 0, dp(6));
+    b.setLayoutParams(lp);
+    b.setOnClickListener(v -> run.run());
     return b;
   }
 
-  private Button button(String label, Runnable action) {
-    Button b = new Button(this);
-    b.setText("● " + label);
-    b.setAllCaps(false);
-    boolean dark = prefs.p.getBoolean("darkTheme", false);
-    b.setTextColor(dark ? neon : Color.WHITE);
-    b.setTextSize(15);
-    b.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
-    GradientDrawable d = sticker(dark ? Color.rgb(28, 35, 31) : ink, 26);
-    b.setBackground(d);
-    b.setElevation(dp(3));
-    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(54));
-    p.setMargins(0, dp(8), 0, dp(8));
-    b.setLayoutParams(p);
-    b.setOnClickListener(v -> action.run());
-    return b;
+  private Button secondary(String label, Runnable run) { return action(label, false, run); }
+  private Button button(String label, Runnable run) { return action(label, true, run); }
+
+  private LinearLayout disclosure(String label, String symbol, String subtitle) {
+    LinearLayout outer = card();
+    TextView heading = text(label, 16, ink);
+    heading.setTypeface(boldFont);
+    heading.setMinHeight(dp(56));
+    heading.setGravity(Gravity.CENTER_VERTICAL);
+    heading.setCompoundDrawables(icon(symbol, ink, 22), null,
+        icon(openSettings.contains(label) ? "close" : "chevron", muted, 18), null);
+    heading.setCompoundDrawablePadding(dp(12));
+    heading.setContentDescription(label + ", " + (openSettings.contains(label) ? "expanded" : "collapsed"));
+    outer.addView(heading);
+    TextView summary = text(subtitle, 12, muted);
+    outer.addView(summary);
+    LinearLayout detail = new LinearLayout(this);
+    detail.setOrientation(LinearLayout.VERTICAL);
+    detail.setVisibility(openSettings.contains(label) ? View.VISIBLE : View.GONE);
+    outer.addView(detail);
+    heading.setBackground(new android.graphics.drawable.RippleDrawable(
+        android.content.res.ColorStateList.valueOf(0x22786294), null, shape(paper, 8)));
+    heading.setOnClickListener(v -> {
+      boolean opening = detail.getVisibility() != View.VISIBLE;
+      detail.setVisibility(opening ? View.VISIBLE : View.GONE);
+      if (opening) openSettings.add(label); else openSettings.remove(label);
+      heading.setCompoundDrawables(icon(symbol, ink, 22), null, icon(opening ? "close" : "chevron", muted, 18), null);
+      heading.setContentDescription(label + (opening ? ", expanded" : ", collapsed"));
+    });
+    return detail;
   }
 
   private EditText field(String hint, String value, boolean multiline) {
@@ -289,6 +377,7 @@ public final class MainActivity extends Activity {
     e.setHint(hint);
     e.setText(value);
     e.setTextSize(15);
+    e.setTypeface(regularFont);
     e.setPadding(dp(14), dp(12), dp(14), dp(12));
     e.setBackground(sticker(paper, 14));
     e.setElevation(dp(2));
@@ -310,13 +399,16 @@ public final class MainActivity extends Activity {
     receiverStatus = null;
     batteryStatus = null;
     renderedVersion = prefs.p.getLong("inboxVersion", 0);
+    inboxItems = null;
     if (web != null) {
       web.destroy();
       web = null;
     }
     shell = new LinearLayout(this);
     shell.setOrientation(LinearLayout.VERTICAL);
-    shell.setBackgroundColor(bg);
+    shell.setBackground(new android.graphics.drawable.LayerDrawable(
+        new android.graphics.drawable.Drawable[] {new android.graphics.drawable.ColorDrawable(bg),
+            new PocketArt("paper", muted, getResources().getDisplayMetrics().density)}));
     shell.setOnApplyWindowInsetsListener(
         (v, insets) -> {
           if (Build.VERSION.SDK_INT >= 30) {
@@ -336,17 +428,18 @@ public final class MainActivity extends Activity {
     LinearLayout header = new LinearLayout(this);
     header.setGravity(Gravity.CENTER_VERTICAL);
     header.setPadding(dp(16), dp(10), dp(16), dp(8));
-    TextView logo = text("9t", 22, ink);
-    logo.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
-    logo.setBackground(sticker(neon, 12));
+    TextView logo = text("9t", 26, accentInk);
+    logo.setTypeface(boldFont);
+    logo.setBackground(sticker(accentSoft, 12));
     logo.setPadding(dp(12), dp(4), dp(12), dp(4));
     logo.setElevation(dp(2));
     header.addView(logo);
     connection = text("● POCKET CLOUD", 11, ink);
-    connection.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    connection.setTypeface(boldFont);
     connection.setBackground(sticker(paper, 20));
     connection.setPadding(dp(10), dp(6), dp(10), dp(6));
     connection.setGravity(Gravity.END);
+    connection.setMaxLines(2);
     LinearLayout.LayoutParams connP = new LinearLayout.LayoutParams(0, -2, 1);
     connP.setMargins(dp(12), 0, 0, 0);
     header.addView(connection, connP);
@@ -369,22 +462,19 @@ public final class MainActivity extends Activity {
     LinearLayout.LayoutParams navP = new LinearLayout.LayoutParams(-1, -2);
     navP.setMargins(dp(12), dp(4), dp(12), dp(12));
     for (String name : new String[] {"Inbox", "Workspace", "Send", "Connect"}) {
-      Button b = new Button(this);
-      b.setText(tab.equals(name) ? "● " + name : name);
-      b.setAllCaps(false);
-      b.setTextSize(12);
-      b.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
       boolean active = tab.equals(name);
-      b.setTextColor(active ? ink : muted);
-      GradientDrawable nb = active ? sticker(neon, 18) : shape(paper, 18);
-      b.setBackground(nb);
-      if (active) b.setElevation(dp(2));
-      nav.addView(b, new LinearLayout.LayoutParams(0, dp(50), 1));
-      b.setOnClickListener(
-          v -> {
-            tab = name;
-            render();
-          });
+      TextView b = text(name, 10, active ? accentInk : muted);
+      b.setTypeface(boldFont);
+      b.setGravity(Gravity.CENTER);
+      b.setPadding(dp(2), dp(10), dp(2), dp(8));
+      b.setCompoundDrawables(null, icon(name, active ? accentInk : muted, 23), null, null);
+      b.setCompoundDrawablePadding(dp(5));
+      b.setBackground(active ? touchSurface(accentSoft, 12) : shape(paper, 12));
+      b.setSelected(active);
+      b.setContentDescription(name + (active ? ", selected" : ""));
+      nav.addView(b, new LinearLayout.LayoutParams(0, -2, 1));
+      b.setMinHeight(dp(64));
+      b.setOnClickListener(v -> { tab = name; render(); });
     }
     shell.addView(nav, navP);
     updateStatus();
@@ -418,6 +508,8 @@ public final class MainActivity extends Activity {
     CheckBox existing = new CheckBox(this);
     existing.setText("Also receive existing items");
     existing.setTextColor(ink);
+    existing.setTypeface(regularFont);
+    existing.setButtonTintList(android.content.res.ColorStateList.valueOf(accent));
     body.addView(existing);
     paragraph(
         "New files save automatically to Downloads/9t. New snippets replace your clipboard when"
@@ -448,8 +540,8 @@ public final class MainActivity extends Activity {
         && tab.equals("Inbox")
         && prefs.paired()
         && renderedVersion != prefs.p.getLong("inboxVersion", 0)) {
-      render();
-      return;
+      renderedVersion = prefs.p.getLong("inboxVersion", 0);
+      if (inboxItems != null) renderInboxItems();
     }
     if (connection != null && prefs.paired()) {
       String route = prefs.p.getString("route", "NOT CONNECTED");
@@ -460,23 +552,84 @@ public final class MainActivity extends Activity {
   }
 
   private void inbox() {
-    hero("BEAM IT · KEEP IT · FIND IT", "Stuck here.",
-        "Files land in Downloads/9t. Snippets wait to be pasted. All yours.");
-    LinearLayout status = card();
-    paragraphIn(status, prefs.p.getString("status", "Beam something to 9t. It lands here."));
-    status.addView(
-        button(
-            ReceiveService.active ? "Refresh inbox" : "Start live receiving",
-            () -> {
-              if (!ReceiveService.active) startLive();
-              sync(true);
-            }));
-    sectionLabel("ON THIS PHONE");
+    hero("YOUR POCKET WORKSPACE", "Good things.\nWithin reach.",
+        "Your files, links and little flashes of genius.");
+    LinearLayout quick = new LinearLayout(this);
+    quick.setGravity(Gravity.CENTER_VERTICAL);
+    TextView status = text(ReceiveService.active ? "Receiver active" : "Ready when you are", 14, ink);
+    status.setTypeface(boldFont);
+    status.setCompoundDrawables(icon("shield", accent, 20), null, null, null);
+    status.setCompoundDrawablePadding(dp(8));
+    quick.addView(status, new LinearLayout.LayoutParams(0, -2, 1));
+    Button refresh = secondary("Sync", () -> {
+      if (!ReceiveService.active) startLive();
+      sync(true);
+    });
+    refresh.setCompoundDrawables(icon("refresh", ink, 18), null, null, null);
+    quick.addView(refresh, new LinearLayout.LayoutParams(-2, dp(48)));
+    body.addView(quick);
+    EditText search = field("Find something…", inboxQuery, false);
+    search.setCompoundDrawables(icon("search", muted, 19), null, null, null);
+    search.setCompoundDrawablePadding(dp(10));
+    search.setContentDescription("Search saved items");
+    HorizontalScrollView filterScroll = new HorizontalScrollView(this);
+    filterScroll.setHorizontalScrollBarEnabled(false);
+    LinearLayout filters = new LinearLayout(this);
+    String[] keys = {"all", "file", "snippet", "link"};
+    String[] labels = {"Everything", "Files", "Snippets", "Links"};
+    for (int i = 0; i < keys.length; i++) {
+      final String key = keys[i];
+      TextView chip = text(labels[i], 12, ink);
+      chip.setTypeface(boldFont);
+      chip.setGravity(Gravity.CENTER);
+      chip.setPadding(dp(14), dp(12), dp(14), dp(12));
+      chip.setMinHeight(dp(48));
+      chip.setTag(key);
+      boolean active = inboxFilter.equals(key);
+      chip.setTextColor(active ? accentInk : ink);
+      chip.setBackground(touchSurface(active ? accentSoft : paper, 24));
+      chip.setSelected(active);
+      LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-2, -2);
+      cp.setMargins(0, dp(6), dp(8), dp(6));
+      filters.addView(chip, cp);
+      chip.setOnClickListener(v -> {
+        inboxFilter = key;
+        for (int j = 0; j < filters.getChildCount(); j++) {
+          TextView c = (TextView) filters.getChildAt(j);
+          boolean selected = key.equals(c.getTag());
+          c.setSelected(selected);
+          c.setBackground(touchSurface(selected ? accentSoft : paper, 24));
+          c.setTextColor(selected ? accentInk : ink);
+        }
+        renderInboxItems();
+      });
+    }
+    filterScroll.addView(filters);
+    body.addView(filterScroll);
+    sectionLabel("SAVED ON THIS PHONE");
+    inboxItems = new LinearLayout(this);
+    inboxItems.setOrientation(LinearLayout.VERTICAL);
+    body.addView(inboxItems);
+    search.addTextChangedListener(new android.text.TextWatcher() {
+      public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+      public void onTextChanged(CharSequence s, int start, int before, int count) {
+        inboxQuery = s.toString(); renderInboxItems();
+      }
+      public void afterTextChanged(android.text.Editable e) {}
+    });
+    renderInboxItems();
+  }
+
+  private void renderInboxItems() {
+    inboxItems.removeAllViews();
     try (LocalStore db = new LocalStore(this)) {
       List<JSONObject> items = db.items(null);
-      if (items.isEmpty())
-        paragraph("Send something to 9t. It will appear here, even after you go offline.");
+      int shown = 0;
       for (JSONObject item : items) {
+        if (!inboxFilter.equals("all") && !inboxFilter.equals(item.optString("type"))) continue;
+        String haystack = item.optString("name") + " " + item.optString("content") + " " + item.optString("url");
+        if (!haystack.toLowerCase(Locale.ROOT).contains(inboxQuery.toLowerCase(Locale.ROOT))) continue;
+        shown++;
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(12), dp(16), dp(12));
@@ -484,35 +637,45 @@ public final class MainActivity extends Activity {
         card.setElevation(dp(3));
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
         cp.setMargins(0, dp(7), 0, dp(7));
-        body.addView(card, cp);
+        inboxItems.addView(card, cp);
         TextView kind = text(
-                "● " + item.getString("type").toUpperCase()
+                item.getString("type").toUpperCase(Locale.ROOT)
                     + " · "
                     + item.getString("status").toUpperCase(),
                 11,
-                Color.rgb(28, 35, 31));
-        kind.setTypeface(Typeface.create("monospace", Typeface.BOLD));
-        kind.setBackground(shape(neon, 20));
+                accentInk);
+        kind.setTypeface(boldFont);
+        kind.setBackground(shape(accentSoft, 20));
         kind.setPadding(dp(10), dp(4), dp(10), dp(4));
-        card.addView(kind);
+        kind.setCompoundDrawables(icon(item.optString("type"), accentInk, 17), null, null, null);
+        kind.setCompoundDrawablePadding(dp(8));
+        card.addView(kind, new LinearLayout.LayoutParams(-2, -2));
         TextView name = text(item.getString("name"), 18, ink);
-        name.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        name.setTypeface(boldFont);
+        name.setMaxLines(2);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
         card.addView(name);
         String preview =
             item.optString(
                 "content", item.optString("url", item.optLong("sizeBytes") / 1024 + " KB"));
         TextView p = text(preview, 14, muted);
         p.setMaxLines(3);
+        p.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        if (item.optString("type").equals("snippet")) {
+          p.setTypeface(Typeface.MONOSPACE);
+          p.setTextColor(Color.parseColor("#ded3ee"));
+          p.setBackground(shape(Color.parseColor("#292332"), 10));
+          p.setPadding(dp(12), dp(12), dp(12), dp(12));
+        }
         card.addView(p);
         if (item.has("error"))
-          card.addView(text(item.getString("error"), 13, Color.rgb(151, 61, 45)));
+          card.addView(text(item.getString("error"), 13, Color.parseColor(prefs.p.getBoolean("darkTheme", false) ? "#f2a3ae" : "#b44552")));
         boolean saved = item.optString("status").equals("saved");
         String label =
             saved
                 ? (item.optString("type").equals("file") ? "Open file" : "View & copy")
                 : "Receive this item";
-        card.addView(
-            button(
+        Button itemAction = secondary(
                 label,
                 () -> {
                   if (saved) openItem(item);
@@ -522,10 +685,30 @@ public final class MainActivity extends Activity {
                     }
                     sync(true);
                   }
-                }));
+                });
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-2, -2);
+        actionParams.gravity = Gravity.END;
+        actionParams.setMargins(0, dp(8), 0, 0);
+        card.addView(itemAction, actionParams);
+      }
+      if (shown == 0) {
+        TextView empty = text(items.isEmpty() ? "A little space for everything." : "Nothing matches yet.", 23, ink);
+        empty.setTypeface(boldFont);
+        empty.setGravity(Gravity.CENTER);
+        empty.setPadding(dp(16), dp(36), dp(16), dp(12));
+        empty.setCompoundDrawables(null, icon("Inbox", accent, 56), null, null);
+        empty.setCompoundDrawablePadding(dp(24));
+        inboxItems.addView(empty);
+        TextView hint = text(items.isEmpty()
+            ? "Send a file or snippet from your workspace. It will be waiting here, even offline."
+            : "Try another search or choose a different type.", 14, muted);
+        hint.setGravity(Gravity.CENTER);
+        hint.setPadding(dp(20), dp(4), dp(20), dp(24));
+        inboxItems.addView(hint);
+        if (items.isEmpty()) inboxItems.addView(button("Open workspace", () -> { tab = "Workspace"; render(); }));
       }
     } catch (Exception e) {
-      paragraph("Could not load local inbox: " + e.getMessage());
+      inboxItems.addView(text("Could not load local inbox: " + e.getMessage(), 14, muted));
     }
   }
 
@@ -547,7 +730,7 @@ public final class MainActivity extends Activity {
       content.setTextIsSelectable(true);
       ScrollView scroll = new ScrollView(this);
       scroll.addView(content);
-      new AlertDialog.Builder(this)
+      new PocketDialog()
           .setTitle(item.optString("name"))
           .setView(scroll)
           .setPositiveButton(
@@ -570,18 +753,27 @@ public final class MainActivity extends Activity {
   private void send() {
     hero("FROM THIS PHONE", "Send it over.",
         "Text queues here and beams when a route is open. For files and links, use Workspace.");
-    EditText compose = field("A thought, a command, a little bit of code…", "", true);
+    sectionLabel("QUICK STICK");
+    EditText compose = field("A thought, a command, a little bit of code…", composeDraft, true);
+    compose.addTextChangedListener(new android.text.TextWatcher() {
+      public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+      public void onTextChanged(CharSequence s, int start, int before, int count) { composeDraft = s.toString(); }
+      public void afterTextChanged(android.text.Editable e) {}
+    });
     compose.setTag("compose");
-    compose.setMinLines(7);
-    body.addView(
+    compose.setMinLines(6);
+    LinearLayout composeActions = new LinearLayout(this);
+    composeActions.setGravity(Gravity.CENTER_VERTICAL);
+    body.addView(composeActions);
+    composeActions.addView(
         secondary(
-            "Paste clipboard",
+            "Paste",
             () -> {
               ClipboardManager cm = androidx.core.content.ContextCompat.getSystemService(this, ClipboardManager.class);
               if (cm.hasPrimaryClip() && cm.getPrimaryClip() != null)
                 compose.setText(cm.getPrimaryClip().getItemAt(0).coerceToText(this));
             }));
-    body.addView(
+    composeActions.addView(
         button(
             "Send to 9t",
             () -> {
@@ -597,16 +789,21 @@ public final class MainActivity extends Activity {
               toast("Queued on this phone");
               sync(true);
             }));
+    for (int i = 0; i < composeActions.getChildCount(); i++) {
+      LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(0, -2, 1);
+      ap.setMargins(i == 0 ? 0 : dp(6), dp(6), i == 0 ? dp(6) : 0, dp(6));
+      composeActions.getChildAt(i).setLayoutParams(ap);
+    }
     try (LocalStore db = new LocalStore(this)) {
       List<JSONObject> queue = db.outbox();
       sectionLabel("OUTBOX · " + queue.size());
       for (JSONObject item : queue) {
         String value = item.getString("content");
-        paragraph(
-            value.substring(0, Math.min(100, value.length()))
-                + (item.has("error") ? "\n" + item.optString("error") : "\nWaiting to send"));
-        body.addView(
-            button(
+        LinearLayout queuedCard = card();
+        paragraphIn(queuedCard, value.substring(0, Math.min(100, value.length())));
+        labelIn(queuedCard, item.has("error") ? item.optString("error") : "WAITING TO SEND");
+        queuedCard.addView(
+            secondary(
                 "Remove queued text",
                 () -> {
                   try (LocalStore queued = new LocalStore(this)) {
@@ -624,6 +821,7 @@ public final class MainActivity extends Activity {
     Switch sw = new Switch(this);
     sw.setText(label);
     sw.setTextColor(ink);
+    styleSwitch(sw);
     sw.setPadding(0, dp(14), 0, dp(14));
     sw.setChecked(prefs.p.getBoolean(key, fallback));
     sw.setOnCheckedChangeListener((b, value) -> prefs.p.edit().putBoolean(key, value).apply());
@@ -631,13 +829,13 @@ public final class MainActivity extends Activity {
   }
 
   private void settings() {
-    hero("POCKET CLOUD", "Stay connected.",
+    hero("9t " + ReceiverDiagnostics.version(this), "Stay connected.",
         "LAN first, internet fallback. Both addresses must reach the same paired server.");
-    sectionLabel("APPEARANCE");
-    LinearLayout look = card();
+    LinearLayout look = disclosure("Appearance", "moon", "Make this little space yours.");
     Switch theme = new Switch(this);
     theme.setText("Dark theme");
     theme.setTextColor(ink);
+    styleSwitch(theme);
     theme.setPadding(0, dp(8), 0, dp(8));
     theme.setChecked(prefs.p.getBoolean("darkTheme", false));
     theme.setOnCheckedChangeListener(
@@ -647,8 +845,7 @@ public final class MainActivity extends Activity {
           render();
         });
     look.addView(theme);
-    sectionLabel("CONNECTION");
-    LinearLayout conn = card();
+    LinearLayout conn = disclosure("Your workspace", "Connect", "Addresses and connection mode");
     paragraphIn(conn, prefs.p.getString("status", "Ready to connect"));
     paragraphIn(conn,
         "Auto prefers LAN, switches to internet on failure, and checks LAN again.");
@@ -659,8 +856,17 @@ public final class MainActivity extends Activity {
     labelIn(conn, "MODE");
     Spinner mode = new Spinner(this);
     String[] labels = {"Automatic · LAN first", "LAN only", "Internet only"};
-    mode.setAdapter(
-        new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, labels));
+    mode.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, labels) {
+      @Override public View getView(int position, View recycled, ViewGroup parent) { return option(position); }
+      @Override public View getDropDownView(int position, View recycled, ViewGroup parent) { return option(position); }
+      private View option(int position) {
+        TextView t = text(getItem(position), 14, ink);
+        t.setPadding(dp(12), dp(16), dp(12), dp(16));
+        t.setBackgroundColor(paper);
+        t.setMinHeight(dp(48));
+        return t;
+      }
+    });
     mode.setBackground(sticker(paper, 14));
     mode.setPadding(dp(14), dp(4), dp(14), dp(4));
     String current = prefs.p.getString("mode", "auto");
@@ -695,8 +901,7 @@ public final class MainActivity extends Activity {
                 toast(e.getMessage());
               }
             }));
-    sectionLabel("DOWNLOADS");
-    LinearLayout downloads = card();
+    LinearLayout downloads = disclosure("Files & clipboard", "download", "Auto-save, clipboard and download limits");
     toggleIn(downloads, "Automatically save incoming files", "files", true);
     toggleIn(downloads, "Copy incoming snippets to clipboard", "copy", true);
     toggleIn(downloads, "Files: unmetered connections only", "wifiOnly", false);
@@ -718,8 +923,8 @@ public final class MainActivity extends Activity {
               }
             }));
     if (Build.VERSION.SDK_INT < 29) downloads.addView(secondary("Allow download storage", this::requestNotifications));
-    sectionLabel("LIVE RECEIVING · 9t " + ReceiverDiagnostics.version(this));
-    LinearLayout live = card();
+    LinearLayout live = disclosure("Background receiving", "shield",
+        ReceiveService.active ? "Active · keep your things flowing" : "Permissions, receiving and diagnostics");
     receiverStatus = text(ReceiverDiagnostics.summary(this), 14, muted);
     live.addView(receiverStatus);
     batteryStatus = text(backgroundStatus(), 14, muted);
@@ -755,19 +960,18 @@ public final class MainActivity extends Activity {
             + " computer active until you pause it, including after a restart. Internet-only"
             + " receiving uses a five-hour live session, then scheduled checks. Force-stop and phone battery controls"
             + " can still stop receiving.");
-    paragraph(
+    paragraphIn(live,
         "Transfers are encrypted even on HTTP LAN routes. The full Workspace screen requires HTTPS."
             + " LAN-only use needs a server on your local network; a cloud server still needs"
             + " internet or a reachable private route.");
-    sectionLabel("DANGER ZONE");
-    LinearLayout danger = card();
+    LinearLayout danger = disclosure("Disconnect", "close", "Remove this phone from your workspace");
     paragraphIn(danger,
         "Clears local history and queued text on this phone. Downloaded files stay in Downloads/9t. Revoke the phone on the website too.");
     danger.addView(
         secondary(
             "Disconnect this phone",
             () ->
-                new AlertDialog.Builder(this)
+                new PocketDialog()
                     .setTitle("Disconnect phone?")
                     .setMessage(
                         "Local history and queued text will be cleared. Downloaded files stay in"
@@ -799,7 +1003,7 @@ public final class MainActivity extends Activity {
         || Compat.batteryExempt(this))
       return;
     prefs.p.edit().putBoolean("backgroundPromptV3", true).apply();
-    new AlertDialog.Builder(this)
+    new PocketDialog()
         .setTitle("Receive in the background")
         .setMessage(
             "Allow 9t to receive files and text while another app is open or the screen is locked."
@@ -843,7 +1047,7 @@ public final class MainActivity extends Activity {
     content.setTextIsSelectable(true);
     ScrollView scroll = new ScrollView(this);
     scroll.addView(content);
-    new AlertDialog.Builder(this)
+    new PocketDialog()
         .setTitle("Receiver details")
         .setView(scroll)
         .setPositiveButton(
@@ -921,6 +1125,11 @@ public final class MainActivity extends Activity {
           prefs.p.edit().clear().commit();
           runOnUiThread(
               () -> {
+                composeDraft = "";
+                inboxQuery = "";
+                inboxFilter = "all";
+                openSettings.clear();
+                applyTheme();
                 CookieManager.getInstance().removeAllCookies(null);
                 CookieManager.getInstance().flush();
                 WebStorage.getInstance().deleteAllData();
@@ -1157,6 +1366,31 @@ public final class MainActivity extends Activity {
       startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
     } catch (Exception e) {
       toast("No browser available");
+    }
+  }
+
+  private final class PocketDialog extends AlertDialog.Builder {
+    PocketDialog() { super(MainActivity.this); }
+    @Override public AlertDialog show() {
+      AlertDialog dialog = super.show();
+      if (dialog.getWindow() != null) {
+        dialog.getWindow().setBackgroundDrawable(sticker(paper, 18));
+        styleDialogText(dialog.getWindow().getDecorView());
+      }
+      return dialog;
+    }
+  }
+
+  private void styleDialogText(View view) {
+    if (view instanceof TextView) {
+      TextView t = (TextView) view;
+      t.setTypeface(view instanceof Button ? boldFont : regularFont);
+      t.setTextColor(ink);
+      if (view instanceof Button) ((Button) view).setAllCaps(false);
+    }
+    if (view instanceof ViewGroup) {
+      ViewGroup group = (ViewGroup) view;
+      for (int i = 0; i < group.getChildCount(); i++) styleDialogText(group.getChildAt(i));
     }
   }
 

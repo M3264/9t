@@ -1,10 +1,10 @@
 # 9t Android — network and transfer client
 
-9t Android 0.4.2 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets. The native screens share the web Paper + Neon sticker style (warm paper, ink borders, neon highlights).
+9t Android 0.4.4 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets. The native screens use bundled Space Grotesk typography, drawn icons, neutral surfaces and muted lavender accents matching the website. Inbox includes local search and type filters, compact item actions and code previews; Connect groups settings into expandable sections. The composer retains its draft across tab changes and activity recreation.
 
 ## Install and pair
 
-1. Install the signed [9t-android-0.4.2.apk](https://9t.kennyy.xyz/downloads/9t-android-0.4.2.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
+1. Install the signed [9t-android-0.4.4.apk](https://9t.kennyy.xyz/downloads/9t-android-0.4.4.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
 2. Sign into your server, open **Settings → Android devices & pairing** (`/devices`), name the phone, and create a pairing code.
 3. Paste that code into the Android app. Select whether to receive existing items; the default receives newly created items only. Existing items remain available for manual receiving.
 4. Allow notifications and start live receiving. Accept the **Allow background receiving** battery prompt, also available under Connect. New files save in **Downloads/9t** without visiting a download page. Incoming snippets are copied as plain text while the phone is unlocked; the latest received snippet wins. Links are retained in the inbox without replacing the clipboard.
@@ -63,7 +63,7 @@ References: [connected-device service requirements](https://developer.android.co
 
 ### If receiving stops when you switch apps
 
-1. Install 0.4.2 over the existing app; do not uninstall, so pairing and history remain. Open it once after installing. Confirm **9t 0.4.2** in Connect.
+1. Install 0.4.4 over the existing app; do not uninstall, so pairing and history remain. Open it once after installing. Confirm **9t 0.4.4** in Connect.
 2. In **Connect**, select **Start live receiving** if previously paused. Allow notifications. Confirm the **9t · Live receiving** notification remains after switching to another app.
 3. Tap **Connect → Allow background receiving** and approve Android's prompt. Confirm the app reports background battery access allowed. Open **Phone app settings** and allow background activity and auto-start if your phone offers these controls. With a LAN server, use Automatic or LAN-only with your saved LAN address. Internet-only mode retains Android's data-sync time limit.
 4. Send a new small file and snippet from the same paired server while another phone app is visible. Check **Downloads/9t** and paste into an editor. Repeat with the screen locked; files should arrive during live receiving, while clipboard copying intentionally waits until unlocked/opened.
