@@ -19,9 +19,35 @@ services:
       NINE_T_BACKUP_DIR: "/data/backups"
       NINE_T_SETUP_TOKEN: "${NINE_T_SETUP_TOKEN:-}"
       NINE_T_HTTPS: "${NINE_T_HTTPS:-false}"
+      # Opt-in Postgres (schema target; JSON files remain primary until the
+      # repository cutover). URL-encode special chars in the password.
+      NINE_T_DATABASE_URL: "${NINE_T_DATABASE_URL:-}"
     volumes:
       - 9t-data:/data
     restart: unless-stopped
 
+  # Optional database for the Postgres migration target (opt-in only).
+  # JSON files remain primary until the repository cutover, so the default
+  # `docker compose up` does not start this. Enable with:
+  #   POSTGRES_PASSWORD=$(openssl rand -hex 16) docker compose --profile db up -d --build
+  #   docker compose exec 9t npm run migrate
+  # (URL-encode special chars if you customize the password.)
+  db:
+    profiles: ["db"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-9t}"
+      POSTGRES_USER: "${POSTGRES_USER:-9t}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-change-me}"
+    volumes:
+      - 9t-db:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-9t}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   9t-data:
+  9t-db:

@@ -32,6 +32,17 @@ NINE_T_SETUP_TOKEN=$(openssl rand -hex 16) NINE_T_HTTPS=true docker compose up -
 
 Update with `git pull` then `docker compose up -d --build`. Backups default to `/data/backups` inside the volume (`NINE_T_BACKUP_DIR`); run `docker compose exec 9t node scripts/backup.mjs` to create one. `PORT=xxxx` overrides the published port.
 
+### Optional Postgres (migration target)
+
+The app still stores data in JSON files. To prepare the PostgreSQL schema that a future release will use as primary storage:
+
+```bash
+POSTGRES_PASSWORD=$(openssl rand -hex 16) docker compose --profile db up -d --build
+docker compose exec 9t npm run migrate
+```
+
+`migrate` is idempotent (tracked in `schema_migrations`). Point the app at it with `NINE_T_DATABASE_URL=postgresql://9t:<password>@db:5432/9t` once a release supports it; until then the variable is ignored.
+
 ## What setup does
 
 Run `./setup.sh` after cloning the repository. No global CLI package or initial browser setup is required. The shell bootstrap installs Node.js 22 locally under `.tools/node` only if an adequate Node runtime is missing and you agree to the download. It supports Linux/macOS x64 and arm64; use WSL on Windows. It needs curl and tar. Downloads and checksums come from the official Node.js HTTPS distribution site.

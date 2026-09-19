@@ -13,11 +13,13 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "cleanup": "node scripts/maintenance.mjs",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "lucide-react": "0.468.0",
     "next": "^16.3.5",
+    "pg": "8.13.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "22.7.4",
+    "@types/pg": "8.11.1",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
