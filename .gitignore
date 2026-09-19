@@ -28,3 +28,4 @@ public/downloads/*.idsig
 .9t-setup.lock
 
 .next-lavender/
+.next-config/

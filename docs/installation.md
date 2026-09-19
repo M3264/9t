@@ -14,6 +14,24 @@ Choose **LAN** if your phone will connect through Wi-Fi or a hotspot. Keep the p
 
 The initial download/build needs internet access. After installation, a running LAN server can exchange data with the Android client without internet access.
 
+## Docker (alternative)
+
+Requires Docker Engine with Compose v2:
+
+```bash
+git clone https://github.com/M3264/9t.git
+cd 9t
+NINE_T_SETUP_TOKEN=$(openssl rand -hex 16) docker compose up -d --build
+```
+
+Open `http://<host>:3265` and create the administrator in the browser; the setup key is required only for that first account. Data persists in the `9t-data` volume. The phone event socket shares port 3265, so no extra ports are needed. Behind an HTTPS reverse proxy, set `NINE_T_HTTPS=true` so session cookies get the Secure flag:
+
+```bash
+NINE_T_SETUP_TOKEN=$(openssl rand -hex 16) NINE_T_HTTPS=true docker compose up -d --build
+```
+
+Update with `git pull` then `docker compose up -d --build`. Backups default to `/data/backups` inside the volume (`NINE_T_BACKUP_DIR`); run `docker compose exec 9t node scripts/backup.mjs` to create one. `PORT=xxxx` overrides the published port.
+
 ## What setup does
 
 Run `./setup.sh` after cloning the repository. No global CLI package or initial browser setup is required. The shell bootstrap installs Node.js 22 locally under `.tools/node` only if an adequate Node runtime is missing and you agree to the download. It supports Linux/macOS x64 and arm64; use WSL on Windows. It needs curl and tar. Downloads and checksums come from the official Node.js HTTPS distribution site.

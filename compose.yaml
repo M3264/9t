@@ -1,0 +1,27 @@
+# 9t — one-command Docker install (alternative to ./setup.sh).
+#
+#   NINE_T_SETUP_TOKEN=$(openssl rand -hex 16) docker compose up -d --build
+#
+# Then open http://<host>:3265 and create the administrator in the browser.
+# Data persists in the 9t-data volume. The phone event socket shares port 3265,
+# so no extra ports or special proxy rules are needed for push.
+
+services:
+  9t:
+    build: .
+    image: 9t:latest
+    ports:
+      - "${PORT:-3265}:3265"
+    environment:
+      PORT: "${PORT:-3265}"
+      NINE_T_HOST: "0.0.0.0"
+      NINE_T_DATA_DIR: "/data"
+      NINE_T_BACKUP_DIR: "/data/backups"
+      NINE_T_SETUP_TOKEN: "${NINE_T_SETUP_TOKEN:-}"
+      NINE_T_HTTPS: "${NINE_T_HTTPS:-false}"
+    volumes:
+      - 9t-data:/data
+    restart: unless-stopped
+
+volumes:
+  9t-data:
