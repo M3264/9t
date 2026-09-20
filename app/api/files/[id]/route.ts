@@ -1,7 +1,6 @@
-import { readFile } from "fs/promises";
 import { authenticated, unauthorized } from "@/lib/server/auth";
 import { readData } from "@/lib/server/db";
-import { safeObjectPath } from "@/lib/server/security";
+import { getBlobStore, validStorageKey } from "@/lib/server/storage";
 
 export async function GET(
   req: Request,
@@ -12,12 +11,11 @@ export async function GET(
   const o = (await readData()).objects.find(
     (x) => x.id === id && !x.deletedAt && x.type === "file",
   );
-  if (!o?.storageKey) return new Response("Not found", { status: 404 });
-  const full = safeObjectPath(o.storageKey);
-  if (!full) return new Response("Not found", { status: 404 });
+  if (!o?.storageKey || !validStorageKey(o.storageKey))
+    return new Response("Not found", { status: 404 });
   let data: Buffer;
   try {
-    data = await readFile(full);
+    ({ body: data } = await getBlobStore().get(o.storageKey));
   } catch {
     return new Response("Not found", { status: 404 });
   }

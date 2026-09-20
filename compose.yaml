@@ -22,6 +22,11 @@ services:
       # Opt-in Postgres (schema target; JSON files remain primary until the
       # repository cutover). URL-encode special chars in the password.
       NINE_T_DATABASE_URL: "${NINE_T_DATABASE_URL:-}"
+      # Blob storage: local filesystem by default. For S3-compatible
+      # storage, set NINE_T_STORAGE_DRIVER=s3 plus the NINE_T_S3_* vars
+      # (see .env.example). Metadata is unchanged, so only new uploads
+      # land in the bucket.
+      NINE_T_STORAGE_DRIVER: "${NINE_T_STORAGE_DRIVER:-local}"
     volumes:
       - 9t-data:/data
     restart: unless-stopped

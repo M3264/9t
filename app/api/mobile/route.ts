@@ -1,12 +1,8 @@
-import { open } from "fs/promises";
 import { createHash, randomBytes } from "crypto";
 import { readData, mutate } from "@/lib/server/db";
 import { seal, unseal, type Envelope } from "@/lib/server/mobile-crypto";
-import {
-  safeObjectPath,
-  rateLimit,
-  rateLimitResponse,
-} from "@/lib/server/security";
+import { getBlobStore, validStorageKey } from "@/lib/server/storage";
+import { rateLimit, rateLimitResponse } from "@/lib/server/security";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const replay = new Map<string, number>();
@@ -145,25 +141,23 @@ export async function POST(req: Request) {
     const offset = body.offset;
     if (!Number.isSafeInteger(offset) || offset < 0)
       return reply({ error: "Invalid offset", code: 400 });
-    const path = safeObjectPath(o.storageKey);
-    if (!path) return reply({ error: "File unavailable", code: 404 });
+    if (!validStorageKey(o.storageKey))
+      return reply({ error: "File unavailable", code: 404 });
+    // Blobs are immutable after upload, so the stored size bounds offsets
+    // before touching the blob store (either driver).
+    if (typeof o.sizeBytes === "number" && offset > o.sizeBytes)
+      return reply({ error: "Invalid offset", code: 400 });
     try {
-      const file = await open(path, "r");
-      try {
-        const stat = await file.stat();
-        if (offset > stat.size)
-          return reply({ error: "Invalid offset", code: 400 });
-        const buffer = Buffer.alloc(Math.min(CHUNK, stat.size - offset));
-        const { bytesRead } = await file.read(buffer, 0, buffer.length, offset);
-        return reply({
-          offset,
-          total: stat.size,
-          data: buffer.subarray(0, bytesRead).toString("base64"),
-          done: offset + bytesRead === stat.size,
-        });
-      } finally {
-        await file.close();
-      }
+      const { body: buffer, total } = await getBlobStore().get(o.storageKey, {
+        offset,
+        length: CHUNK,
+      });
+      return reply({
+        offset,
+        total,
+        data: buffer.toString("base64"),
+        done: offset + buffer.length === total,
+      });
     } catch {
       return reply({ error: "File unavailable", code: 404 });
     }

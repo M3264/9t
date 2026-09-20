@@ -1,9 +1,6 @@
-import { randomUUID } from "crypto";
-import { createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
 import { authenticated } from "@/lib/server/auth";
 import { addObject, readData } from "@/lib/server/db";
-import { safeObjectPath } from "@/lib/server/security";
+import { getBlobStore, newStorageKey } from "@/lib/server/storage";
 
 export async function POST(req: Request) {
   if (!(await authenticated(req)))
@@ -22,14 +19,12 @@ export async function POST(req: Request) {
     const data = await readData();
     if (file.size > data.config.maxSizeMb * 1024 * 1024)
       return Response.redirect(new URL("/?share=too-large", req.url), 303);
-    const storageKey = randomUUID();
-    const dest = safeObjectPath(storageKey);
-    if (!dest)
-      return Response.redirect(new URL("/?share=error", req.url), 303);
+    const storageKey = newStorageKey();
     try {
-      await pipeline(
-        file.stream() as unknown as never,
-        createWriteStream(dest, { mode: 0o600 }) as never,
+      await getBlobStore().put(
+        storageKey,
+        file.stream() as unknown as NodeJS.ReadableStream,
+        { size: file.size, contentType: file.type || "application/octet-stream" },
       );
     } catch {
       return Response.redirect(new URL("/?share=error", req.url), 303);

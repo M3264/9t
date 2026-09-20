@@ -32,7 +32,8 @@ for (const [id, share] of Object.entries(data.shares || {}))
 for (const [id, session] of Object.entries(data.sessions || {}))
   if (Date.parse(session.expiresAt) <= now) delete data.sessions[id];
 for (const object of removed)
-  if (object.storageKey)
+  // S3 mode keeps no local blobs; deletes already went to the bucket.
+  if (object.storageKey && process.env.NINE_T_STORAGE_DRIVER !== "s3")
     await unlink(join(objects, object.storageKey)).catch(() => {});
 const tmp = `${db}.${randomUUID()}.tmp`;
 await writeFile(tmp, JSON.stringify(data, null, 2), { mode: 0o600 });

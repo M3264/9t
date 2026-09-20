@@ -135,10 +135,19 @@ export async function addObject(
 export async function purgeObject(id: string) {
   await mutate(async (d) => {
     const obj = d.objects.find((x) => x.id === id);
-    if (obj?.storageKey && /^[0-9a-f-]{36}$/i.test(obj.storageKey))
-      await unlink(path.join(uploadDir, path.basename(obj.storageKey))).catch(
-        () => {},
-      );
+    // Dynamic import keeps store.ts dependency-free (see tests/store.test.mjs,
+    // which loads this module standalone). Falls back to local unlink if the
+    // blob store cannot load.
+    if (obj?.storageKey && /^[0-9a-f-]{36}$/i.test(obj.storageKey)) {
+      try {
+        const { delBlob } = await import("./storage");
+        await delBlob(obj.storageKey).catch(() => {});
+      } catch {
+        await unlink(path.join(uploadDir, path.basename(obj.storageKey))).catch(
+          () => {},
+        );
+      }
+    }
     d.objects = d.objects.filter((x) => x.id !== id);
   });
 }

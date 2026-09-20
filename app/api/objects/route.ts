@@ -1,9 +1,6 @@
-import { randomUUID } from "crypto";
-import { createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
 import { authenticated, unauthorized } from "@/lib/server/auth";
 import { addObject, readData } from "@/lib/server/db";
-import { safeObjectPath } from "@/lib/server/security";
+import { getBlobStore, newStorageKey } from "@/lib/server/storage";
 import { csrfCheck, csrfResponse } from "@/lib/server/security";
 import { expiryFromLifetime } from "@/lib/shared/lifetimes";
 import { MAX_CONTENT_LEN, MAX_NAME_LEN } from "@/lib/server/security";
@@ -58,19 +55,15 @@ export async function POST(req: Request) {
     if (file.size <= 0)
       return Response.json({ error: "Empty file." }, { status: 400 });
 
-    const storageKey = randomUUID();
-    const dest = safeObjectPath(storageKey);
-    if (!dest)
-      return Response.json({ error: "Storage error." }, { status: 500 });
+    const storageKey = newStorageKey();
 
-    // Stream to disk — never buffer the whole file in memory.
+    // Stream to the blob store — never buffer the whole file in memory.
     try {
-      const webStream = file.stream();
-      const nodeStream = webStream as unknown as NodeJS.ReadableStream;
-      await pipeline(
-        nodeStream as never,
-        createWriteStream(dest, { mode: 0o600 }) as never,
-      );
+      const nodeStream = file.stream() as unknown as NodeJS.ReadableStream;
+      await getBlobStore().put(storageKey, nodeStream, {
+        size: file.size,
+        contentType: file.type || "application/octet-stream",
+      });
     } catch {
       return Response.json({ error: "Upload failed." }, { status: 500 });
     }

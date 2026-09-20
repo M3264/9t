@@ -1,6 +1,5 @@
-import { readFile } from "fs/promises";
 import { mutate, readData } from "@/lib/server/db";
-import { safeObjectPath } from "@/lib/server/security";
+import { getBlobStore, validStorageKey } from "@/lib/server/storage";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
 
@@ -15,6 +14,7 @@ export async function GET(
   if (
     !share ||
     !o?.storageKey ||
+    !validStorageKey(o.storageKey) ||
     o.deletedAt ||
     (share.expiresAt && new Date(share.expiresAt) <= new Date())
   )
@@ -26,11 +26,9 @@ export async function GET(
     if ((await cookies()).get(`9t_share_${share.id}`)?.value !== key)
       return new Response("Unlock this handoff first.", { status: 401 });
   }
-  const full = safeObjectPath(o.storageKey);
-  if (!full) return new Response("This handoff is unavailable.", { status: 404 });
   let data: Buffer;
   try {
-    data = await readFile(full);
+    ({ body: data } = await getBlobStore().get(o.storageKey));
   } catch {
     return new Response("This handoff is unavailable.", { status: 404 });
   }

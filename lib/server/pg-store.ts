@@ -4,6 +4,7 @@ import path from "path";
 import type { PoolClient } from "pg";
 import { pgPool } from "./pg";
 import { uploadDir } from "./store";
+import { delBlob, validStorageKey } from "./storage";
 import type { ApiToken, Data, NineTObject, Share } from "./store";
 
 // Postgres backend for the document store. It implements the same
@@ -400,7 +401,9 @@ export async function addObject(
 export async function purgeObject(id: string) {
   await mutate(async (d) => {
     const obj = d.objects.find((x) => x.id === id);
-    if (obj?.storageKey && /^[0-9a-f-]{36}$/i.test(obj.storageKey))
+    if (obj?.storageKey && validStorageKey(obj.storageKey))
+      await delBlob(obj.storageKey).catch(() => {});
+    else if (obj?.storageKey)
       await unlink(path.join(uploadDir, path.basename(obj.storageKey))).catch(
         () => {},
       );

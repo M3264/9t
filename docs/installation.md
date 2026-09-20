@@ -44,6 +44,21 @@ docker compose exec 9t npm run pg-import
 
 `migrate` is idempotent (tracked in `schema_migrations`). `pg-import` copies `data/9t.json` metadata once and refuses to overwrite without `--force`. Then set `NINE_T_DATABASE_URL=postgresql://9t:<password>@db:5432/9t` and restart. The phone event socket still works (it polls the store on its heartbeat in Postgres mode instead of watching the JSON file). Back up Postgres separately with `pg_dump`; the JSON/file backup only covers `NINE_T_DATA_DIR`.
 
+### S3-compatible blob storage
+
+Uploads, downloads, phone chunk transfers and deletions go through a storage driver. The default is the local filesystem (`NINE_T_DATA_DIR/objects`). For S3-compatible storage (AWS S3, MinIO, R2), set:
+
+```bash
+NINE_T_STORAGE_DRIVER=s3
+NINE_T_S3_ENDPOINT=https://s3.example.com
+NINE_T_S3_REGION=us-east-1
+NINE_T_S3_BUCKET=9t-blobs
+NINE_T_S3_ACCESS_KEY=...
+NINE_T_S3_SECRET_KEY=...
+```
+
+Optional: `NINE_T_S3_PREFIX` (default `9t/`), `NINE_T_S3_FORCE_PATH_STYLE` (default `true`; keep it for MinIO, set `false` for AWS). Create the bucket beforehand. Only new uploads land in the bucket — files uploaded earlier stay where they were. Works with either metadata store (JSON or Postgres).
+
 ## What setup does
 
 Run `./setup.sh` after cloning the repository. No global CLI package or initial browser setup is required. The shell bootstrap installs Node.js 22 locally under `.tools/node` only if an adequate Node runtime is missing and you agree to the download. It supports Linux/macOS x64 and arm64; use WSL on Windows. It needs curl and tar. Downloads and checksums come from the official Node.js HTTPS distribution site.

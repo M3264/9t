@@ -18,6 +18,7 @@
     "pg-import": "node scripts/pg-import.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.800.0",
     "lucide-react": "0.468.0",
     "next": "^16.3.5",
     "pg": "8.13.1",
