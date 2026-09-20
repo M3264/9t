@@ -33,3 +33,5 @@ public/downloads/*.idsig
 .next-pg/
 .next-s3/
 .next-src/
+.next-045/
+.next-apk/
