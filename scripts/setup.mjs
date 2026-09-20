@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from "node:fs";
+import { existsSync, constants } from "node:fs";
 import {
   mkdir,
   readFile,
@@ -8,11 +8,12 @@ import {
   unlink,
   access,
   symlink,
+  statfs,
 } from "node:fs/promises";
 import { dirname, resolve, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes, scryptSync, createHash } from "node:crypto";
-import { networkInterfaces, userInfo, homedir } from "node:os";
+import { networkInterfaces, userInfo, homedir, totalmem } from "node:os";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { spawn } from "node:child_process";
@@ -27,6 +28,7 @@ const help = `9t setup — install and configure a fresh checkout
   npm run setup                    Same wizard
   ./9t setup --dry-run             Preview choices; no installation writes
   ./9t setup --answers FILE --yes  Unattended setup (JSON preferences)
+  ./9t setup --check               Pre-flight only: disk, RAM, data dir, port
 
 Unattended passwords come from NINE_T_ADMIN_PASSWORD, never command arguments.
 Preferences: exposure (local|lan|public), publicUrl, port, dataDir, username,
@@ -302,6 +304,48 @@ async function availablePort(p) {
   });
 }
 
+// Pre-flight checks for setup/update. Never throws; returns one entry per
+// check so callers can print them and decide. Pure checks only — no writes.
+export async function preflight(root = projectRoot, opts = {}) {
+  const checks = [];
+  const push = (ok, message, warn = false) => checks.push({ ok, message, warn });
+  const nodeMajor = Number(process.versions.node.split(".")[0]);
+  push(nodeMajor >= 22, `Node.js ${process.versions.node} (>= 22 required)`);
+  try {
+    const disk = await statfs(root);
+    const freeMb = Math.floor((disk.bavail * disk.bsize) / 1048576);
+    if (freeMb < 512)
+      push(false, `${freeMb} MB free on this volume (>= 512 MB needed)`);
+    else push(true, `${freeMb} MB free on this volume`, freeMb < 1024);
+  } catch {
+    push(false, "Could not read free disk space");
+  }
+  const ramMb = Math.floor(totalmem() / 1048576);
+  if (ramMb < 512) push(false, `${ramMb} MB RAM (at least 512 MB needed to build)`);
+  else push(true, `${ramMb} MB RAM`, ramMb < 1024);
+  const dataDir = resolve(root, opts.dataDir || "data");
+  try {
+    await access(dataDir, constants.W_OK);
+    push(true, `Data folder writable: ${dataDir}`);
+  } catch {
+    try {
+      await access(dirname(dataDir), constants.W_OK);
+      push(true, `Data folder can be created under ${dirname(dataDir)}`);
+    } catch {
+      push(false, `Cannot write ${dataDir}`);
+    }
+  }
+  if (opts.port) {
+    try {
+      await availablePort({ port: opts.port, host: opts.host || "0.0.0.0" });
+      push(true, `Port ${opts.port} is free`);
+    } catch (error) {
+      push(false, error.message);
+    }
+  }
+  return checks;
+}
+
 function prompts() {
   let muted = false;
   const output = new Writable({
@@ -361,12 +405,22 @@ export async function setup(args = [], root = projectRoot) {
     console.log(help);
     return;
   }
-  const known = new Set(["--dry-run", "--answers", "--yes"]);
+  const known = new Set(["--dry-run", "--answers", "--yes", "--check"]);
   for (let i = 0; i < args.length; i++) {
     if (!known.has(args[i]))
       throw new Error(`Unknown setup option: ${args[i]}`);
     if (args[i] === "--answers" && !args[++i])
       throw new Error("--answers needs a JSON file.");
+  }
+  if (args.includes("--check")) {
+    const checks = await preflight(root, { port: 3265 });
+    let failed = false;
+    for (const c of checks) {
+      if (!c.ok) failed = true;
+      console.log(`${!c.ok ? "FAIL" : c.warn ? "warn" : "ok"}  ${c.message}`);
+    }
+    if (failed) throw new Error("Pre-flight checks failed.");
+    return;
   }
   if (Number(process.versions.node.split(".")[0]) < 22)
     throw new Error("Use Node.js 22 or newer, or run ./setup.sh.");
@@ -555,6 +609,13 @@ export async function setup(args = [], root = projectRoot) {
     ui?.close();
   }
   await availablePort(p);
+  const pre = await preflight(root, { port: p.port, host: p.host, dataDir: p.dataDir });
+  const blocked = pre.filter((c) => !c.ok);
+  if (blocked.length)
+    throw new Error(
+      `Pre-flight failed:\n${blocked.map((c) => `  - ${c.message}`).join("\n")}`,
+    );
+  for (const c of pre.filter((c) => c.ok && c.warn)) console.log(`warn  ${c.message}`);
   if (p.startup === "service") {
     if (process.platform !== "linux" || !existsSync("/run/systemd/system"))
       throw new Error(

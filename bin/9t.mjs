@@ -29,6 +29,31 @@ if (process.argv[2] === "start") {
   }
   process.exit(process.exitCode || 0);
 }
+if (process.argv[2] === "update") {
+  try {
+    process.exitCode = await (
+      await import("../scripts/update.mjs")
+    ).update(
+      fileURLToPath(new URL("../", import.meta.url)),
+      process.argv.slice(3),
+    );
+  } catch (error) {
+    console.error(`9t: ${error.message}`);
+    process.exitCode = 1;
+  }
+  process.exit(process.exitCode || 0);
+}
+if (process.argv[2] === "status") {
+  try {
+    process.exitCode = await (
+      await import("../scripts/status.mjs")
+    ).status(fileURLToPath(new URL("../", import.meta.url)));
+  } catch (error) {
+    console.error(`9t: ${error.message}`);
+    process.exitCode = 1;
+  }
+  process.exit(process.exitCode || 0);
+}
 
 const configDir = join(homedir(), ".config", "9t"),
   configFile = join(configDir, "config.json");
@@ -79,6 +104,8 @@ const help = () =>
   9t setup                         Install and configure this checkout
   9t setup --help                  Installation options
   9t start                         Run the configured server
+  9t status                        Service, listener and app health
+  9t update                        Backup, pull, rebuild and restart
   9t login --url https://9t.example.com --username you
   9t push <text|url|file> [--name name]
   9t list [--trash]

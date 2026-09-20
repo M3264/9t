@@ -149,3 +149,12 @@ sudo systemctl enable --now NAME
 ```
 
 Substitute the printed service name for `NAME`. Stop the service before moving/removing its checkout; its unit and optional CLI link point to that checkout. Future application updates are separate from first-time setup: stop the service, update/build the checkout, then restart with your existing data and configuration. Back up the data first.
+
+## Updates and health
+
+```bash
+./9t status     # service state, build presence, listener + initialized flag
+./9t update      # backup, git pull, rebuild into staging, migrate, restart
+```
+
+`update` refuses when the working tree has local changes and backs up data before touching anything. Managed systemd installs restart on the new build automatically (the previous build drop-in is saved under `/tmp`); foreground installs print the `NINE_T_BUILD_DIR` to restart with. `start` warns when sources are newer than the running build, which usually means an update was pulled but not rebuilt. `./9t setup --check` runs the pre-flight checks (disk, RAM, data dir, port) without changing anything, and `NINE_T_ASSUME_YES=1 ./setup.sh` answers the Node-download prompt for scripted machines.

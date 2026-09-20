@@ -8,8 +8,12 @@ if [ -x "$NINET_ROOT/.tools/node/bin/node" ]; then
 fi
 if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)' >/dev/null 2>&1; then
   echo '9t needs Node.js 22 or newer.'
-  printf 'Download Node.js 22 into this checkout (no system changes)? [Y/n] '
-  read -r NINET_REPLY
+  if [ "${NINE_T_ASSUME_YES:-}" = "1" ]; then
+    NINET_REPLY=Y
+  else
+    printf 'Download Node.js 22 into this checkout (no system changes)? [Y/n] '
+    read -r NINET_REPLY
+  fi
   case "$NINET_REPLY" in n|N|no|NO) exit 0 ;; esac
   case "$(uname -s)" in Linux) NINET_OS=linux ;; Darwin) NINET_OS=darwin ;; *) echo 'Install Node.js 22 from nodejs.org, then run npm run setup.'; exit 1 ;; esac
   case "$(uname -m)" in x86_64|amd64) NINET_ARCH=x64 ;; aarch64|arm64) NINET_ARCH=arm64 ;; *) echo 'Install Node.js 22 for this CPU, then run npm run setup.'; exit 1 ;; esac

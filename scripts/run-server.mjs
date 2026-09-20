@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, readdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
@@ -11,6 +11,35 @@ export function serverEnvironment(root, inherited = process.env) {
     ? parseEnv(readFileSync(file, "utf8"))
     : {};
   return { ...configured, ...inherited, NODE_ENV: "production" };
+}
+
+// True when source files are newer than the build marker — i.e. the running
+// code would not include the latest checkout (forgotten build after git pull).
+// Never throws; a failed check simply stays silent.
+export function buildIsStale(root, dist = ".next") {
+  try {
+    const marker = statSync(resolve(root, dist, "BUILD_ID")).mtimeMs;
+    const watch = ["src", "scripts", "public", "package.json", "next.config.mjs"];
+    const newest = (dir) => {
+      let top = 0;
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === "node_modules") continue;
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) top = Math.max(top, newest(full));
+        else if (/\.(ts|tsx|js|mjs|cjs|css|json)$/.test(entry.name))
+          top = Math.max(top, statSync(full).mtimeMs);
+      }
+      return top;
+    };
+    return watch.some((w) => {
+      const full = resolve(root, w);
+      if (!existsSync(full)) return false;
+      const m = statSync(full).isDirectory() ? newest(full) : statSync(full).mtimeMs;
+      return m > marker;
+    });
+  } catch {
+    return false;
+  }
 }
 
 export async function runServer(root, args = []) {
@@ -27,6 +56,10 @@ export async function runServer(root, args = []) {
   if (!existsSync(resolve(root, dist, "BUILD_ID")))
     throw new Error(
       "No production build found. Run npm run build first, or complete ./9t setup.",
+    );
+  if (buildIsStale(root, dist))
+    console.error(
+      "9t: sources are newer than the production build. Run ./9t update or npm run build, then restart.",
     );
   const child = spawn(
     process.execPath,

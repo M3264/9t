@@ -23,8 +23,9 @@ import {
   serviceUnit,
   serviceName,
   setup,
+  preflight,
 } from "../scripts/setup.mjs";
-import { serverEnvironment } from "../scripts/run-server.mjs";
+import { serverEnvironment, buildIsStale } from "../scripts/run-server.mjs";
 
 test("network choices map to real listeners and public mode requires HTTPS", () => {
   assert.equal(validatePreferences({ exposure: "lan" }).host, "0.0.0.0");
@@ -197,6 +198,50 @@ test("installed command symlink resolves the original checkout", async () => {
       cwd: root,
     });
     assert.match(output, /install and configure a fresh checkout/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("preflight reports disk, RAM, data dir and occupied ports", async () => {
+  const root = await mkdtemp(join(tmpdir(), "9t-pre-"));
+  try {
+    const checks = await preflight(root, {});
+    assert.ok(checks.length >= 3);
+    for (const c of checks) {
+      assert.equal(typeof c.ok, "boolean");
+      assert.equal(typeof c.message, "string");
+    }
+    assert.ok(checks.every((c) => c.ok), "fresh tmpdir passes without a port probe");
+    const { createServer } = await import("node:net");
+    const busy = createServer();
+    await new Promise((accept) => busy.listen(0, "127.0.0.1", accept));
+    const port = busy.address().port;
+    try {
+      const withPort = await preflight(root, { port, host: "127.0.0.1" });
+      assert.ok(withPort.some((c) => !c.ok && c.message.includes(String(port))));
+    } finally {
+      busy.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("stale-build detection compares sources against the build marker", async () => {
+  const root = await mkdtemp(join(tmpdir(), "9t-stale-"));
+  try {
+    const { utimes } = await import("node:fs/promises");
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, ".next"), { recursive: true });
+    await writeFile(join(root, ".next", "BUILD_ID"), "old");
+    await writeFile(join(root, "src", "a.ts"), "new");
+    const old = new Date(Date.now() - 60000);
+    await utimes(join(root, ".next", "BUILD_ID"), old, old);
+    assert.equal(buildIsStale(root), true, "newer source is stale");
+    await utimes(join(root, "src", "a.ts"), old, old);
+    assert.equal(buildIsStale(root), false, "older source is fresh");
+    assert.equal(buildIsStale(root, ".missing"), false, "missing build never throws");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
