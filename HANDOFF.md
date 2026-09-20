@@ -1,3 +1,30 @@
+# 9t project handoff — 2026-09-20 (server tracks: config → docker → diagnostics → postgres → s3)
+
+## Session summary (all pushed to main, all live on 9t.kennyy.xyz)
+
+Five TODO tracks landed in one session, each verified in Docker before shipping. Live runs build `.next-s3` (commit `e1715a2`), JSON metadata primary, local filesystem blobs, no `DATABASE_URL`, no S3 driver. Rollback drop-ins in `/tmp/9t-dropin-before-{config,exposure,pg,s3}.conf`; prior builds (`.next-config`, `.next-exposure`, `.next-pg`, `.next-lavender`) preserved on VPS.
+
+1. **Validated config import/export** (`caf3353`) — `GET /api/config?format=export` versioned envelope, `PUT /api/config` full replace accepting envelope or raw (old domain-less exports default to null), `PATCH` extended (`trashRetentionDays`, `exposure`, merged-module guard). Strict zod schemas, `invalid_config` + violations shape. Settings raw-JSON editor with per-field errors, CLI `9t config export|import`.
+2. **Docker one-command install** (`6944c00`) — multi-stage `Dockerfile` (webpack build, pruned prod deps, `node` user, `/data` volume, healthcheck), `compose.yaml`, `.dockerignore`, install docs. Verified: fresh container setup → login → API works.
+3. **Exposure/domain diagnostics** (`14b5c9e`) — `AppConfig.domain`, setup saves public hostname, `GET /api/status` exposes `runtime{host,port,https}`, new `GET /api/diagnostics` (auth + rate-limited DNS A/AAAA + HTTPS probe of fixed `/api/status` path only), Settings exposure/hostname editor + runner, CLI `9t doctor`. Verified against live DNS (`9t.kennyy.xyz → 193.122.5.91`, HTTPS 200).
+4. **Postgres foundation + cutover** (`a5b9930`, `f1f36ae`) — `001_init.sql` (12 tables), `npm run migrate` (idempotent), `lib/server/pg.ts`, `lib/server/pg-store.ts` implementing the exact `readData/mutate` contract (advisory-lock transactions + diff writes), `lib/server/db.ts` facade switching on `NINE_T_DATABASE_URL` (18 files repointed, `store.ts` untouched so `tests/store.test.mjs` still passes), `npm run pg-import`. Verified: JSON baseline → import → flip URL → identical reads (auth, all types, pins, shares+counts, devices, tokens, config) and writes (create, file download, trash, config). Socket in PG mode relies on 20s heartbeat refresh (documented). Live NOT flipped — stays JSON until user says so.
+5. **S3-compatible blobs** (`15cb7ed`) — `lib/server/storage.ts` (`put/get(range)/del`, local + `@aws-sdk/client-s3` drivers, web→Node stream normalization, UUID guard). All 5 blob paths switched (uploads ×2, downloads ×2, mobile 256K chunks). `NINE_T_STORAGE_DRIVER` + `NINE_T_S3_*` documented. Verified vs real MinIO: 900KB upload → byte-identical authed + public downloads, delete purges bucket key, misconfigured S3 fails clean 500, local mode unaffected. Found+fixed real bug: SDK can't hash web streams. Cleanup commits `3d4c472`/`e1715a2` untracked build output.
+
+## Live/VPS notes
+
+- Service `9t.service` active; `NINE_T_BUILD_DIR=.next-s3`. Never build into the serving dir (staging + switch pattern held throughout).
+- ⚠️ VPS disk 96% (906M free, was 1.3–1.4G). Old `.next*` dirs accumulating (`.next`, `.next-lavender`, `.next-mobile-*`, `.next-config`, `.next-exposure`, `.next-pg`). Prune obsolete ones before next build or the build will fail.
+- ⚠️ `git add -A` committed `.next-pg/` build output once (`15cb7ed`, 227 files); removed in `3d4c472`. `.gitignore` now covers all staging dirs. Check `git status` before every VPS commit.
+- `next-env.d.ts`/`tsconfig.json` regenerate on each staging build — always `git checkout --` them before committing.
+- Established ship flow (no Node locally): develop in worktree `/tmp/opencode/9t-s3` (branch `s3-storage`), verify via local Docker, `git diff` → patch → `scp` → VPS apply → `npm install` (if deps changed) → `npm run typecheck` → `node --test` → commit → push → staging build → switch drop-in → restart → verify → sync worktree to `origin/main`.
+- User works on the Android APK in `/root/9t`; agent works in `/tmp/opencode/9t-s3`. Do not cross the streams.
+
+## Remaining TODO (untouched)
+
+- Multi-user ownership boundaries (needs product decisions: open vs invite registration, quotas) — biggest remaining item.
+- External security review (requires a real auditor; cannot be done in-session).
+- Long-term: client-side encryption, native clients, Caddy automation (docs cover manual proxy), S3→PG repo already done.
+
 # 9t project handoff — 2026-09-19
 
 
