@@ -9,7 +9,7 @@ import type { ApiToken, Data, NineTObject, Share } from "./store";
 
 // Postgres backend for the document store. It implements the same
 // readData/mutate contract as the JSON store so routes need no changes;
-// selection happens in lib/server/db.ts via NINE_T_DATABASE_URL.
+// selection happens in src/lib/server/db.ts via NINE_T_DATABASE_URL.
 // File blobs stay on the filesystem (uploadDir) — only metadata moves to SQL.
 
 // Single-user release: the owner row uses a fixed id so the schemaless

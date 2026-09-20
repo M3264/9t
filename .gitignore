@@ -32,3 +32,4 @@ public/downloads/*.idsig
 .next-exposure/
 .next-pg/
 .next-s3/
+.next-src/

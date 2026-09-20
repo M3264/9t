@@ -11,7 +11,7 @@ test("mobile envelopes bind device, direction, and request; Java and Node intero
   const dir = await mkdtemp(join(tmpdir(), "9t-wire-"));
   try {
     const source = await readFile(
-      new URL("../lib/server/mobile-crypto.ts", import.meta.url),
+      new URL("../src/lib/server/mobile-crypto.ts", import.meta.url),
       "utf8",
     );
     await writeFile(

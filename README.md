@@ -144,13 +144,12 @@ Stop 9t before a real restore, then omit `--verify`. The restore tool keeps the 
 ## Project map
 
 ```text
-app/                  Next.js routes and API endpoints
-components/access/    Setup and sign-in flows
-components/workspace/ Workspace shell, inbox, collections, and dialogs
-components/ui/        Shared interface primitives
-lib/client/           Browser API and formatting helpers
-lib/server/           Authentication, configuration, and persistence
-styles/               Global visual system
+src/app/              Next.js routes and API endpoints
+src/components/       Setup, workspace shell, inbox, dialogs (access/, workspace/, ui/)
+src/lib/client/       Browser API and formatting helpers
+src/lib/server/       Authentication, configuration, and persistence
+src/styles/           Global visual system
+public/               PWA, fonts, brand assets (pinned at root by Next.js)
 scripts/              Server, cleanup, backup, and restore operations
 android/              Android client
 deploy/               Nginx and systemd examples

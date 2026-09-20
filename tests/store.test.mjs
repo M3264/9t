@@ -10,7 +10,7 @@ test('a rejected mutation does not block queued or future writes', async () => {
   const previous = process.env.NINE_T_DATA_DIR;
   process.env.NINE_T_DATA_DIR = join(dir, 'data');
   try {
-    const source = await readFile(new URL('../lib/server/store.ts', import.meta.url), 'utf8');
+    const source = await readFile(new URL('../src/lib/server/store.ts', import.meta.url), 'utf8');
     const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
     const modulePath = join(dir, 'store.mjs');
     await writeFile(modulePath, compiled);
