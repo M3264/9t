@@ -30,3 +30,4 @@ public/downloads/*.idsig
 .next-lavender/
 .next-config/
 .next-exposure/
+.next-pg/
