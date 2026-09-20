@@ -1,3 +1,16 @@
+# 9t project handoff — 2026-09-20 (0.4.5: phone sends files/links + website-mark icon)
+
+## Session summary (pushed to main as 5ba5022 + a43b70e, live build .next-045)
+
+User audited the APK and found it receive-only. All 9 gaps closed plus media previews and the icon swap. Server upload actions are live; APK 0.4.5 signed with the same cert, public bytes verified identical.
+
+- **Server** (`src/app/api/mobile/route.ts`): `sendText` gains `kind:link` (validated http/https, links-module gated, snippets-disabled no longer blocks links); new `sendFileInit/Chunk/Done/Abort` resumable chunked uploads (local tmp staging, object created only at done so aborts leave nothing, 24h stale sweep, idempotent replays via deterministic ids, works on local + S3 blob stores). Extended `tests/mobile-api.mjs` (link landing/rejection, 600KB upload with forced out-of-order resume, exact round-trip, oversize rejection) — PASS against isolated dev server.
+- **APK 0.4.5 (code 11)**: share sheet takes text/images/video/audio/multiple; Send tab has file picker, camera capture, dedicated link sender, URL-as-link toggle, upload queue with progress/cancel; inbox gains image/video thumbnails, full image viewer, pin, per-item share/delete, clear-history, open-in-browser for links; arrival notifications (toggleable); app PIN lock (cold start + 2min background, salted SHA-256); Quick Settings tile, launcher shortcuts, home widget; Workspace over HTTP LAN behind explicit opt-in (non-Secure cookie only for http). Local DB auto-migrates v1→v2. Website mark replaces the launcher icon and header text pill (`drawable/ic_ninet.xml` rebuilt from `public/9t-mark.svg`, new `drawable/mark.xml`; pre-24 loses only the counter cutout).
+- **Verification**: 23 JVM tests pass (incl. new LinksTest), `lintDebug`/`lintRelease` 0 errors, debug + release builds clean. Local Android toolchain installed (`/opt/android-sdk`, platform 35, JDK 17) — builds now run here, not the VPS. Release: SHA-256 `6ae7416953f9dedcf23ae727a878d84b39efa6c4c4dc7ce6772d80f7cfee1b2b`, cert `e1749fd9…693e39` matches all prior releases. Devices page/README/docs point at 0.4.5.
+- **Not verifiable without a device**: tap/drag feel, thumbnail scroll performance, camera intents across OEMs, tile/widget rendering, PIN UX, background-arrival timing, 0.4.4→0.4.5 upgrade preserving pairing. User tests these.
+- **Ops notes**: commits now as Kennyy `<miracle32669@outlook.com>` (set in VPS repo config). `git add -A` committed `.next-pg/` build output again under 0.4.5 work — removed in a follow-up; `.gitignore` covers all staging dirs now. VPS disk was 96%, pruned to ~92%. Never build into the serving dir (staged `.next-045`, rollback conf + `.next-s3` preserved).
+- **Remaining**: physical-device testing (user), multi-user boundaries (needs product decisions), external security review (needs auditor).
+
 # 9t project handoff — 2026-09-20 (server tracks: config → docker → diagnostics → postgres → s3)
 
 ## Session summary (all pushed to main, all live on 9t.kennyy.xyz)
