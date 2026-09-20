@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="send"
+        android:enabled="true"
+        android:icon="@drawable/ic_ninet"
+        android:shortcutShortLabel="@string/shortcut_send_short"
+        android:shortcutLongLabel="@string/shortcut_send_long">
+        <intent
+            android:action="xyz.kennyy.ninet.SEND"
+            android:targetPackage="xyz.kennyy.ninet"
+            android:targetClass="xyz.kennyy.ninet.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="inbox"
+        android:enabled="true"
+        android:icon="@drawable/ic_ninet"
+        android:shortcutShortLabel="@string/shortcut_inbox_short"
+        android:shortcutLongLabel="@string/shortcut_inbox_long">
+        <intent
+            android:action="xyz.kennyy.ninet.INBOX"
+            android:targetPackage="xyz.kennyy.ninet"
+            android:targetClass="xyz.kennyy.ninet.MainActivity" />
+    </shortcut>
+</shortcuts>

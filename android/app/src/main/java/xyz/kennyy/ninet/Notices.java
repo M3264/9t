@@ -70,8 +70,23 @@ final class Notices {
                 .build());
   }
 
-  static void saved(Context c, String name, Uri uri, String mime) {
+  static void arrived(Context c, int count, String latest) {
     channels(c);
+    String text = count == 1 ? latest : count + " new items · latest: " + latest;
+    androidx.core.content.ContextCompat.getSystemService(c, NotificationManager.class)
+        .notify(
+            4,
+            builder(c, "transfers")
+                .setSmallIcon(R.drawable.ic_ninet)
+                .setContentTitle(count == 1 ? "New in 9t" : count + " new in 9t")
+                .setContentText(text)
+                .setContentIntent(home(c))
+                .setAutoCancel(true)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .build());
+  }
+
+  static void saved(Context c, String name, Uri uri, String mime) {    channels(c);
     Intent open =
         new Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, mime)

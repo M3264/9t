@@ -1,7 +1,10 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
+import { mkdir, readdir, stat, unlink } from "fs/promises";
+import path from "path";
+import { Readable } from "stream";
 import { readData, mutate } from "@/lib/server/db";
 import { seal, unseal, type Envelope } from "@/lib/server/mobile-crypto";
-import { getBlobStore, validStorageKey } from "@/lib/server/storage";
+import { getBlobStore, putBlob, validStorageKey } from "@/lib/server/storage";
 import { rateLimit, rateLimitResponse } from "@/lib/server/security";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -163,7 +166,7 @@ export async function POST(req: Request) {
     }
   }
   if (body.action === "sendText") {
-    if (!d.config.modules.snippets)
+    if (body.kind !== "link" && !d.config.modules.snippets)
       return reply({ error: "Snippets are disabled", code: 403 });
     if (
       typeof body.content !== "string" ||
@@ -178,6 +181,40 @@ export async function POST(req: Request) {
       .update(`${envelope.id}:${body.transferId}`)
       .digest("hex");
     const id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+    if (body.kind === "link") {
+      if (!d.config.modules.links)
+        return reply({ error: "Links are disabled", code: 403 });
+      const rawUrl = typeof body.url === "string" ? body.url : "";
+      if (rawUrl.length > 2048)
+        return reply({ error: "URL too long", code: 400 });
+      let link: string;
+      try {
+        const parsed = new URL(rawUrl);
+        if (!["http:", "https:"].includes(parsed.protocol))
+          throw new Error("bad protocol");
+        link = parsed.toString();
+      } catch {
+        return reply({ error: "Enter a valid URL", code: 400 });
+      }
+      const name =
+        typeof body.name === "string" && body.name.trim()
+          ? body.name.trim().slice(0, 200)
+          : new URL(link).hostname;
+      await mutate((data) => {
+        if (data.objects.some((o) => o.id === id)) return;
+        const date = new Date().toISOString();
+        data.objects.unshift({
+          id,
+          type: "link",
+          name,
+          url: link,
+          pinned: false,
+          createdAt: date,
+          updatedAt: date,
+        });
+      });
+      return reply({ ok: true, id });
+    }
     await mutate((data) => {
       if (data.objects.some((o) => o.id === id)) return;
       const date = new Date().toISOString();
@@ -193,6 +230,137 @@ export async function POST(req: Request) {
       });
     });
     return reply({ ok: true, id });
+  }
+  const transferId =
+    typeof body.transferId === "string" &&
+    /^[a-f0-9-]{36}$/i.test(body.transferId)
+      ? body.transferId
+      : null;
+  // Phone file uploads are staged locally in chunks, then stored once complete.
+  // The object itself is only created at done, so aborted uploads leave no trace.
+  const stageDir = path.join(
+    process.env.NINE_T_DATA_DIR
+      ? path.resolve(process.env.NINE_T_DATA_DIR)
+      : path.join(process.cwd(), "data"),
+    "tmp",
+    "uploads",
+  );
+  const stagePath = (tid: string) => path.join(stageDir, `${tid}.part`);
+  const stagedLength = async (tid: string) => {
+    try {
+      return (await stat(stagePath(tid))).size;
+    } catch {
+      return 0;
+    }
+  };
+  const uploadId = (tid: string) => {
+    const h = createHash("sha256").update(`${envelope.id}:${tid}`).digest("hex");
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+  };
+  if (body.action === "sendFileInit") {
+    if (!d.config.modules.files)
+      return reply({ error: "Files are disabled", code: 403 });
+    if (!transferId)
+      return reply({ error: "Invalid transfer", code: 400 });
+    const maxBytes = d.config.maxSizeMb * 1024 * 1024;
+    const sizeBytes = body.sizeBytes;
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > maxBytes)
+      return reply({ error: `File must be 1–${d.config.maxSizeMb} MB`, code: 400 });
+    // Opportunistic cleanup of uploads abandoned over a day ago.
+    await mkdir(stageDir, { recursive: true });
+    const cutoff = Date.now() - 24 * 3600 * 1000;
+    for (const entry of await readdir(stageDir).catch(() => [] as string[])) {
+      if (!/^[a-f0-9-]{36}\.part$/i.test(entry)) continue;
+      const full = path.join(stageDir, entry);
+      try {
+        if ((await stat(full)).mtimeMs < cutoff) await unlink(full).catch(() => {});
+      } catch {}
+    }
+    const id = uploadId(transferId);
+    const existing = d.objects.find((o) => o.id === id);
+    if (existing)
+      return reply({ ok: true, id, offset: existing.sizeBytes ?? 0, done: true });
+    return reply({ ok: true, id, offset: await stagedLength(transferId) });
+  }
+  if (body.action === "sendFileChunk") {
+    if (!transferId || !Number.isSafeInteger(body.offset) || body.offset < 0)
+      return reply({ error: "Invalid chunk", code: 400 });
+    if (typeof body.data !== "string" || body.data.length > 700_000)
+      return reply({ error: "Invalid chunk", code: 400 });
+    let raw: Buffer;
+    try {
+      raw = Buffer.from(body.data, "base64");
+    } catch {
+      return reply({ error: "Invalid chunk", code: 400 });
+    }
+    if (!raw.length || raw.length > 512 * 1024)
+      return reply({ error: "Invalid chunk", code: 400 });
+    await mkdir(stageDir, { recursive: true });
+    const current = await stagedLength(transferId);
+    if (current !== body.offset)
+      return reply({ error: "Out-of-order chunk; resume", code: 409, offset: current });
+    const { writeFile } = await import("fs/promises");
+    await writeFile(stagePath(transferId), raw, { flag: "a" });
+    return reply({ ok: true, offset: current + raw.length });
+  }
+  if (body.action === "sendFileDone") {
+    if (!transferId)
+      return reply({ error: "Invalid transfer", code: 400 });
+    if (!d.config.modules.files)
+      return reply({ error: "Files are disabled", code: 403 });
+    const maxBytes = d.config.maxSizeMb * 1024 * 1024;
+    const sizeBytes = body.sizeBytes;
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > maxBytes)
+      return reply({ error: `File must be 1–${d.config.maxSizeMb} MB`, code: 400 });
+    const name =
+      typeof body.name === "string" && body.name.trim()
+        ? body.name.trim().slice(0, 200)
+        : "phone-upload";
+    const mimeType =
+      typeof body.mimeType === "string" && body.mimeType.length <= 128
+        ? body.mimeType
+        : "application/octet-stream";
+    const id = uploadId(transferId);
+    if (d.objects.some((o) => o.id === id)) {
+      await unlink(stagePath(transferId)).catch(() => {});
+      return reply({ ok: true, id });
+    }
+    if ((await stagedLength(transferId)) !== sizeBytes)
+      return reply({
+        error: "Upload incomplete; resume",
+        code: 409,
+        offset: await stagedLength(transferId),
+      });
+    const storageKey = randomUUID();
+    const { createReadStream } = await import("fs");
+    await putBlob(
+      storageKey,
+      createReadStream(stagePath(transferId)) as unknown as NodeJS.ReadableStream,
+      { size: sizeBytes, contentType: mimeType },
+    );
+    await unlink(stagePath(transferId)).catch(() => {});
+    await mutate((data) => {
+      if (data.objects.some((o) => o.id === id)) return;
+      const date = new Date().toISOString();
+      data.objects.unshift({
+        id,
+        type: "file",
+        name,
+        mimeType,
+        sizeBytes,
+        storageKey,
+        pinned: false,
+        createdAt: date,
+        updatedAt: date,
+      });
+    });
+    return reply({ ok: true, id });
+  }
+  if (body.action === "sendFileAbort") {
+    if (!transferId)
+      return reply({ error: "Invalid transfer", code: 400 });
+    await unlink(stagePath(transferId)).catch(() => {});
+    return reply({ ok: true });
   }
   return reply({ error: "Unknown action", code: 400 });
 }

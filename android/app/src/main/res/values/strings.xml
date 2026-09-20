@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_send_short">Send to 9t</string>
+    <string name="shortcut_send_long">Send text or files to 9t</string>
+    <string name="shortcut_inbox_short">Inbox</string>
+    <string name="shortcut_inbox_long">Open the 9t inbox</string>
+    <string name="widget_description">Latest 9t inbox item</string>
+    <string name="tile_send">Send to 9t</string>
+</resources>

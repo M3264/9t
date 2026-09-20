@@ -33,11 +33,16 @@ final class SyncEngine {
       for (JSONObject item : db.outbox()) {
         if (cancel.stopped()) return;
         try {
-          net.call(
+          JSONObject call =
               new JSONObject()
                   .put("action", "sendText")
                   .put("transferId", item.getString("id"))
-                  .put("content", item.getString("content")));
+                  .put("content", item.getString("content"));
+          if ("link".equals(item.optString("kind"))) {
+            call.put("kind", "link").put("url", item.getString("content"));
+            if (!item.isNull("name")) call.put("name", item.getString("name"));
+          }
+          net.call(call);
           db.sent(item.getString("id"));
         } catch (Transport.RemoteError e) {
           db.outError(item.getString("id"), e.getMessage());
@@ -46,17 +51,46 @@ final class SyncEngine {
           throw e;
         }
       }
+      for (JSONObject file : db.outfiles()) {
+        if (cancel.stopped()) return;
+        try {
+          upload(context, net, db, file, cancel);
+        } catch (Transport.RemoteError e) {
+          db.fileError(file.getString("id"), e.getMessage());
+        } catch (Exception e) {
+          db.fileError(file.getString("id"), e.getMessage());
+          throw e;
+        }
+      }
       p.p.edit().putString("syncPhase", "metadata").apply();
       String after = "";
       boolean changed = false;
+      long notifiedUpTo = p.p.getLong("notifiedUpTo", p.p.getLong("since", 0));
+      int fresh = 0;
+      String freshName = "";
+      long freshMax = notifiedUpTo;
       do {
         if (cancel.stopped()) return;
         JSONObject page = net.call(new JSONObject().put("action", "sync").put("after", after));
         JSONArray items = page.getJSONArray("objects");
-        for (int i = 0; i < items.length(); i++)
-          changed = db.discover(items.getJSONObject(i), p.p.getLong("since", 0)) || changed;
+        for (int i = 0; i < items.length(); i++) {
+          JSONObject o = items.getJSONObject(i);
+          boolean isNew = db.discover(o, p.p.getLong("since", 0));
+          changed = isNew || changed;
+          long created = 0;
+          try {
+            created = java.time.Instant.parse(o.getString("createdAt")).toEpochMilli();
+          } catch (Exception ignored) {}
+          if (isNew && created > notifiedUpTo) {
+            fresh++;
+            freshName = o.optString("name", "New item");
+            if (created > freshMax) freshMax = created;
+          }
+        }
         after = page.isNull("next") ? "" : page.getString("next");
       } while (!after.isEmpty());
+      if (freshMax > notifiedUpTo)
+        p.p.edit().putLong("notifiedUpTo", freshMax).apply();
       JSONObject latest = null;
       int errors = 0;
       java.util.List<JSONObject> pending = db.items("status IN ('pending','receiving','error')");
@@ -122,6 +156,9 @@ final class SyncEngine {
       }
       copyPending(context);
       if (changed) p.p.edit().putLong("inboxVersion", System.currentTimeMillis()).apply();
+      if (fresh > 0 && startedInBackground && p.p.getBoolean("arriveNotify", true))
+        Notices.arrived(context, fresh, freshName);
+      NineTWidget.refresh(context);
       long completedAt = System.currentTimeMillis();
       SharedPreferences.Editor diagnostic =
           p.p
@@ -192,6 +229,78 @@ final class SyncEngine {
                 Notices.clip(c);
               }
             });
+  }
+
+  static final int UPLOAD_CHUNK = 200 * 1024;
+
+  private static void upload(Context c, Transport net, LocalStore db, JSONObject file, Cancel cancel)
+      throws Exception {
+    String id = file.getString("id");
+    android.net.Uri uri = android.net.Uri.parse(file.getString("uri"));
+    long size = file.optLong("size", 0);
+    try (android.os.ParcelFileDescriptor pfd =
+        c.getContentResolver().openFileDescriptor(uri, "r")) {
+      if (pfd == null) throw new IOException("Cannot open file");
+      size = pfd.getStatSize();
+    }
+    if (size <= 0) throw new IOException("Empty file");
+    long max = new Prefs(c).p.getLong("maxMb", 500) * 1024 * 1024;
+    if (size > max) throw new IOException("Above the " + (max / 1024 / 1024) + " MB upload limit");
+    JSONObject init =
+        net.call(
+            new JSONObject()
+                .put("action", "sendFileInit")
+                .put("transferId", id)
+                .put("name", file.getString("name"))
+                .put("mimeType", file.optString("mime", "application/octet-stream"))
+                .put("sizeBytes", size));
+    if (init.optBoolean("done", false)) {
+      db.fileSent(id);
+      return;
+    }
+    long offset = init.optLong("offset", 0);
+    try (java.io.InputStream input = c.getContentResolver().openInputStream(uri)) {
+      if (input == null) throw new IOException("Cannot open file");
+      long skipped = 0;
+      while (skipped < offset) {
+        long n = input.skip(offset - skipped);
+        if (n <= 0) throw new IOException("Cannot resume upload");
+        skipped += n;
+      }
+      byte[] buf = new byte[UPLOAD_CHUNK];
+      int n;
+      while ((n = readFully(input, buf)) > 0) {
+        if (cancel.stopped()) throw new InterruptedIOException("Paused");
+        JSONObject res =
+            net.call(
+                new JSONObject()
+                    .put("action", "sendFileChunk")
+                    .put("transferId", id)
+                    .put("offset", offset)
+                    .put("data", android.util.Base64.encodeToString(buf, 0, n, android.util.Base64.NO_WRAP)));
+        offset = res.getLong("offset");
+        db.fileProgress(id, offset);
+      }
+    }
+    net.call(
+        new JSONObject()
+            .put("action", "sendFileDone")
+            .put("transferId", id)
+            .put("name", file.getString("name"))
+            .put("mimeType", file.optString("mime", "application/octet-stream"))
+            .put("sizeBytes", size));
+    db.fileSent(id);
+    new Prefs(c).p.edit().putLong("lastUploadAt", System.currentTimeMillis()).apply();
+  }
+
+  private static int readFully(java.io.InputStream input, byte[] buf) throws IOException {
+    int total = 0;
+    while (total < buf.length) {
+      int n = input.read(buf, total, buf.length - total);
+      if (n == -1) break;
+      total += n;
+    }
+    return total;
   }
 
   private static void download(

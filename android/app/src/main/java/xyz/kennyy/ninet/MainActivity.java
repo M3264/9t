@@ -88,14 +88,155 @@ public final class MainActivity extends Activity {
       sync(false);
       offerBackgroundAccess();
     }
+    gateIfLocked();
   }
 
   @Override
   protected void onPause() {
     foreground = false;
+    backgroundedAt = System.currentTimeMillis();
     ReceiverDiagnostics.visibility(this, false);
     handler.removeCallbacks(refresh);
     super.onPause();
+  }
+
+  private static boolean unlockedThisRun = false;
+  private long backgroundedAt;
+
+  private interface PinCallback {
+    void onPin(String pin);
+  }
+
+  private void pinPrompt(String title, String buttonLabel, PinCallback done) {
+    EditText input = field("PIN · 4+ digits", "", false);
+    input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+        | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+    AlertDialog dialog = new PocketDialog()
+        .setTitle(title)
+        .setView(input)
+        .setPositiveButton(buttonLabel, null)
+        .setNegativeButton("Cancel", null)
+        .create();
+    dialog.setOnShowListener(
+        shown ->
+            dialog
+                .getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(
+                    v -> {
+                      String pin = input.getText().toString();
+                      if (pin.length() < 4) {
+                        toast("Use at least 4 digits.");
+                        return;
+                      }
+                      dialog.dismiss();
+                      done.onPin(pin);
+                    }));
+    dialog.show();
+  }
+
+  private void pinSet() {
+    final String[] first = new String[1];
+    pinPrompt("Choose a PIN", "Next", pin -> {
+      first[0] = pin;
+      pinPrompt("Confirm PIN", "Save", confirm -> {
+        if (!confirm.equals(first[0])) {
+          toast("PINs did not match.");
+          return;
+        }
+        savePin(confirm);
+        unlockedThisRun = true;
+        toast("App PIN set");
+        render();
+      });
+    });
+  }
+
+  private void pinChange() {
+    pinPrompt("Current PIN", "Next", current -> {
+      if (!checkPin(current)) {
+        toast("Wrong PIN");
+        return;
+      }
+      pinSet();
+    });
+  }
+
+  private void pinRemove() {
+    pinPrompt("Current PIN", "Remove", current -> {
+      if (!checkPin(current)) {
+        toast("Wrong PIN");
+        return;
+      }
+      prefs.p.edit().remove("pinHash").remove("pinSalt").apply();
+      unlockedThisRun = true;
+      toast("App PIN removed");
+      render();
+    });
+  }
+
+  private void gateIfLocked() {
+    if (!prefs.p.contains("pinHash")) {
+      unlockedThisRun = true;
+      return;
+    }
+    if (unlockedThisRun && System.currentTimeMillis() - backgroundedAt < 120000) return;
+    unlockedThisRun = false;
+    EditText pin = field("PIN", "", false);
+    pin.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+        | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+    AlertDialog dialog =
+        new PocketDialog()
+            .setTitle("9t is locked")
+            .setView(pin)
+            .setCancelable(false)
+            .setPositiveButton("Unlock", null)
+            .create();
+    dialog.setOnShowListener(
+        shown -> {
+          dialog
+              .getButton(AlertDialog.BUTTON_POSITIVE)
+              .setOnClickListener(
+                  v -> {
+                    if (checkPin(pin.getText().toString())) {
+                      unlockedThisRun = true;
+                      dialog.dismiss();
+                    } else {
+                      pin.setText("");
+                      toast("Wrong PIN");
+                    }
+                  });
+        });
+    dialog.show();
+  }
+
+  private boolean checkPin(String pin) {
+    try {
+      String salt = prefs.p.getString("pinSalt", ""),
+          expected = prefs.p.getString("pinHash", "");
+      java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest((salt + ":" + pin).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      StringBuilder hex = new StringBuilder();
+      for (byte b : hash) hex.append(String.format(java.util.Locale.ROOT, "%02x", b));
+      return !expected.isEmpty() && hex.toString().equals(expected);
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  private void savePin(String pin) {
+    byte[] salt = new byte[16];
+    new java.security.SecureRandom().nextBytes(salt);
+    String saltB64 = android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP);
+    try {
+      java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(
+          (saltB64 + ":" + pin).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      StringBuilder hex = new StringBuilder();
+      for (byte b : hash) hex.append(String.format(java.util.Locale.ROOT, "%02x", b));
+      prefs.p.edit().putString("pinSalt", saltB64).putString("pinHash", hex.toString()).apply();
+    } catch (Exception e) {
+      toast("Could not save PIN");
+    }
   }
 
   @Override
@@ -114,19 +255,91 @@ public final class MainActivity extends Activity {
   }
 
   private void handleSend(Intent intent) {
-    if (Intent.ACTION_SEND.equals(intent.getAction())
-        && intent.getStringExtra(Intent.EXTRA_TEXT) != null) {
-      String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+    if (intent == null) return;
+    String action = intent.getAction();
+    if ("xyz.kennyy.ninet.SEND".equals(action)) {
+      tab = "Send";
+      render();
       intent.setAction(null);
+      return;
+    }
+    if ("xyz.kennyy.ninet.INBOX".equals(action)) {
+      tab = "Inbox";
+      render();
+      intent.setAction(null);
+      return;
+    }
+    if (Intent.ACTION_SEND.equals(action)) {
+      if (intent.getStringExtra(Intent.EXTRA_TEXT) != null) {
+        String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+        intent.setAction(null);
+        if (!prefs.paired()) {
+          toast("Pair your workspace, then share the text again.");
+          return;
+        }
+        tab = "Send";
+        render();
+        EditText input = body.findViewWithTag("compose");
+        if (input != null) input.setText(text);
+        return;
+      }
+      android.net.Uri stream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+      intent.setAction(null);
+      if (stream != null) {
+        if (!prefs.paired()) {
+          toast("Pair your workspace, then share the file again.");
+          return;
+        }
+        tab = "Send";
+        render();
+        stageSharedFile(stream);
+      }
+      return;
+    }
+    if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+      java.util.ArrayList<android.net.Uri> streams =
+          intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+      intent.setAction(null);
+      if (streams == null || streams.isEmpty()) return;
       if (!prefs.paired()) {
-        toast("Pair your workspace, then share the text again.");
+        toast("Pair your workspace, then share the files again.");
         return;
       }
       tab = "Send";
       render();
-      EditText input = body.findViewWithTag("compose");
-      if (input != null) input.setText(text);
+      for (android.net.Uri stream : streams) stageSharedFile(stream);
     }
+  }
+
+  private void stageSharedFile(android.net.Uri stream) {
+    try {
+      getContentResolver().takePersistableUriPermission(
+          stream, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    } catch (Exception ignored) {}
+    String name = "shared-file", mime = getContentResolver().getType(stream);
+    if (mime == null) mime = "application/octet-stream";
+    long size = 0;
+    try (android.database.Cursor cursor = getContentResolver().query(
+        stream, new String[] {android.provider.OpenableColumns.DISPLAY_NAME,
+            android.provider.OpenableColumns.SIZE}, null, null, null)) {
+      if (cursor != null && cursor.moveToFirst()) {
+        String display = cursor.getString(0);
+        if (display != null && !display.trim().isEmpty()) name = display;
+        try {
+          size = Math.max(0, cursor.getLong(1));
+        } catch (Exception ignored) {}
+      }
+    } catch (Exception ignored) {}
+    try (LocalStore db = new LocalStore(this)) {
+      db.stageFile(
+          java.util.UUID.randomUUID().toString(), stream.toString(), name, mime, size);
+    } catch (Exception e) {
+      toast("Could not queue that file.");
+      return;
+    }
+    toast("File queued — it uploads on the next sync");
+    render();
+    sync(true);
   }
 
   private int dp(int n) {
@@ -668,6 +881,48 @@ public final class MainActivity extends Activity {
           p.setPadding(dp(12), dp(12), dp(12), dp(12));
         }
         card.addView(p);
+        if (item.optString("status").equals("saved")
+            && item.optString("type").equals("file")
+            && !item.optString("uri", "").isEmpty()) {
+          String mime = item.optString("mimeType", "");
+          final String uriS = item.optString("uri");
+          if (MediaPreview.isImage(mime) || MediaPreview.isVideo(mime)) {
+            final ImageView thumb = new ImageView(this);
+            thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            thumb.setBackground(shape(accentSoft, 10));
+            LinearLayout.LayoutParams thumbP =
+                new LinearLayout.LayoutParams(-1, dp(180));
+            thumbP.setMargins(0, dp(8), 0, 0);
+            card.addView(thumb, thumbP);
+            if (MediaPreview.isImage(mime)) {
+              try {
+                android.graphics.Bitmap small =
+                    MediaPreview.imageThumb(this, Uri.parse(uriS), 512);
+                if (small != null) thumb.setImageBitmap(small);
+                else card.removeView(thumb);
+              } catch (Exception e) {
+                card.removeView(thumb);
+              }
+            } else {
+              thumb.setTag(uriS);
+              io.execute(
+                  () -> {
+                    final android.graphics.Bitmap frame =
+                        MediaPreview.videoThumb(MainActivity.this, Uri.parse(uriS));
+                    final String duration =
+                        MediaPreview.videoDuration(MainActivity.this, Uri.parse(uriS));
+                    handler.post(
+                        () -> {
+                          if (!uriS.equals(thumb.getTag())) return;
+                          if (frame != null) {
+                            thumb.setImageBitmap(frame);
+                            thumb.setContentDescription("Video · " + duration);
+                          } else card.removeView(thumb);
+                        });
+                  });
+            }
+          }
+        }
         if (item.has("error"))
           card.addView(text(item.getString("error"), 13, Color.parseColor(prefs.p.getBoolean("darkTheme", false) ? "#f2a3ae" : "#b44552")));
         boolean saved = item.optString("status").equals("saved");
@@ -690,6 +945,35 @@ public final class MainActivity extends Activity {
         actionParams.gravity = Gravity.END;
         actionParams.setMargins(0, dp(8), 0, 0);
         card.addView(itemAction, actionParams);
+        LinearLayout manage = new LinearLayout(this);
+        manage.setGravity(Gravity.END);
+        manage.addView(
+            secondary(
+                item.optBoolean("pinned") ? "Unpin" : "Pin",
+                () -> {
+                  try (LocalStore writable = new LocalStore(this)) {
+                    writable.setPinned(item.optString("id"), !item.optBoolean("pinned"));
+                  }
+                  render();
+                }));
+        manage.addView(secondary("Share", () -> shareItem(item)));
+        manage.addView(
+            secondary(
+                "Delete",
+                () ->
+                    new PocketDialog()
+                        .setTitle("Forget this item?")
+                        .setMessage("Removes it from this phone only. The workspace keeps its copy;"
+                            + " downloaded files stay in Downloads/9t.")
+                        .setPositiveButton("Delete", (d, w) -> {
+                          try (LocalStore writable = new LocalStore(this)) {
+                            writable.remove(item.optString("id"));
+                          }
+                          render();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show()));
+        card.addView(manage);
       }
       if (shown == 0) {
         TextView empty = text(items.isEmpty() ? "A little space for everything." : "Nothing matches yet.", 23, ink);
@@ -710,10 +994,90 @@ public final class MainActivity extends Activity {
     } catch (Exception e) {
       inboxItems.addView(text("Could not load local inbox: " + e.getMessage(), 14, muted));
     }
+    try (LocalStore db = new LocalStore(this)) {
+      if (!db.items(null).isEmpty())
+        inboxItems.addView(
+            secondary(
+                "Clear local history",
+                () ->
+                    new PocketDialog()
+                        .setTitle("Clear local history?")
+                        .setMessage("Removes received items from this phone only."
+                            + " The workspace and downloaded files are untouched.")
+                        .setPositiveButton("Clear", (d, w) -> {
+                          try (LocalStore writable = new LocalStore(this)) {
+                            writable.clearInbox();
+                          }
+                          render();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show()));
+    } catch (Exception ignored) {}
+  }
+
+  private void shareItem(JSONObject item) {
+    try {
+      if (item.optString("type").equals("file") && !item.optString("uri", "").isEmpty()) {
+        Uri uri = Uri.parse(item.optString("uri"));
+        Intent share = new Intent(Intent.ACTION_SEND)
+            .setType(item.optString("mimeType", "application/octet-stream"))
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(Intent.createChooser(share, "Share file"));
+      } else {
+        String text = item.optString("content",
+            item.optString("url", item.optString("name", "")));
+        startActivity(Intent.createChooser(
+            new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text),
+            "Share text"));
+      }
+    } catch (Exception e) {
+      toast("Nothing available to share it with");
+    }
   }
 
   private void openItem(JSONObject item) {
     if (item.optString("type").equals("file")) {
+      String mime = item.optString("mimeType", "application/octet-stream");
+      String uriS = item.optString("uri", "");
+      if (!uriS.isEmpty() && MediaPreview.isImage(mime)) {
+        ImageView preview = new ImageView(this);
+        preview.setAdjustViewBounds(true);
+        preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        preview.setMinimumHeight(dp(200));
+        try {
+          android.graphics.Bitmap full =
+              MediaPreview.imageThumb(this, Uri.parse(uriS), 1600);
+          if (full != null) preview.setImageBitmap(full);
+          else {
+            toast("Could not load a preview.");
+            return;
+          }
+        } catch (Exception e) {
+          toast("Could not load a preview.");
+          return;
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(preview);
+        new PocketDialog()
+            .setTitle(item.optString("name"))
+            .setView(scroll)
+            .setPositiveButton(
+                "Open with…",
+                (d, w) -> {
+                  try {
+                    startActivity(
+                        new Intent(Intent.ACTION_VIEW)
+                            .setDataAndType(Uri.parse(uriS), mime)
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+                  } catch (Exception e) {
+                    toast("Find this file in Downloads/9t, or install an app that can open it.");
+                  }
+                })
+            .setNegativeButton("Close", null)
+            .show();
+        return;
+      }
       try {
         startActivity(
             new Intent(Intent.ACTION_VIEW)
@@ -730,7 +1094,7 @@ public final class MainActivity extends Activity {
       content.setTextIsSelectable(true);
       ScrollView scroll = new ScrollView(this);
       scroll.addView(content);
-      new PocketDialog()
+      AlertDialog.Builder dialog = new PocketDialog()
           .setTitle(item.optString("name"))
           .setView(scroll)
           .setPositiveButton(
@@ -745,23 +1109,36 @@ public final class MainActivity extends Activity {
                       "Android could not copy this snippet. Select a smaller portion of the text.");
                 }
               })
-          .setNegativeButton("Close", null)
-          .show();
+          .setNegativeButton("Close", null);
+      if (item.optString("type").equals("link") && !item.optString("url", "").isEmpty())
+        dialog.setNeutralButton(
+            "Open link", (d, w) -> openExternal(item.optString("url")));
+      dialog.show();
     }
   }
 
   private void send() {
     hero("FROM THIS PHONE", "Send it over.",
-        "Text queues here and beams when a route is open. For files and links, use Workspace.");
+        "Text, links and files queue here and beam when a route is open.");
     sectionLabel("QUICK STICK");
     EditText compose = field("A thought, a command, a little bit of code…", composeDraft, true);
     compose.addTextChangedListener(new android.text.TextWatcher() {
       public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-      public void onTextChanged(CharSequence s, int start, int before, int count) { composeDraft = s.toString(); }
+      public void onTextChanged(CharSequence s, int start, int before, int count) {
+        composeDraft = s.toString();
+        updateLinkSwitch();
+      }
       public void afterTextChanged(android.text.Editable e) {}
     });
     compose.setTag("compose");
     compose.setMinLines(6);
+    final Switch asLink = new Switch(this);
+    asLink.setTag("asLink");
+    asLink.setText("Send as link");
+    asLink.setTextColor(ink);
+    asLink.setVisibility(Links.looksLikeUrl(composeDraft) ? View.VISIBLE : View.GONE);
+    styleSwitch(asLink);
+    body.addView(asLink);
     LinearLayout composeActions = new LinearLayout(this);
     composeActions.setGravity(Gravity.CENTER_VERTICAL);
     body.addView(composeActions);
@@ -782,8 +1159,14 @@ public final class MainActivity extends Activity {
                 toast("Enter between 1 and 100,000 characters.");
                 return;
               }
+              boolean link = asLink.getVisibility() == View.VISIBLE && asLink.isChecked();
+              if (link && !Links.looksLikeUrl(content)) {
+                toast("That doesn't look like a link — uncheck to send text.");
+                return;
+              }
               try (LocalStore db = new LocalStore(this)) {
-                db.enqueue(content);
+                if (link) db.enqueueKind(content.trim(), "link", Links.hostOf(content));
+                else db.enqueue(content);
               }
               compose.setText("");
               toast("Queued on this phone");
@@ -794,6 +1177,38 @@ public final class MainActivity extends Activity {
       ap.setMargins(i == 0 ? 0 : dp(6), dp(6), i == 0 ? dp(6) : 0, dp(6));
       composeActions.getChildAt(i).setLayoutParams(ap);
     }
+    sectionLabel("SEND A LINK");
+    EditText linkField = field("https://…", "", false);
+    linkField.setTag("linkField");
+    linkField.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+        | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+    body.addView(
+        button(
+            "Send link",
+            () -> {
+              String url = linkField.getText().toString();
+              if (!Links.looksLikeUrl(url)) {
+                toast("Enter an http or https link.");
+                return;
+              }
+              try (LocalStore db = new LocalStore(this)) {
+                db.enqueueKind(url.trim(), "link", Links.hostOf(url));
+              }
+              linkField.setText("");
+              toast("Link queued");
+              sync(true);
+            }));
+    sectionLabel("SEND FILES");
+    LinearLayout fileActions = new LinearLayout(this);
+    fileActions.setGravity(Gravity.CENTER_VERTICAL);
+    body.addView(fileActions);
+    fileActions.addView(secondary("Choose files", this::pickFiles));
+    fileActions.addView(secondary("Take photo", this::takePhoto));
+    for (int i = 0; i < fileActions.getChildCount(); i++) {
+      LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(0, -2, 1);
+      ap.setMargins(i == 0 ? 0 : dp(6), dp(6), i == 0 ? dp(6) : 0, dp(6));
+      fileActions.getChildAt(i).setLayoutParams(ap);
+    }
     try (LocalStore db = new LocalStore(this)) {
       List<JSONObject> queue = db.outbox();
       sectionLabel("OUTBOX · " + queue.size());
@@ -801,7 +1216,8 @@ public final class MainActivity extends Activity {
         String value = item.getString("content");
         LinearLayout queuedCard = card();
         paragraphIn(queuedCard, value.substring(0, Math.min(100, value.length())));
-        labelIn(queuedCard, item.has("error") ? item.optString("error") : "WAITING TO SEND");
+        labelIn(queuedCard, item.has("error") ? item.optString("error")
+            : "link".equals(item.optString("kind")) ? "LINK · WAITING TO SEND" : "WAITING TO SEND");
         queuedCard.addView(
             secondary(
                 "Remove queued text",
@@ -812,9 +1228,83 @@ public final class MainActivity extends Activity {
                   render();
                 }));
       }
+      List<JSONObject> files = db.outfiles();
+      if (!files.isEmpty()) {
+        sectionLabel("UPLOADS · " + files.size());
+        for (JSONObject file : files) {
+          LinearLayout queuedCard = card();
+          paragraphIn(queuedCard, file.optString("name", "file"));
+          long size = file.optLong("size", 0), done = file.optLong("offset", 0);
+          labelIn(queuedCard, file.has("error") ? file.optString("error")
+              : size > 0 ? "UPLOADING · " + (done * 100 / Math.max(1, size)) + "%" : "WAITING TO SEND");
+          queuedCard.addView(
+              secondary(
+                  "Cancel upload",
+                  () -> {
+                    try (LocalStore queued = new LocalStore(this)) {
+                      queued.fileSent(file.optString("id"));
+                    }
+                    render();
+                  }));
+        }
+      }
     } catch (Exception e) {
       paragraph("Could not load outbox");
     }
+  }
+
+  private void updateLinkSwitch() {
+    if (body == null) return;
+    Switch asLink = body.findViewWithTag("asLink");
+    EditText compose = body.findViewWithTag("compose");
+    if (asLink == null || compose == null) return;
+    boolean isUrl = Links.looksLikeUrl(compose.getText().toString());
+    asLink.setVisibility(isUrl ? View.VISIBLE : View.GONE);
+    if (isUrl) asLink.setChecked(true);
+  }
+
+  private void pickFiles() {
+    Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+        .setType("*/*")
+        .addCategory(Intent.CATEGORY_OPENABLE)
+        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+    try {
+      startActivityForResult(i, 24);
+    } catch (Exception e) {
+      toast("No file picker available");
+    }
+  }
+
+  private Uri cameraTarget;
+
+  private void takePhoto() {
+    if (Build.VERSION.SDK_INT >= 23
+        && androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+      requestPermissions(new String[] {Manifest.permission.CAMERA}, 31);
+      return;
+    }
+    try {
+      java.io.File dir = new java.io.File(getCacheDir(), "camera");
+      if (!dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException("No cache");
+      java.io.File shot = new java.io.File(dir, "shot-" + System.currentTimeMillis() + ".jpg");
+      cameraTarget = androidx.core.content.FileProvider.getUriForFile(
+          this, getPackageName() + ".files", shot);
+      Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+          .putExtra(android.provider.MediaStore.EXTRA_OUTPUT, cameraTarget)
+          .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+      startActivityForResult(i, 25);
+    } catch (Exception e) {
+      toast("Camera unavailable");
+    }
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+    super.onRequestPermissionsResult(request, permissions, results);
+    if (request == 31
+        && results.length > 0
+        && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) takePhoto();
   }
 
   private void toggle(String label, String key, boolean fallback) {
@@ -845,10 +1335,24 @@ public final class MainActivity extends Activity {
           render();
         });
     look.addView(theme);
+    LinearLayout privacy = disclosure("Privacy", "lock", "Lock this app behind a PIN.");
+    if (prefs.p.contains("pinHash")) {
+      privacy.addView(secondary("Change PIN", () -> pinChange()));
+      privacy.addView(secondary("Remove PIN", () -> pinRemove()));
+    } else {
+      privacy.addView(button("Set app PIN", () -> pinSet()));
+    }
+    paragraphIn(privacy,
+        "Locked on every fresh start and after 2 minutes in the background."
+            + " Pairing keys stay encrypted either way; the PIN only guards this screen.");
     LinearLayout conn = disclosure("Your workspace", "Connect", "Addresses and connection mode");
     paragraphIn(conn, prefs.p.getString("status", "Ready to connect"));
     paragraphIn(conn,
         "Auto prefers LAN, switches to internet on failure, and checks LAN again.");
+    toggleIn(conn, "Allow Workspace over HTTP LAN (less secure)", "httpWorkspace", false);
+    paragraphIn(conn,
+        "HTTP Workspace sends your login over the local network unencrypted."
+            + " Only enable this on networks you trust.");
     labelIn(conn, "LAN ADDRESS");
     EditText lan = fieldIn(conn, "http://192.168.1.20:3265", prefs.p.getString("lan", ""), false);
     labelIn(conn, "PUBLIC ADDRESS");
@@ -904,6 +1408,7 @@ public final class MainActivity extends Activity {
     LinearLayout downloads = disclosure("Files & clipboard", "download", "Auto-save, clipboard and download limits");
     toggleIn(downloads, "Automatically save incoming files", "files", true);
     toggleIn(downloads, "Copy incoming snippets to clipboard", "copy", true);
+    toggleIn(downloads, "Notify me about new arrivals", "arriveNotify", true);
     toggleIn(downloads, "Files: unmetered connections only", "wifiOnly", false);
     labelIn(downloads, "FILE SIZE CAP (MB)");
     EditText max =
@@ -966,7 +1471,7 @@ public final class MainActivity extends Activity {
             + " internet or a reachable private route.");
     LinearLayout danger = disclosure("Disconnect", "close", "Remove this phone from your workspace");
     paragraphIn(danger,
-        "Clears local history and queued text on this phone. Downloaded files stay in Downloads/9t. Revoke the phone on the website too.");
+        "Clears local history and queued text and files on this phone. Downloaded files stay in Downloads/9t. Revoke the phone on the website too.");
     danger.addView(
         secondary(
             "Disconnect this phone",
@@ -974,7 +1479,7 @@ public final class MainActivity extends Activity {
                 new PocketDialog()
                     .setTitle("Disconnect phone?")
                     .setMessage(
-                        "Local history and queued text will be cleared. Downloaded files stay in"
+                        "Local history and queued text and files will be cleared. Downloaded files stay in"
                             + " Downloads/9t. Revoke this phone from the website's device settings"
                             + " too.")
                     .setPositiveButton("Disconnect", (d, w) -> disconnect())
@@ -1150,7 +1655,10 @@ public final class MainActivity extends Activity {
             String origin = "";
             Exception last = null;
             for (Transport.Route route : transport.routes()) {
-              if (!route.url.startsWith("https://")) continue;
+              boolean secure = route.url.startsWith("https://");
+              if (!secure
+                  && !(route.url.startsWith("http://")
+                      && prefs.p.getBoolean("httpWorkspace", false))) continue;
               try {
                 session = transport.callAt(route, new JSONObject().put("action", "webSession"));
                 origin = route.url;
@@ -1171,12 +1679,10 @@ public final class MainActivity extends Activity {
                   if (!foreground || !tab.equals("Workspace")) return;
                   webOrigin = selected;
                   CookieManager.getInstance().setAcceptCookie(true);
-                  CookieManager.getInstance()
-                      .setCookie(
-                          selected,
-                          "9t_session="
-                              + token
-                              + "; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=3600",
+                  String cookie = "9t_session=" + token
+                      + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600";
+                  if (selected.startsWith("https://")) cookie += "; Secure";
+                  CookieManager.getInstance().setCookie(selected, cookie,
                           ok -> {
                             if (!tab.equals("Workspace") || isFinishing()) return;
                             CookieManager.getInstance().flush();
@@ -1344,6 +1850,24 @@ public final class MainActivity extends Activity {
       }
       chooser.onReceiveValue(uris);
       chooser = null;
+    }
+    if (request == 24 && result == RESULT_OK && data != null) {
+      java.util.ArrayList<Uri> picked = new java.util.ArrayList<>();
+      if (data.getClipData() != null) {
+        for (int i = 0; i < data.getClipData().getItemCount(); i++)
+          picked.add(data.getClipData().getItemAt(i).getUri());
+      } else if (data.getData() != null) picked.add(data.getData());
+      for (Uri uri : picked) stageSharedFile(uri);
+    }
+    if (request == 25) {
+      if (result == RESULT_OK && cameraTarget != null) {
+        try {
+          getContentResolver().takePersistableUriPermission(
+              cameraTarget, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (Exception ignored) {}
+        stageSharedFile(cameraTarget);
+      }
+      cameraTarget = null;
     }
   }
 

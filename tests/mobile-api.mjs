@@ -162,6 +162,121 @@ assert.equal(
   (await rpc({ action: "text", objectId: snippet.id })).content,
   "Hello 📱\nclipboard as text",
 );
+// Phone-sent links land as links, not snippets.
+const linkTransfer = randomUUID();
+const linkRes = await rpc({
+  action: "sendText",
+  kind: "link",
+  url: "https://example.com/some/page",
+  name: "Example page",
+  content: "https://example.com/some/page",
+  transferId: linkTransfer,
+});
+assert.equal(linkRes.ok, true);
+sync = await rpc({ action: "sync" });
+const link = sync.objects.find((o) => o.id === linkRes.id);
+assert.equal(link.type, "link");
+assert.equal(link.url, "https://example.com/some/page");
+assert.equal(
+  (await rpc({ action: "text", objectId: link.id })).content,
+  "https://example.com/some/page",
+);
+assert.equal(
+  (
+    await rpc({
+      action: "sendText",
+      kind: "link",
+      url: "ftp://example.com/x",
+      content: "ftp://example.com/x",
+      transferId: randomUUID(),
+    })
+  ).code,
+  400,
+  "non-http link rejected",
+);
+// Chunked phone file upload: init, out-of-order resume, done, idempotent replay.
+const upBytes = randomBytes(600000),
+  upTransfer = randomUUID();
+let init = await rpc({
+  action: "sendFileInit",
+  transferId: upTransfer,
+  name: "phone-photo.jpg",
+  mimeType: "image/jpeg",
+  sizeBytes: upBytes.length,
+});
+assert.equal(init.ok, true);
+assert.equal(init.offset, 0);
+assert.equal(
+  (
+    await rpc({
+      action: "sendFileChunk",
+      transferId: upTransfer,
+      offset: 123,
+      data: Buffer.alloc(10).toString("base64"),
+    })
+  ).code,
+  409,
+  "out-of-order chunk rejected with resume offset",
+);
+let offset = 0;
+for (let at = 0; at < upBytes.length; at += 200000) {
+  const slice = upBytes.subarray(at, at + 200000);
+  const res = await rpc({
+    action: "sendFileChunk",
+    transferId: upTransfer,
+    offset: at,
+    data: slice.toString("base64"),
+  });
+  assert.equal(res.offset, at + slice.length);
+  offset = res.offset;
+}
+assert.equal(offset, upBytes.length);
+const doneRes = await rpc({
+  action: "sendFileDone",
+  transferId: upTransfer,
+  name: "phone-photo.jpg",
+  mimeType: "image/jpeg",
+  sizeBytes: upBytes.length,
+});
+assert.equal(doneRes.ok, true);
+assert.equal(
+  (await rpc({ action: "sendFileDone", transferId: upTransfer, name: "x", sizeBytes: upBytes.length })).id,
+  doneRes.id,
+  "done replay returns same id",
+);
+sync = await rpc({ action: "sync" });
+const uploaded = sync.objects.find((o) => o.id === doneRes.id);
+assert.equal(uploaded.type, "file");
+assert.equal(uploaded.sizeBytes, upBytes.length);
+let udl = Buffer.alloc(0),
+  udone = false;
+while (!udone) {
+  const chunk = await rpc({
+    action: "file",
+    objectId: uploaded.id,
+    revision: uploaded.updatedAt,
+    offset: udl.length,
+  });
+  udl = Buffer.concat([udl, Buffer.from(chunk.data, "base64")]);
+  udone = chunk.done;
+}
+assert.deepEqual(udl, upBytes, "uploaded file round-trips exactly");
+assert.equal(
+  (
+    await rpc({
+      action: "sendFileInit",
+      transferId: randomUUID(),
+      name: "too-big.bin",
+      sizeBytes: 10 * 1024 * 1024 * 1024,
+    })
+  ).code,
+  400,
+  "oversize upload rejected",
+);
+assert.equal(
+  (await rpc({ action: "text", objectId: snippet.id })).content,
+  "Hello 📱\nclipboard as text",
+);
 const bytes = randomBytes(700000),
   form = new FormData();
 form.set("type", "file");
@@ -232,8 +347,8 @@ r = await api("/api/config", {
 assert.equal(r.status, 200);
 assert.equal(
   (await rpc({ action: "sync" })).objects.length,
-  0,
-  "disabled modules excluded",
+  2,
+  "disabled modules excluded (link + uploaded file remain)",
 );
 assert.equal((await rpc({ action: "text", objectId: snippet.id })).code, 404);
 const web = await rpc({ action: "webSession" });
