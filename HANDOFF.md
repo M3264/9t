@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (fix: share rejected short IDs)
+# 9t project handoff — 2026-09-22 (short 4-letter share codes)
+
+## Session summary (live build .next-058)
+
+User clarified: share links (not object IDs) should be short. New shares now mint 4-letter public codes (`/s/wbkz`, unambiguous alphabet) with uniqueness enforced inside the serialized write; old long tokens keep working. Verified on an isolated server: 8 shares all short + unique, public page 200. Caveat recorded for the user: 4-char public codes are enumerable (~280k combos) — password + short expiry for anything sensitive. Live: 200, 0 errors since restart. Open question: whether to revert object IDs to UUIDs (user implied the object-ID change wasn't asked for).
 
 ## Session summary (live build .next-057)
 

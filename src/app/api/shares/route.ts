@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "crypto";
+import { randomInt, randomUUID } from "crypto";
 import { authenticated, unauthorized } from "@/lib/server/auth";
 import { makePassword } from "@/lib/server/auth";
 import { mutate, readData } from "@/lib/server/db";
@@ -54,18 +54,31 @@ export async function POST(req: Request) {
     return Response.json({ error: "Object not found." }, { status: 404 });
 
   const secret = password ? makePassword(password) : undefined;
-  const share = {
-    id: randomUUID(),
-    token: randomBytes(18).toString("base64url"),
-    objectId,
-    createdAt: new Date().toISOString(),
-    expiresAt: expiryFromLifetime(lifetime),
-    accessCount: 0,
-    passwordHash: secret?.passwordHash,
-    passwordSalt: secret?.salt,
-  };
-  await mutate((data) => {
-    data.shares[share.id] = share;
+  // Short public codes (e.g. /s/kqxt): unambiguous lowercase letters.
+  // Uniqueness is enforced against live shares; old long tokens keep working.
+  const SHARE_CODE_CHARS = "abcdefghjkmnpqrstuvwxyz";
+  const share = await mutate((data) => {
+    const taken = new Set(Object.values(data.shares).map((s) => s.token));
+    let token = "";
+    for (;;) {
+      token = Array.from(
+        { length: 4 },
+        () => SHARE_CODE_CHARS[randomInt(SHARE_CODE_CHARS.length)],
+      ).join("");
+      if (!taken.has(token)) break;
+    }
+    const created = {
+      id: randomUUID(),
+      token,
+      objectId,
+      createdAt: new Date().toISOString(),
+      expiresAt: expiryFromLifetime(lifetime),
+      accessCount: 0,
+      passwordHash: secret?.passwordHash,
+      passwordSalt: secret?.salt,
+    };
+    data.shares[created.id] = created;
+    return created;
   });
   return Response.json({ share, path: `/s/${share.token}` });
 }
