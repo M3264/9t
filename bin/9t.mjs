@@ -264,7 +264,9 @@ try {
     writeFileSync(configFile, "{}\n", { mode: 0o600 });
     console.log("Logged out.");
   } else {
-    if (!saved.url || !saved.token) throw new Error("Run `9t login` first.");
+    // `configure` manages its own login needs per section (server works offline).
+    if (command !== "configure" && (!saved.url || !saved.token))
+      throw new Error("Run `9t login` first.");
     if (command === "list") {
       const trash = args.includes("--trash"),
         { objects } = await json(`/api/objects${trash ? "?trash=true" : ""}`);
@@ -376,13 +378,42 @@ try {
       const { createInterface } = await import("node:readline");
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       const ask = (q) => new Promise((ok) => rl.question(q, (a) => ok(a.trim())));
-      const want = (s) => !section || section === s;
+      const picked = new Set();
+      if (section) {
+        picked.add(section);
+      } else {
+        console.log("What to configure? (numbers, comma-separated -- needs login: *)");
+        console.log("  1  modules   workspace content types *");
+        console.log("  2  exposure  lan / public / hybrid *");
+        console.log("  3  domain    public hostname *");
+        console.log("  4  limits    upload size, trash retention *");
+        console.log("  5  interface theme *");
+        console.log("  6  server    port, address, data dir, HTTPS flag");
+        const choice = (await ask("  pick [all] ")).toLowerCase();
+        if (!choice || choice === "all") known.forEach((s) => picked.add(s));
+        else {
+          const nums = { 1: "modules", 2: "exposure", 3: "domain", 4: "limits", 5: "interface", 6: "server" };
+          for (const part of choice.split(",")) {
+            const s = nums[part.trim()];
+            if (!s) throw new Error("Pick numbers like 1,4 -- or `all`.");
+            picked.add(s);
+          }
+        }
+        if (!picked.size) console.log("Nothing to change.");
+      }
+      const want = (s) => picked.has(s);
         if (want("server")) {
           await configureServer(rl, ask);
-        } else {
-        if (!saved.url || !saved.token) throw new Error("Run `9t login` first.");
-        const { config: current } = await json("/api/status");
-      if (!current) throw new Error("Server did not return its config.");
+          picked.delete("server");
+        }
+        if (picked.size && (!saved.url || !saved.token))
+          throw new Error(
+            "These need login: " +
+              [...picked].join(", ") +
+              ". Run `9t login` first (server settings work without it).",
+          );
+        const { config: current } = picked.size ? await json("/api/status") : {};
+      if (picked.size && !current) throw new Error("Server did not return its config.");
       const patch = {};
       try {
         if (want("modules")) {
@@ -432,9 +463,9 @@ try {
       } finally {
         rl.close();
       }
-      if (!Object.keys(patch).length) {
+      if (picked.size && !Object.keys(patch).length) {
         console.log("Nothing to change.");
-      } else {
+      } else if (picked.size) {
         await api("/api/config", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -442,7 +473,6 @@ try {
         });
         console.log("Saved: " + Object.keys(patch).join(", ") + ".");
         }
-      }
     } else if (command === "doctor") {
       const status = await json("/api/status");
       const runtime = status.runtime || {};
