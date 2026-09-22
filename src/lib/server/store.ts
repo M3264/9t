@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomInt, randomUUID } from "crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 
@@ -130,19 +130,32 @@ export async function mutate<T>(
   await operation;
   return result;
 }
+// Short memorable IDs for user-visible objects (e.g. "kxqt"). Unambiguous
+// lowercase letters only — no i/l/o. Callers must pass existing IDs so the
+// result is unique; retries until it is.
+const SHORT_ID_CHARS = "abcdefghjkmnpqrstuvwxyz";
+export function shortId(taken: Set<string>): string {
+  for (;;) {
+    let id = "";
+    for (let i = 0; i < 4; i++) id += SHORT_ID_CHARS[randomInt(SHORT_ID_CHARS.length)];
+    if (!taken.has(id)) return id;
+  }
+}
 export async function addObject(
   input: Omit<NineTObject, "id" | "createdAt" | "updatedAt" | "pinned">,
 ) {
   const now = new Date().toISOString();
-  const obj: NineTObject = {
-    ...input,
-    id: randomUUID(),
-    pinned: false,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await mutate((d) => d.objects.unshift(obj));
-  return obj;
+  return mutate((d) => {
+    const obj: NineTObject = {
+      ...input,
+      id: shortId(new Set(d.objects.map((o) => o.id))),
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    d.objects.unshift(obj);
+    return obj;
+  });
 }
 export async function purgeObject(id: string) {
   await mutate(async (d) => {

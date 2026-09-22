@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.5.0: fix Set app PIN crash)
+# 9t project handoff — 2026-09-22 (short 4-letter object IDs)
+
+## Session summary (live build .next-052)
+
+User wanted memorable IDs for created things. New objects now get 4-letter lowercase IDs from an unambiguous alphabet (no i/l/o, e.g. `matw`) instead of UUIDs. Uniqueness enforced inside the serialized `mutate()` in both JSON and Postgres backends (no race). Verified: object IDs are only ever compared by string equality — the UUID regexes guard internal file storage keys only, which stay UUIDs. Old UUID items keep working untouched; shares/devices/pairing IDs unchanged. Verified on an isolated server: 15 creates all 4-letter + unique, patch/page/delete by short ID all 200; `tsc` + `store.test.mjs` pass. Live: 200, 0 errors since restart.
 
 ## Session summary (live build .next-051)
 

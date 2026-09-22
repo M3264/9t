@@ -4,6 +4,7 @@ import path from "path";
 import type { PoolClient } from "pg";
 import { pgPool } from "./pg";
 import { uploadDir } from "./store";
+import { shortId } from "./store";
 import { delBlob, validStorageKey } from "./storage";
 import type { ApiToken, Data, NineTObject, Share } from "./store";
 
@@ -387,15 +388,18 @@ export async function addObject(
   input: Omit<NineTObject, "id" | "createdAt" | "updatedAt" | "pinned">,
 ) {
   const now = new Date().toISOString();
-  const obj: NineTObject = {
-    ...input,
-    id: randomUUID(),
-    pinned: false,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await mutate((d) => d.objects.unshift(obj));
-  return obj;
+  const created: NineTObject = await mutate((d) => {
+    const obj: NineTObject = {
+      ...input,
+      id: shortId(new Set(d.objects.map((o) => o.id))),
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    d.objects.unshift(obj);
+    return obj;
+  });
+  return created;
 }
 
 export async function purgeObject(id: string) {
