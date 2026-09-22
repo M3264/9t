@@ -14,6 +14,7 @@ import android.webkit.*;
 import android.widget.*;
 import java.util.*;
 import java.util.concurrent.*;
+import okhttp3.*;
 import org.json.*;
 
 public final class MainActivity extends Activity {
@@ -609,6 +610,7 @@ public final class MainActivity extends Activity {
   }
 
   private void render() {
+    pairGen++;
     receiverStatus = null;
     batteryStatus = null;
     renderedVersion = prefs.p.getLong("inboxVersion", 0);
@@ -749,6 +751,254 @@ public final class MainActivity extends Activity {
             }));
     body.addView(
         button("Open 9t pairing page", () -> openExternal("https://9t.kennyy.xyz/devices")));
+    sectionLabel("NO CODE? ASK FROM HERE");
+    LinearLayout req = card();
+    paragraphIn(req,
+        "Point at your server and send a request. Your Devices page shows the same"
+            + " 5-digit number — approve it there and this phone pairs itself.");
+    labelIn(req, "SERVER ADDRESS");
+    String hint = prefs.p.getString("lan", "");
+    if (hint.isEmpty()) hint = prefs.p.getString("public", "");
+    EditText server = fieldIn(req, "http://192.168.1.20:3265", hint, false);
+    labelIn(req, "THIS PHONE'S NAME");
+    EditText devName =
+        fieldIn(req, "Phone name", prefs.p.getString("pendingName", android.os.Build.MODEL), false);
+    TextView reqStatus = text("", 14, muted);
+    req.addView(reqStatus);
+    TextView bigCode = text("", 44, ink);
+    bigCode.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+    bigCode.setGravity(Gravity.CENTER);
+    bigCode.setVisibility(View.GONE);
+    req.addView(bigCode);
+    req.addView(
+        secondary(
+            "Find server",
+            () -> {
+              String base = server.getText().toString().trim();
+              reqStatus.setText("Looking…");
+              io.execute(
+                  () -> {
+                    String found = probeServer(base);
+                    runOnUiThread(
+                        () -> {
+                          if (!foreground) return;
+                          reqStatus.setText(
+                              found == null
+                                  ? "No 9t server there. Check the address, or scan the local network below."
+                                  : "9t server found ✓ — send the request, then approve it on the web.");
+                        });
+                  });
+            }));
+    req.addView(
+        secondary(
+            "Scan local network",
+            () -> {
+              reqStatus.setText("Scanning…");
+              io.execute(
+                  () -> {
+                    List<String> found = scanLan();
+                    runOnUiThread(
+                        () -> {
+                          if (!foreground) return;
+                          if (found.isEmpty())
+                            reqStatus.setText(
+                                "No 9t server found on this Wi-Fi. Type the address manually.");
+                          else {
+                            server.setText(found.get(0));
+                            reqStatus.setText(
+                                found.size() == 1
+                                    ? "Found one server — address filled in."
+                                    : "Found " + found.size() + " servers — first one filled in.");
+                          }
+                        });
+                  });
+            }));
+    req.addView(
+        button(
+            "Send connection request",
+            () -> {
+              String base = server.getText().toString().trim();
+              String name = devName.getText().toString().trim();
+              if (name.isEmpty()) {
+                toast("Name this phone first.");
+                return;
+              }
+              prefs.p.edit().putString("pendingName", name).apply();
+              reqStatus.setText("Sending…");
+              bigCode.setVisibility(View.GONE);
+              io.execute(
+                  () -> {
+                    try {
+                      String normalized = probeServer(base);
+                      if (normalized == null)
+                        throw new Exception("No 9t server at that address.");
+                      String session =
+                          String.valueOf(10000 + new java.util.Random().nextInt(90000));
+                      String token =
+                          java.util.UUID.randomUUID() + "-" + java.util.UUID.randomUUID();
+                      OkHttpClient http = HttpTransfer.client(15000);
+                      byte[] raw =
+                          HttpTransfer.post(
+                              http,
+                              normalized + "/api/pair-requests",
+                              new JSONObject()
+                                  .put("name", name)
+                                  .put("sessionNumber", session)
+                                  .put("clientToken", token)
+                                  .toString());
+                      JSONObject reply = new JSONObject(new String(raw, java.nio.charset.StandardCharsets.UTF_8));
+                      if (reply.has("error")) throw new Exception(reply.getString("error"));
+                      String reqId = reply.getString("id");
+                      long expiry = java.time.Instant.parse(reply.getString("expiresAt")).toEpochMilli();
+                      boolean local = normalized.startsWith("http:");
+                      prefs
+                          .p
+                          .edit()
+                          .putString(local ? "lan" : "public", normalized)
+                          .commit();
+                      runOnUiThread(
+                          () -> {
+                            if (!foreground) return;
+                            bigCode.setText(session);
+                            bigCode.setVisibility(View.VISIBLE);
+                            reqStatus.setText(
+                                "Waiting for approval — tap the matching number on your Devices page.");
+                            pollPairRequest(
+                                normalized, reqId, token, session, expiry, reqStatus, bigCode);
+                          });
+                    } catch (Exception e) {
+                      runOnUiThread(
+                          () -> {
+                            if (foreground) reqStatus.setText("Couldn't send: " + e.getMessage());
+                          });
+                    }
+                  });
+            }));
+  }
+
+  private int pairGen;
+
+  private void pollPairRequest(
+      String base, String reqId, String token, String session, long expiry,
+      TextView status, TextView code) {
+    int gen = ++pairGen;
+    Runnable[] holder = new Runnable[1];
+    holder[0] =
+        () -> {
+          if (gen != pairGen || !foreground) return;
+          if (System.currentTimeMillis() > expiry) {
+            status.setText("Request expired. Send a fresh one.");
+            code.setVisibility(View.GONE);
+            return;
+          }
+          io.execute(
+              () -> {
+                try {
+                  OkHttpClient http = HttpTransfer.client(15000);
+                  Request httpReq =
+                      new Request.Builder()
+                          .url(
+                              base
+                                  + "/api/pair-requests?id="
+                                  + java.net.URLEncoder.encode(reqId, "UTF-8")
+                                  + "&token="
+                                  + java.net.URLEncoder.encode(token, "UTF-8"))
+                          .get()
+                          .build();
+                  String body;
+                  try (Response resp = http.newCall(httpReq).execute()) {
+                    if (resp.code() == 404) throw new PairDenied();
+                    if (!resp.isSuccessful()) throw new Exception("Server error " + resp.code());
+                    body = resp.body().string();
+                  }
+                  JSONObject reply = new JSONObject(body);
+                  if ("approved".equals(reply.optString("status"))) {
+                    JSONObject dev = reply.getJSONObject("device");
+                    dev.put("url", base);
+                    String pairing =
+                        "9t1:"
+                            + Wire.b64(
+                                dev.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    prefs.pair(pairing);
+                    try (LocalStore db = new LocalStore(this)) {
+                      db.clear();
+                    }
+                    runOnUiThread(
+                        () -> {
+                          if (gen != pairGen || !foreground) return;
+                          SyncJob.schedule(this);
+                          render();
+                          startLive();
+                          toast("Paired ✓ — approve matched " + session);
+                        });
+                    return;
+                  }
+                  handler.postDelayed(holder[0], 3000);
+                } catch (PairDenied e) {
+                  runOnUiThread(
+                      () -> {
+                        if (gen == pairGen && foreground) {
+                          status.setText("Request was declined or expired.");
+                          code.setVisibility(View.GONE);
+                        }
+                      });
+                } catch (Exception e) {
+                  handler.postDelayed(holder[0], 5000);
+                }
+              });
+        };
+    handler.postDelayed(holder[0], 3000);
+  }
+
+  private static final class PairDenied extends Exception {}
+
+  private String probeServer(String base) {
+    try {
+      String url = Endpoint.validate(base, base.trim().startsWith("http:"));
+      if (url.isEmpty()) return null;
+      OkHttpClient http = HttpTransfer.client(6000);
+      Request req = new Request.Builder().url(url + "/api/status").get().build();
+      try (Response resp = http.newCall(req).execute()) {
+        if (!resp.isSuccessful() || resp.body() == null) return null;
+        JSONObject status = new JSONObject(resp.body().string());
+        return status.optBoolean("initialized", false) ? url : null;
+      }
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  private List<String> scanLan() {
+    List<String> found = new ArrayList<>();
+    try {
+      android.net.wifi.WifiManager wifi =
+          (android.net.wifi.WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+      int ip = wifi != null && wifi.getConnectionInfo() != null
+          ? wifi.getConnectionInfo().getIpAddress()
+          : 0;
+      if (ip == 0) return found;
+      final String base =
+          (ip & 0xff) + "." + ((ip >> 8) & 0xff) + "." + ((ip >> 16) & 0xff) + ".";
+      ExecutorService pool = Executors.newFixedThreadPool(24);
+      List<Future<String>> jobs = new ArrayList<>();
+      for (int i = 1; i < 255; i++) {
+        final String url = "http://" + base + i + ":3265";
+        jobs.add(pool.submit(() -> probeServer(url)));
+      }
+      pool.shutdown();
+      pool.awaitTermination(12, java.util.concurrent.TimeUnit.SECONDS);
+      for (Future<String> job : jobs) {
+        try {
+          if (job.isDone()) {
+            String hit = job.get();
+            if (hit != null) found.add(hit);
+          }
+        } catch (Exception ignored) {
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return found;
   }
 
   private void updateStatus() {

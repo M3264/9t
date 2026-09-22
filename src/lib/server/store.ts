@@ -50,12 +50,24 @@ export type ApiToken = {
   createdAt: string;
   lastUsedAt?: string;
 };
+export type PairRequest = {
+  name: string;
+  /** 5-digit session number shown on both phone and web for verification. */
+  sessionNumber: string;
+  /** SHA-256 hex of the phone's claim token (the token itself is never stored). */
+  clientTokenHash: string;
+  createdAt: string;
+  expiresAt: string;
+  status: "pending" | "approved" | "denied";
+  device?: { id: string; key: string; instanceId: string; createdAt: string };
+};
 export type Data = {
   instanceId?: string;
   devices?: Record<
     string,
     { name: string; key: string; createdAt: string; lastSeenAt?: string }
   >;
+  pairRequests?: Record<string, PairRequest>;
   config: AppConfig;
   user?: { username: string; passwordHash: string; salt: string };
   sessions: Record<string, { expiresAt: string; deviceId?: string }>;
