@@ -310,7 +310,9 @@ final class SyncEngine {
     File dir = new File(c.getFilesDir(), "transfers");
     if (!dir.exists() && !dir.mkdirs()) throw new IOException("Cannot create transfer folder");
     // Files are immutable on the server; the revision identifies the partial.
-    File partial = new File(dir, id + ".part");
+    // Prefixed per paired server: 4-letter object ids can repeat across servers.
+    String srv = new Prefs(c).ensureProfiles();
+    File partial = new File(dir, (srv == null ? "" : srv) + "-" + id + ".part");
     String oldUri = item.optString("uri", "");
     if (Build.VERSION.SDK_INT >= 29 && !oldUri.isEmpty()) {
       Uri uri = Uri.parse(oldUri);

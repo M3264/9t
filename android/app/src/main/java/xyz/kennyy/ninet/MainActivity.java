@@ -30,6 +30,8 @@ public final class MainActivity extends Activity {
   private Prefs prefs;
   private String tab = "Inbox";
   private WebView web;
+  private boolean pairingNew;
+  private String pairingReturnTo;
   private String webOrigin = "";
   private ValueCallback<Uri[]> chooser;
   private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -51,6 +53,7 @@ public final class MainActivity extends Activity {
   public void onCreate(Bundle state) {
     super.onCreate(state);
     prefs = new Prefs(this);
+    prefs.ensureProfiles();
     regularFont = Typeface.createFromAsset(getAssets(), "fonts/SpaceGrotesk-Regular.ttf");
     boldFont = Typeface.createFromAsset(getAssets(), "fonts/SpaceGrotesk-Bold.ttf");
     applyTheme();
@@ -702,7 +705,7 @@ public final class MainActivity extends Activity {
     body.setPadding(dp(20), dp(12), dp(20), dp(24));
     scroll.addView(body);
     shell.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-    if (!prefs.paired()) {
+    if (!prefs.paired() || pairingNew) {
       onboarding();
       return;
     }
@@ -775,6 +778,8 @@ public final class MainActivity extends Activity {
                 try (LocalStore db = new LocalStore(this)) {
                   db.clear();
                 }
+                pairingNew = false;
+                pairingReturnTo = null;
                 SyncJob.schedule(this);
                 render();
                 startLive();
@@ -784,6 +789,18 @@ public final class MainActivity extends Activity {
             }));
     body.addView(
         button("Open 9t pairing page", () -> openExternal("https://9t.kennyy.xyz/devices")));
+    if (pairingNew) {
+      body.addView(
+          secondary(
+              "Cancel — keep current server",
+              () -> {
+                pairingNew = false;
+                pairingReturnTo = null;
+                prefs.reloadActive();
+                tab = "Connect";
+                render();
+              }));
+    }
     sectionLabel("NO CODE? ASK FROM HERE");
     LinearLayout req = card();
     paragraphIn(req,
@@ -1028,6 +1045,8 @@ public final class MainActivity extends Activity {
                         () -> {
                           if (gen != pairGen || !foreground) return;
                           pairPolling = false;
+                          pairingNew = false;
+                          pairingReturnTo = null;
                           prefs.p.edit().remove("pairReq").apply();
                           SyncJob.schedule(this);
                           render();
@@ -1123,7 +1142,10 @@ public final class MainActivity extends Activity {
     }
     if (connection != null && prefs.paired()) {
       String route = prefs.p.getString("route", "NOT CONNECTED");
-      connection.setText((ReceiveService.active ? "● LIVE · " : "○ ") + route.toUpperCase());
+      String server = activeServerName();
+      connection.setText(
+          (ReceiveService.active ? "● LIVE · " : "○ ") + route.toUpperCase()
+              + (server.isEmpty() ? "" : "\n" + server));
     }
     if (receiverStatus != null) receiverStatus.setText(ReceiverDiagnostics.summary(this));
     if (batteryStatus != null) batteryStatus.setText(backgroundStatus());
@@ -1683,7 +1705,187 @@ public final class MainActivity extends Activity {
     body.addView(sw);
   }
 
+  private String activeServerName() {
+    try {
+      String active = prefs.activeServer();
+      if (active == null) return "";
+      JSONObject prof = prefs.servers().optJSONObject(active);
+      return prof == null ? "" : prof.optString("name", "");
+    } catch (Exception e) {
+      return "";
+    }
+  }
+
+  private void serversSection() {
+    LinearLayout servers =
+        disclosure("Servers", "server", "Switch between workspaces. Only the active one receives.");
+    try {
+      JSONObject all = prefs.servers();
+      String active = prefs.activeServer();
+      java.util.Iterator<String> ids = all.keys();
+      if (!ids.hasNext()) paragraphIn(servers, "No servers yet.");
+      while (ids.hasNext()) {
+        String id = ids.next();
+        JSONObject prof = all.getJSONObject(id);
+        String name = prof.optString("name", "Server");
+        String lan = prof.optString("lan", ""), pub = prof.optString("public", "");
+        String host = Prefs.hostOf(!lan.isEmpty() ? lan : pub);
+        boolean isActive = id.equals(active);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(14), dp(12), dp(14), dp(12));
+        row.setBackground(sticker(paper, 14));
+        row.setElevation(dp(2));
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+        rp.setMargins(0, dp(6), 0, dp(6));
+        servers.addView(row, rp);
+        TextView title = text((isActive ? "● " : "○ ") + name, 17, ink);
+        title.setTypeface(boldFont);
+        row.addView(title);
+        TextView sub = text(host, 13, muted);
+        row.addView(sub);
+        if (!isActive) {
+          Button sw = secondary("Switch to this server", () -> {});
+          final String target = id;
+          sw.setOnClickListener(
+              v -> {
+                if (prefs.switchServer(target)) {
+                  restartLive();
+                  CookieManager.getInstance().removeAllCookies(null);
+                  CookieManager.getInstance().flush();
+                  render();
+                  sync(false);
+                } else toast("Could not switch servers.");
+              });
+          row.addView(sw);
+        }
+        Button rn = secondary("Rename", () -> {});
+        rn.setOnClickListener(
+            v -> {
+              EditText input = plainField("Server name");
+              input.setText(name);
+              new PocketDialog()
+                  .setTitle("Rename server")
+                  .setView(input)
+                  .setPositiveButton(
+                      "Save",
+                      (d, w) -> {
+                        String next = input.getText().toString().trim();
+                        if (next.isEmpty()) {
+                          toast("Enter a name.");
+                          return;
+                        }
+                        prefs.renameProfile(id, next);
+                        render();
+                      })
+                  .setNegativeButton("Cancel", null)
+                  .show();
+            });
+        row.addView(rn);
+        Button rm = secondary("Remove", () -> {});
+        final String removeName = name;
+        rm.setOnClickListener(
+            v ->
+                new PocketDialog()
+                    .setTitle("Remove " + removeName + "?")
+                    .setMessage(
+                        "This phone forgets the pairing and clears this server's local inbox."
+                            + " Downloaded files stay in Downloads/9t. Revoke it on that server's website too.")
+                    .setPositiveButton("Remove", (d, w) -> removeServer(id))
+                    .setNegativeButton("Cancel", null)
+                    .show());
+        row.addView(rm);
+      }
+    } catch (Exception e) {
+      paragraphIn(servers, "Could not list servers.");
+    }
+    servers.addView(
+        button(
+            "Add another server",
+            () -> {
+              prefs.saveActiveProfile();
+              pairingReturnTo = prefs.activeServer();
+              pairingNew = true;
+              tab = "Connect";
+              render();
+            }));
+  }
+
+  private void restartLive() {
+    stopService(new Intent(this, ReceiveService.class));
+    if (prefs.p.getBoolean("enabled", true)) ensureLive();
+  }
+
+  private void removeServer(String id) {
+    io.execute(
+        () -> {
+          while (SyncEngine.isRunning()) {
+            try {
+              Thread.sleep(100);
+            } catch (InterruptedException e) {
+              return;
+            }
+          }
+          try (LocalStore db = new LocalStore(this)) {
+            db.clearServer(id);
+          }
+          java.io.File dir = new java.io.File(getFilesDir(), "transfers");
+          java.io.File[] files = dir.listFiles();
+          if (files != null) for (java.io.File f : files) if (f.getName().startsWith(id + "-")) f.delete();
+          String next = prefs.removeProfile(id);
+          runOnUiThread(
+              () -> {
+                if (next != null) {
+                  if (prefs.switchServer(next)) {
+                    restartLive();
+                    CookieManager.getInstance().removeAllCookies(null);
+                    CookieManager.getInstance().flush();
+                  }
+                  render();
+                  sync(false);
+                } else {
+                  fullReset();
+                }
+              });
+        });
+  }
+
+  private void fullReset() {
+    stopService(new Intent(this, ReceiveService.class));
+    SyncJob.cancel(this);
+    io.execute(
+        () -> {
+          while (SyncEngine.isRunning()) {
+            try {
+              Thread.sleep(100);
+            } catch (InterruptedException e) {
+              return;
+            }
+          }
+          java.io.File dir = new java.io.File(getFilesDir(), "transfers");
+          java.io.File[] files = dir.listFiles();
+          if (files != null) for (java.io.File f : files) f.delete();
+          SharedPreferences.Editor e = prefs.p.edit();
+          for (String k : Prefs.PAIR_STATE_KEYS) e.remove(k);
+          e.putBoolean("enabled", false).commit();
+          runOnUiThread(
+              () -> {
+                pairingNew = false;
+                composeDraft = "";
+                inboxQuery = "";
+                inboxFilter = "all";
+                openSettings.clear();
+                applyTheme();
+                CookieManager.getInstance().removeAllCookies(null);
+                CookieManager.getInstance().flush();
+                WebStorage.getInstance().deleteAllData();
+                render();
+              });
+        });
+  }
+
   private void settings() {
+    serversSection();
     hero("9t " + ReceiverDiagnostics.version(this), "Stay connected.",
         "LAN first, internet fallback. Both addresses must reach the same paired server.");
     LinearLayout look = disclosure("Appearance", "moon", "Make this little space yours.");
@@ -1870,18 +2072,18 @@ public final class MainActivity extends Activity {
         "Transfers are encrypted even on HTTP LAN routes. The full Workspace screen requires HTTPS."
             + " LAN-only use needs a server on your local network; a cloud server still needs"
             + " internet or a reachable private route.");
-    LinearLayout danger = disclosure("Disconnect", "close", "Remove this phone from your workspace");
+    LinearLayout danger = disclosure("Disconnect", "close", "Remove the active server from this phone");
     paragraphIn(danger,
-        "Clears local history and queued text and files on this phone. Downloaded files stay in Downloads/9t. Revoke the phone on the website too.");
+        "Forgets the active server's pairing and clears its local history. Downloaded files stay in Downloads/9t. Revoke the phone on that server's website too. Manage all servers above.");
     danger.addView(
         secondary(
-            "Disconnect this phone",
+            "Disconnect active server",
             () ->
                 new PocketDialog()
-                    .setTitle("Disconnect phone?")
+                    .setTitle("Disconnect this server?")
                     .setMessage(
-                        "Local history and queued text and files will be cleared. Downloaded files stay in"
-                            + " Downloads/9t. Revoke this phone from the website's device settings"
+                        "Local history for the active server will be cleared. Downloaded files stay in"
+                            + " Downloads/9t. Revoke this phone from that server's device settings"
                             + " too.")
                     .setPositiveButton("Disconnect", (d, w) -> disconnect())
                     .setNegativeButton("Cancel", null)
@@ -2010,38 +2212,14 @@ public final class MainActivity extends Activity {
   }
 
   private void disconnect() {
-    prefs.p.edit().putBoolean("enabled", false).commit();
-    stopService(new Intent(this, ReceiveService.class));
-    SyncJob.cancel(this);
-    io.execute(
-        () -> {
-          while (SyncEngine.isRunning()) {
-            try {
-              Thread.sleep(100);
-            } catch (InterruptedException e) {
-              return;
-            }
-          }
-          try (LocalStore db = new LocalStore(this)) {
-            db.clear();
-          }
-          java.io.File dir = new java.io.File(getFilesDir(), "transfers");
-          java.io.File[] files = dir.listFiles();
-          if (files != null) for (java.io.File f : files) f.delete();
-          prefs.p.edit().clear().commit();
-          runOnUiThread(
-              () -> {
-                composeDraft = "";
-                inboxQuery = "";
-                inboxFilter = "all";
-                openSettings.clear();
-                applyTheme();
-                CookieManager.getInstance().removeAllCookies(null);
-                CookieManager.getInstance().flush();
-                WebStorage.getInstance().deleteAllData();
-                render();
-              });
-        });
+    // Multi-server: disconnect removes the active server (use Servers → Remove
+    // for the same). Falls back to a full reset when nothing is paired.
+    String active = prefs.activeServer();
+    if (active == null) {
+      fullReset();
+      return;
+    }
+    removeServer(active);
   }
 
   @SuppressWarnings("SetJavaScriptEnabled")

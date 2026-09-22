@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.5.3: plain public HTTP opt-in)
+# 9t project handoff — 2026-09-22 (0.6.0: multiple servers on the app)
+
+## Session summary (live build .next-056)
+
+User wanted several workspaces on one phone with switching. Implemented as a profiles overlay: flat prefs always describe the ACTIVE server, so Transport/SyncEngine/ReceiveService needed zero changes. `Prefs` gained servers map + activeServer + save/switch/rename/remove + legacy auto-migration (existing installs become one profile named by host). `LocalStore` v3: server column everywhere, inbox rebuilt with composite PK (server,id) since 4-letter object ids can repeat across servers; pre-existing rows backfilled to the active server. `SyncEngine` partials prefixed per server. Only the active server syncs/receives; inactive data stays local. UI: Connect → Servers section (switch/rename/remove/add), active name in header status, pairing screen reused for adding (with cancel restoring the previous server), Disconnect now removes the active server (full reset only when last one goes). Release build + all 23 JVM unit tests pass. Shipped as 0.6.0 / code 20, same cert, public bytes verified identical (`fd089465…41ba2`), 0 errors since restart. Web logic unchanged (0.6.0 version refs + docs line). Not yet tested on a physical phone: migration of a real 0.5.x install, add/switch/remove round-trip.
 
 ## Session summary (live build .next-055)
 

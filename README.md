@@ -78,7 +78,7 @@ For repeatable or unattended installs, see [docs/installation.md](./docs/install
 
 Install the Android client from the Devices page or download the current release:
 
-<https://9t.kennyy.xyz/downloads/9t-android-0.5.3.apk>
+<https://9t.kennyy.xyz/downloads/9t-android-0.6.0.apk>
 
 Pair it from the 9t Devices page. The client uses an encrypted persistent connection when supported, prefers the LAN address, switches to the public route when needed, and catches up through the authenticated HTTP API after reconnecting. Enable background receiving in Android settings so the operating system does not stop the receiver when the app is closed.
 

@@ -7,20 +7,27 @@ import java.util.*;
 import org.json.*;
 
 final class LocalStore extends SQLiteOpenHelper {
+  private final Context ctx;
+  private final String srv;
+
   LocalStore(Context c) {
-    super(c, "9t.db", null, 2);
+    super(c, "9t.db", null, 3);
+    ctx = c.getApplicationContext();
+    String id = new Prefs(ctx).ensureProfiles();
+    srv = id == null ? "" : id;
   }
 
   public void onCreate(SQLiteDatabase db) {
     db.execSQL(
-        "CREATE TABLE inbox (id TEXT PRIMARY KEY, revision TEXT NOT NULL, metadata TEXT NOT NULL,"
-            + " status TEXT NOT NULL DEFAULT 'pending', uri TEXT, content TEXT, error TEXT,"
-            + " pinned INTEGER NOT NULL DEFAULT 0)");
+        "CREATE TABLE inbox (server TEXT NOT NULL DEFAULT '', id TEXT NOT NULL, revision TEXT NOT NULL,"
+            + " metadata TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', uri TEXT, content TEXT,"
+            + " error TEXT, pinned INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (server, id))");
     db.execSQL("CREATE TABLE outbox (id TEXT PRIMARY KEY, content TEXT NOT NULL, error TEXT,"
-        + " kind TEXT NOT NULL DEFAULT 'snippet', name TEXT)");
+        + " kind TEXT NOT NULL DEFAULT 'snippet', name TEXT, server TEXT NOT NULL DEFAULT '')");
     db.execSQL("CREATE TABLE outfiles (id TEXT PRIMARY KEY, uri TEXT NOT NULL, name TEXT NOT NULL,"
         + " mime TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, offset INTEGER NOT NULL DEFAULT 0,"
-        + " error TEXT)");
+        + " error TEXT, server TEXT NOT NULL DEFAULT '')");
+    db.execSQL("CREATE INDEX IF NOT EXISTS idx_inbox_server ON inbox(server)");
   }
 
   public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -32,6 +39,35 @@ final class LocalStore extends SQLiteOpenHelper {
           + " name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0,"
           + " offset INTEGER NOT NULL DEFAULT 0, error TEXT)");
     }
+    if (oldVersion < 3) {
+      String backfill = "";
+      try {
+        String id = new Prefs(ctx).ensureProfiles();
+        if (id != null) backfill = id;
+      } catch (Exception ignored) {
+      }
+      // Same 4-letter object id can exist on two servers: key inbox by (server, id).
+      db.execSQL(
+          "CREATE TABLE inbox_new (server TEXT NOT NULL DEFAULT '', id TEXT NOT NULL,"
+              + " revision TEXT NOT NULL, metadata TEXT NOT NULL,"
+              + " status TEXT NOT NULL DEFAULT 'pending', uri TEXT, content TEXT,"
+              + " error TEXT, pinned INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (server, id))");
+      db.execSQL(
+          "INSERT INTO inbox_new (server, id, revision, metadata, status, uri, content, error, pinned)"
+              + " SELECT ?, id, revision, metadata, status, uri, content, error, pinned FROM inbox",
+          new String[] {backfill});
+      db.execSQL("DROP TABLE inbox");
+      db.execSQL("ALTER TABLE inbox_new RENAME TO inbox");
+      db.execSQL("CREATE INDEX IF NOT EXISTS idx_inbox_server ON inbox(server)");
+      db.execSQL("ALTER TABLE outbox ADD COLUMN server TEXT NOT NULL DEFAULT ''");
+      db.execSQL("ALTER TABLE outfiles ADD COLUMN server TEXT NOT NULL DEFAULT ''");
+      db.execSQL("UPDATE outbox SET server=? WHERE server=''", new String[] {backfill});
+      db.execSQL("UPDATE outfiles SET server=? WHERE server=''", new String[] {backfill});
+    }
+  }
+
+  private String[] idArgs(String id) {
+    return new String[] {srv, id};
   }
 
   boolean discover(JSONObject o, long since) throws Exception {
@@ -39,6 +75,7 @@ final class LocalStore extends SQLiteOpenHelper {
     JSONObject old = find(id);
     if (old != null && rev.equals(old.optString("revision"))) return false;
     ContentValues v = new ContentValues();
+    v.put("server", srv);
     v.put("id", id);
     v.put("revision", rev);
     v.put("metadata", o.toString());
@@ -57,15 +94,16 @@ final class LocalStore extends SQLiteOpenHelper {
 
   JSONObject find(String id) throws Exception {
     try (Cursor c =
-        getReadableDatabase().query("inbox", null, "id=?", new String[] {id}, null, null, null)) {
+        getReadableDatabase().query("inbox", null, "server=? AND id=?", idArgs(id), null, null, null)) {
       return c.moveToFirst() ? row(c) : null;
     }
   }
 
   List<JSONObject> items(String where) throws Exception {
+    String selection = where == null ? "server=?" : "(server=?) AND (" + where + ")";
     List<JSONObject> list = new ArrayList<>();
     try (Cursor c =
-        getReadableDatabase().query("inbox", null, where, null, null, null, "pinned DESC, revision DESC")) {
+        getReadableDatabase().query("inbox", null, selection, new String[] {srv}, null, null, "pinned DESC, revision DESC")) {
       while (c.moveToNext()) list.add(row(c));
     }
     return list;
@@ -84,21 +122,21 @@ final class LocalStore extends SQLiteOpenHelper {
   void update(String id, String key, String value) {
     ContentValues v = new ContentValues();
     v.put(key, value);
-    getWritableDatabase().update("inbox", v, "id=?", new String[] {id});
+    getWritableDatabase().update("inbox", v, "server=? AND id=?", idArgs(id));
   }
 
   void setPinned(String id, boolean pinned) {
     ContentValues v = new ContentValues();
     v.put("pinned", pinned ? 1 : 0);
-    getWritableDatabase().update("inbox", v, "id=?", new String[] {id});
+    getWritableDatabase().update("inbox", v, "server=? AND id=?", idArgs(id));
   }
 
   void remove(String id) {
-    getWritableDatabase().delete("inbox", "id=?", new String[] {id});
+    getWritableDatabase().delete("inbox", "server=? AND id=?", idArgs(id));
   }
 
   void clearInbox() {
-    getWritableDatabase().delete("inbox", null, null);
+    getWritableDatabase().delete("inbox", "server=?", new String[] {srv});
   }
 
   String enqueue(String content) {
@@ -111,6 +149,7 @@ final class LocalStore extends SQLiteOpenHelper {
     v.put("id", id);
     v.put("content", content);
     v.put("kind", kind);
+    v.put("server", srv);
     if (name != null) v.put("name", name);
     getWritableDatabase().insertOrThrow("outbox", null, v);
     return id;
@@ -118,7 +157,7 @@ final class LocalStore extends SQLiteOpenHelper {
 
   List<JSONObject> outbox() throws Exception {
     List<JSONObject> list = new ArrayList<>();
-    try (Cursor c = getReadableDatabase().rawQuery("SELECT id,content,error,kind,name FROM outbox", null)) {
+    try (Cursor c = getReadableDatabase().rawQuery("SELECT id,content,error,kind,name FROM outbox WHERE server=?", new String[] {srv})) {
       while (c.moveToNext())
         list.add(
             new JSONObject()
@@ -132,13 +171,13 @@ final class LocalStore extends SQLiteOpenHelper {
   }
 
   void sent(String id) {
-    getWritableDatabase().delete("outbox", "id=?", new String[] {id});
+    getWritableDatabase().delete("outbox", "server=? AND id=?", idArgs(id));
   }
 
   void outError(String id, String error) {
     ContentValues v = new ContentValues();
     v.put("error", error);
-    getWritableDatabase().update("outbox", v, "id=?", new String[] {id});
+    getWritableDatabase().update("outbox", v, "server=? AND id=?", idArgs(id));
   }
 
   void stageFile(String id, String uri, String name, String mime, long size) {
@@ -149,13 +188,14 @@ final class LocalStore extends SQLiteOpenHelper {
     v.put("mime", mime);
     v.put("size", size);
     v.put("offset", 0);
+    v.put("server", srv);
     getWritableDatabase().insertOrThrow("outfiles", null, v);
   }
 
   List<JSONObject> outfiles() throws Exception {
     List<JSONObject> list = new ArrayList<>();
     try (Cursor c = getReadableDatabase().rawQuery(
-        "SELECT id,uri,name,mime,size,offset,error FROM outfiles", null)) {
+        "SELECT id,uri,name,mime,size,offset,error FROM outfiles WHERE server=?", new String[] {srv})) {
       while (c.moveToNext())
         list.add(
             new JSONObject()
@@ -174,22 +214,29 @@ final class LocalStore extends SQLiteOpenHelper {
     ContentValues v = new ContentValues();
     v.put("offset", offset);
     v.put("error", (String) null);
-    getWritableDatabase().update("outfiles", v, "id=?", new String[] {id});
+    getWritableDatabase().update("outfiles", v, "server=? AND id=?", idArgs(id));
   }
 
   void fileError(String id, String error) {
     ContentValues v = new ContentValues();
     v.put("error", error);
-    getWritableDatabase().update("outfiles", v, "id=?", new String[] {id});
+    getWritableDatabase().update("outfiles", v, "server=? AND id=?", idArgs(id));
   }
 
   void fileSent(String id) {
-    getWritableDatabase().delete("outfiles", "id=?", new String[] {id});
+    getWritableDatabase().delete("outfiles", "server=? AND id=?", idArgs(id));
   }
 
   void clear() {
-    getWritableDatabase().delete("inbox", null, null);
-    getWritableDatabase().delete("outbox", null, null);
-    getWritableDatabase().delete("outfiles", null, null);
+    getWritableDatabase().delete("inbox", "server=?", new String[] {srv});
+    getWritableDatabase().delete("outbox", "server=?", new String[] {srv});
+    getWritableDatabase().delete("outfiles", "server=?", new String[] {srv});
+  }
+
+  void clearServer(String serverId) {
+    String[] a = new String[] {serverId};
+    getWritableDatabase().delete("inbox", "server=?", a);
+    getWritableDatabase().delete("outbox", "server=?", a);
+    getWritableDatabase().delete("outfiles", "server=?", a);
   }
 }
