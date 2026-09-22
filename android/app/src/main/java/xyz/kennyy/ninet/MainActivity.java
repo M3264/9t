@@ -796,6 +796,7 @@ public final class MainActivity extends Activity {
     labelIn(req, "THIS PHONE'S NAME");
     EditText devName =
         fieldIn(req, "Phone name", prefs.p.getString("pendingName", android.os.Build.MODEL), false);
+    toggleIn(req, "Server uses plain public HTTP (no HTTPS)", "publicHttp", false);
     TextView reqStatus = text("", 14, muted);
     req.addView(reqStatus);
     TextView bigCode = text("", 44, ink);
@@ -1064,7 +1065,8 @@ public final class MainActivity extends Activity {
 
   private String probeServer(String base) {
     try {
-      String url = Endpoint.validate(base, base.trim().startsWith("http:"));
+      String url = Endpoint.validate(
+          base, base.trim().startsWith("http:"), prefs.p.getBoolean("publicHttp", false));
       if (url.isEmpty()) return null;
       OkHttpClient http = HttpTransfer.client(6000);
       Request req = new Request.Builder().url(url + "/api/status").get().build();
@@ -1716,6 +1718,11 @@ public final class MainActivity extends Activity {
     paragraphIn(conn,
         "HTTP Workspace sends your login over the local network unencrypted."
             + " Only enable this on networks you trust.");
+    toggleIn(conn, "Allow plain HTTP to public servers (less secure)", "publicHttp", false);
+    paragraphIn(conn,
+        "For servers like http://203.0.113.10:6119 without HTTPS."
+            + " Transfers stay encrypted, but metadata is visible on the wire."
+            + " Prefer HTTPS whenever you can.");
     labelIn(conn, "LAN ADDRESS");
     EditText lan = fieldIn(conn, "http://192.168.1.20:3265", prefs.p.getString("lan", ""), false);
     labelIn(conn, "PUBLIC ADDRESS");
@@ -1746,8 +1753,9 @@ public final class MainActivity extends Activity {
             "Save connection",
             () -> {
               try {
-                String l = Endpoint.validate(lan.getText().toString(), true),
-                    r = Endpoint.validate(remote.getText().toString(), false);
+                boolean plainPublic = prefs.p.getBoolean("publicHttp", false);
+                String l = Endpoint.validate(lan.getText().toString(), true, plainPublic),
+                    r = Endpoint.validate(remote.getText().toString(), false, plainPublic);
                 int selected = mode.getSelectedItemPosition();
                 if ((selected == 1 && l.isEmpty())
                     || (selected == 2 && r.isEmpty())

@@ -80,7 +80,7 @@ final class EventConnection implements AutoCloseable {
       }
       if (routes.isEmpty()) throw new IOException("No route");
       final Transport.Route route = routes.get(routeIndex);
-      Endpoint.validate(route.url, route.label.equals("LAN"));
+      Endpoint.validate(route.url, route.label.equals("LAN"), prefs.p.getBoolean("publicHttp", false));
       key = Wire.decode(transport.credentials.getString("key"));
       deviceId = transport.credentials.getString("id");
       final String instance = transport.credentials.getString("instanceId");

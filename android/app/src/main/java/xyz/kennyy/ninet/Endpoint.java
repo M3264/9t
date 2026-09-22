@@ -4,6 +4,10 @@ import java.net.URI;
 
 public final class Endpoint {
   public static String validate(String input, boolean lan) {
+    return validate(input, lan, false);
+  }
+
+  public static String validate(String input, boolean lan, boolean publicHttp) {
     if (input.trim().isEmpty()) return "";
     URI u;
     try {
@@ -18,9 +22,12 @@ public final class Endpoint {
         || u.getFragment() != null
         || (u.getPath() != null && !u.getPath().isEmpty() && !u.getPath().equals("/")))
       throw new IllegalArgumentException("Use a server origin without a path or credentials");
-    if (!"https".equals(scheme) && !(lan && "http".equals(scheme) && privateIp(h)))
+    boolean httpOk =
+        "http".equals(scheme) && ((lan && privateIp(h)) || publicHttp);
+    if (!"https".equals(scheme) && !httpOk)
       throw new IllegalArgumentException(
-          "Public connections need HTTPS. HTTP LAN connections need a private IP address.");
+          "Public connections need HTTPS — or turn on plain public HTTP in settings first."
+              + " HTTP LAN connections need a private IP address.");
     return scheme + "://" + u.getRawAuthority();
   }
 

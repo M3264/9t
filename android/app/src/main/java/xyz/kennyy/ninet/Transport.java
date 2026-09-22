@@ -81,7 +81,7 @@ final class Transport {
   }
 
   JSONObject callAt(Route route, JSONObject body) throws Exception {
-    Endpoint.validate(route.url, route.label.equals("LAN"));
+    Endpoint.validate(route.url, route.label.equals("LAN"), prefs.p.getBoolean("publicHttp", false));
     String requestId = UUID.randomUUID().toString();
     body.put("requestId", requestId).put("timestamp", System.currentTimeMillis());
     String aad = "9t:v1:" + credentials.getString("instanceId") + ":" + credentials.getString("id");

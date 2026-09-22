@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.5.2: Sync now notification button)
+# 9t project handoff — 2026-09-22 (0.5.3: plain public HTTP opt-in)
+
+## Session summary (live build .next-055)
+
+User's server is plain HTTP on a public IP:port (`http://209.182.233.189:6119`), which `Endpoint.validate` rejected by design (public + HTTP → "need HTTPS"), so Find server/scan/save all failed. Fix: `validate()` gained a `publicHttp` flag; new **Allow plain HTTP to public servers** toggle in Connect plus a matching toggle on the pairing-request card; honored in probe, Connect save, `Prefs.pair`, Transport, and EventConnection. Transfers stay AES-encrypted; metadata on the wire is the accepted tradeoff (same class as the existing HTTP-LAN opt-in), stated in UI + docs. Shipped as 0.5.3 / code 19, same cert, public bytes verified identical (`e3b5eedc…32aa2`), 0 errors since restart. Web logic unchanged (0.5.3 version refs + docs line). Not yet tested on a physical phone against a real public-HTTP server.
 
 ## Session summary (live build .next-054)
 

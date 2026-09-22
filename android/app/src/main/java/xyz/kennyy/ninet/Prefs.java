@@ -83,7 +83,7 @@ final class Prefs {
     java.util.UUID.fromString(obj.getString("instanceId"));
     String url = obj.getString("url");
     boolean local = url.startsWith("http:");
-    url = Endpoint.validate(url, local);
+    url = Endpoint.validate(url, local, p.getBoolean("publicHttp", false));
     Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
     cipher.init(Cipher.ENCRYPT_MODE, localKey());
     String encrypted =
