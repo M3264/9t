@@ -44,13 +44,46 @@ export async function update(root, args = []) {
   }
   const isGit = existsSync(join(root, ".git"));
   if (isGit) {
-    const dirty = sh("git", ["-C", root, "status", "--porcelain"]) || "";
-    if (dirty.trim())
+    // Files the service itself rewrites on every build; never a reason to block.
+    const GENERATED = new Set(["next-env.d.ts", "tsconfig.json"]);
+    const dirty = (sh("git", ["-C", root, "status", "--porcelain"]) || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const generated = dirty.filter((l) =>
+      GENERATED.has(l.slice(3).trim().replace(/^"|"$/g, "")),
+    );
+    const real = dirty.filter((l) => !generated.includes(l));
+    if (real.length)
       throw new Error(
-        "Working tree has local changes. Commit or stash them first; nothing was changed.",
+        "Working tree has local changes:\n  " +
+          real.join("\n  ") +
+          "\nCommit or stash them first; nothing was changed.",
       );
-    console.log("Pulling latest…");
-    run("git", ["-C", root, "pull", "--ff-only"]);
+    // Stash regenerable churn so the pull stays fast-forward, restore after.
+    const paths = generated.map((l) => l.slice(3).trim().replace(/^"|"$/g, ""));
+    let stashed = false;
+    if (paths.length) {
+      run("git", ["-C", root, "stash", "push", "-m", "9t update", "--", ...paths], {
+        stdio: "ignore",
+      });
+      stashed = true;
+    }
+    try {
+      console.log("Pulling latest…");
+      run("git", ["-C", root, "pull", "--ff-only"]);
+    } finally {
+      if (stashed) {
+        try {
+          run("git", ["-C", root, "stash", "pop"], { stdio: "ignore" });
+        } catch {
+          console.log(
+            "warn  upstream touched generated files; using upstream versions (they regenerate on build).",
+          );
+          sh("git", ["-C", root, "stash", "drop"]);
+        }
+      }
+    }
   } else {
     console.log("No git checkout; skipping pull.");
   }
