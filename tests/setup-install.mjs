@@ -79,7 +79,7 @@ try {
   await writeFile(join(root, "preferences.json"), JSON.stringify(preferences));
   await run(
     process.execPath,
-    ["bin/9t.mjs", "setup", "--answers", "preferences.json", "--yes"],
+    ["scripts/cli/9t.mjs", "setup", "--answers", "preferences.json", "--yes"],
     { env: { ...env, NINE_T_ADMIN_PASSWORD: "setup-smoke-only-password" } },
   );
   assert.ok(
@@ -87,7 +87,7 @@ try {
       "setup-smoke-only-password",
     ),
   );
-  server = spawn(process.execPath, ["bin/9t.mjs", "start"], {
+  server = spawn(process.execPath, ["scripts/cli/9t.mjs", "start"], {
     cwd: root,
     env,
     stdio: "inherit",

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 9t database migrations — applies scripts/migrations/*.sql in order.
+// 9t database migrations — applies db/migrations/*.sql in order.
 // Needs NINE_T_DATABASE_URL (e.g. postgresql://9t:secret@db:5432/9t).
 // Safe to re-run: each file applies once, tracked in schema_migrations.
 import { readdir, readFile } from "node:fs/promises";
@@ -14,7 +14,7 @@ if (!url) {
   );
   process.exitCode = 1;
 } else {
-  const dir = join(dirname(fileURLToPath(import.meta.url)), "migrations");
+  const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "db", "migrations");
   const files = (await readdir(dir))
     .filter((n) => /^\d+_.*\.sql$/.test(n))
     .sort();

@@ -15,4 +15,4 @@ if ! command -v node >/dev/null 2>&1; then
   echo 'Node.js is missing. Run ./setup.sh to install it and set up 9t.' >&2
   exit 1
 fi
-exec node "$NINET_ROOT/bin/9t.mjs" "$@"
+exec node "$NINET_ROOT/scripts/cli/9t.mjs" "$@"

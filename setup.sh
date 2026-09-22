@@ -45,4 +45,4 @@ if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.v
   PATH="$NINET_ROOT/.tools/node/bin:$PATH"
   export PATH
 fi
-exec node "$NINET_ROOT/bin/9t.mjs" setup "$@"
+exec node "$NINET_ROOT/scripts/cli/9t.mjs" setup "$@"

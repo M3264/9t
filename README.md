@@ -175,6 +175,6 @@ The HTTPS Nginx example is `deploy/nginx/9t.conf`; its certificate paths assume 
 - [Installation](./docs/installation.md) — guided and repeatable setup
 - [Network troubleshooting](./docs/network-troubleshooting.md) — LAN, WSL, hotspots, and reverse proxies
 - [Android client](./docs/android.md) — pairing, background receiving, and releases
-- [TODO](./TODO.md) — planned work, including multi-user ownership and S3 storage
+- [TODO](./docs/archive/TODO.md) — planned work, including multi-user ownership and S3 storage
 
 9t is currently designed for a single owner. PostgreSQL, multi-user ownership, automated exposure switching, and S3 storage remain on the roadmap.

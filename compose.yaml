@@ -8,7 +8,9 @@
 
 services:
   9t:
-    build: .
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
     image: 9t:latest
     ports:
       - "${PORT:-3265}:3265"

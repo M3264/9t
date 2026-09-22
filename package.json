@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "9t": "bin/9t.mjs"
+    "9t": "scripts/cli/9t.mjs"
   },
   "scripts": {
     "dev": "node scripts/serve.mjs --dev",
     "build": "next build",
     "start": "node scripts/run-server.mjs",
-    "setup": "node bin/9t.mjs setup",
+    "setup": "node scripts/cli/9t.mjs setup",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "cleanup": "node scripts/maintenance.mjs",

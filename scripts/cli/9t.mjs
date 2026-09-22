@@ -10,7 +10,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 // Setup must work in a fresh clone, before dependencies or CLI login exist.
 if (process.argv[2] === "setup") {
   try {
-    await (await import("../scripts/setup.mjs")).setup(process.argv.slice(3));
+    await (await import("../setup.mjs")).setup(process.argv.slice(3));
   } catch (error) {
     console.error(`9t: ${error.message}`);
     process.exitCode = 1;
@@ -20,9 +20,9 @@ if (process.argv[2] === "setup") {
 if (process.argv[2] === "start") {
   try {
     process.exitCode = await (
-      await import("../scripts/run-server.mjs")
+      await import("../run-server.mjs")
     ).runServer(
-      fileURLToPath(new URL("../", import.meta.url)),
+      fileURLToPath(new URL("../../", import.meta.url)),
       process.argv.slice(3),
     );
   } catch (error) {
@@ -34,9 +34,9 @@ if (process.argv[2] === "start") {
 if (process.argv[2] === "update") {
   try {
     process.exitCode = await (
-      await import("../scripts/update.mjs")
+      await import("../update.mjs")
     ).update(
-      fileURLToPath(new URL("../", import.meta.url)),
+      fileURLToPath(new URL("../../", import.meta.url)),
       process.argv.slice(3),
     );
   } catch (error) {
@@ -48,8 +48,8 @@ if (process.argv[2] === "update") {
 if (process.argv[2] === "status") {
   try {
     process.exitCode = await (
-      await import("../scripts/status.mjs")
-    ).status(fileURLToPath(new URL("../", import.meta.url)));
+      await import("../status.mjs")
+    ).status(fileURLToPath(new URL("../../", import.meta.url)));
   } catch (error) {
     console.error(`9t: ${error.message}`);
     process.exitCode = 1;
@@ -90,7 +90,7 @@ const json = async (path, init = {}) => (await api(path, init)).json();
 // so unlike workspace settings they need a restart. Edits the file in
 // place (comments and unknown keys preserved) and offers a restart.
 const configureServer = async (rl, ask) => {
-  const root = fileURLToPath(new URL("../", import.meta.url));
+  const root = fileURLToPath(new URL("../../", import.meta.url));
   const envPath = join(root, ".env.production");
   if (!existsSync(envPath))
     throw new Error("No installation here. Run `./9t setup` first.");

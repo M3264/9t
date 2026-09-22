@@ -1,5 +1,5 @@
 # 9t — production image (Next.js + encrypted phone socket on the same port)
-# Build: docker build -t 9t .
+# Build: docker build -f deploy/docker/Dockerfile -t 9t .
 # Run:   docker compose up -d --build
 
 FROM node:22-bookworm-slim AS builder
@@ -8,7 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY . .
 ENV NODE_ENV=production
-# Webpack build matches the low-memory VPS practice (see HANDOFF.md);
+# Webpack build matches the low-memory VPS practice (see docs/archive/HANDOFF.md);
 # Turbopack needs more RAM than small hosts reliably have.
 RUN npm run build -- --webpack
 RUN npm prune --omit=dev
