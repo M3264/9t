@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.4.9: manual Check approval button)
+# 9t project handoff — 2026-09-22 (0.5.0: fix Set app PIN crash)
+
+## Session summary (live build .next-051)
+
+User reported tapping Set app PIN crashes the app. Root cause: `pinPrompt()` and the lock-screen gate both built their input with `field()`, which attaches the EditText to the activity body — then passed the same view to `AlertDialog.setView()`, throwing `IllegalStateException: child already has a parent`. Fix: new `plainField()` helper that styles identically but never attaches; both PIN dialogs use it. Audited all other `setView()` calls (fresh ScrollViews, fine) and all other `field()` uses (stay in body, fine). Shipped as 0.5.0 / code 16, same cert, public bytes verified identical (`8ef26af7…21a40f`), 0 errors since restart. Web logic unchanged (0.5.0 version refs only).
 
 ## Session summary (live build .next-050)
 

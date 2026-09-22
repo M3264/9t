@@ -110,7 +110,7 @@ public final class MainActivity extends Activity {
   }
 
   private void pinPrompt(String title, String buttonLabel, PinCallback done) {
-    EditText input = field("PIN · 4+ digits", "", false);
+    EditText input = plainField("PIN · 4+ digits");
     input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
         | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
     AlertDialog dialog = new PocketDialog()
@@ -183,7 +183,7 @@ public final class MainActivity extends Activity {
     }
     if (unlockedThisRun && System.currentTimeMillis() - backgroundedAt < 120000) return;
     unlockedThisRun = false;
-    EditText pin = field("PIN", "", false);
+    EditText pin = plainField("PIN");
     pin.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
         | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
     AlertDialog dialog =
@@ -583,6 +583,19 @@ public final class MainActivity extends Activity {
       heading.setContentDescription(label + (opening ? ", expanded" : ", collapsed"));
     });
     return detail;
+  }
+
+  private EditText plainField(String hint) {
+    EditText e = new EditText(this);
+    e.setTextColor(ink);
+    e.setHintTextColor(muted);
+    e.setHint(hint);
+    e.setTextSize(15);
+    e.setTypeface(regularFont);
+    e.setPadding(dp(14), dp(12), dp(14), dp(12));
+    e.setBackground(sticker(paper, 14));
+    e.setSingleLine(true);
+    return e;
   }
 
   private EditText field(String hint, String value, boolean multiline) {
