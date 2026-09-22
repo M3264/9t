@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (short 4-letter object IDs)
+# 9t project handoff — 2026-09-22 (0.5.1: Send to 9t in text-selection toolbar)
+
+## Session summary (live build .next-053)
+
+User wanted 9t in the Android text-selection toolbar (next to Copy/Cut, like Ask Gemini) rather than only in the Share sheet. Added an `ACTION_PROCESS_TEXT` intent filter (label "Send to 9t") on MainActivity; the handler fills the Send composer with the selected text and never replaces the selection (read-only use). Unpaired phones get a "pair first" toast. Shipped as 0.5.1 / code 17, same cert, public bytes verified identical (`680c7b1a…c8ace`), 0 errors since restart. Web logic unchanged (0.5.1 version refs + docs line). Not yet tested on a physical phone.
 
 ## Session summary (live build .next-052)
 

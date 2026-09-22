@@ -259,6 +259,23 @@ public final class MainActivity extends Activity {
   private void handleSend(Intent intent) {
     if (intent == null) return;
     String action = intent.getAction();
+    if (Intent.ACTION_PROCESS_TEXT.equals(action)) {
+      // Text-selection toolbar → "Send to 9t". Read-only: never replace the selection.
+      CharSequence selected = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
+      intent.setAction(null);
+      if (selected == null || selected.toString().trim().isEmpty()) return;
+      if (!prefs.paired()) {
+        toast("Pair your workspace, then select the text again.");
+        return;
+      }
+      String text = selected.toString();
+      tab = "Send";
+      render();
+      EditText input = body.findViewWithTag("compose");
+      if (input != null) input.setText(text);
+      toast("Text ready — tap Send to 9t");
+      return;
+    }
     if ("xyz.kennyy.ninet.SEND".equals(action)) {
       tab = "Send";
       render();
