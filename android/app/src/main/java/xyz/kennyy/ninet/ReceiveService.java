@@ -69,6 +69,26 @@ public final class ReceiveService extends Service {
       finish("Receiving paused");
       return START_NOT_STICKY;
     }
+    if (intent != null && "sync".equals(intent.getAction())) {
+      // Notification button: one sync pass without opening the app.
+      if (!prefs.paired() || !prefs.p.getBoolean("enabled", true)) return START_NOT_STICKY;
+      if (SyncEngine.isRunning()) {
+        ping("Sync already running…");
+        return START_STICKY;
+      }
+      ping("Syncing…");
+      new Thread(
+          () -> {
+            try {
+              SyncEngine.run(this, () -> Thread.currentThread().isInterrupted(), "notification");
+              ping(prefs.p.getString("status", "Synced"));
+            } catch (Exception e) {
+              ReceiverDiagnostics.error(this, e);
+              ping("Sync failed — will retry automatically");
+            }
+          }).start();
+      return START_STICKY;
+    }
     if (stopped || !prefs.paired() || !prefs.p.getBoolean("enabled", true)) {
       stopSelf();
       return START_NOT_STICKY;
@@ -291,6 +311,15 @@ public final class ReceiveService extends Service {
     ReceiverDiagnostics.event(this, message);
     stopped = true;
     stopSelf();
+  }
+
+  private void ping(String text) {
+    try {
+      android.app.NotificationManager n =
+          androidx.core.content.ContextCompat.getSystemService(this, android.app.NotificationManager.class);
+      if (n != null) n.notify(1, Notices.live(this, text));
+    } catch (Exception ignored) {
+    }
   }
 
   @Override

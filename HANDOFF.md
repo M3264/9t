@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.5.1: Send to 9t in text-selection toolbar)
+# 9t project handoff — 2026-09-22 (0.5.2: Sync now notification button)
+
+## Session summary (live build .next-054)
+
+User wanted to sync without opening the app. The live-receiving notification now has **Sync now** next to Pause: it fires a `sync` action at ReceiveService, which runs one SyncEngine pass on a background thread and rewrites the notification text with the result (already-running / syncing / synced status / failed). No activity opens. Shipped as 0.5.2 / code 18, same cert, public bytes verified identical (`3570ce0e…d7de2`), 0 errors since restart. Web logic unchanged (0.5.2 version refs + docs line). Not yet tested on a physical phone.
 
 ## Session summary (live build .next-053)
 

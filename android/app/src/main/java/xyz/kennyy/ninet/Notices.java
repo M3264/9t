@@ -36,6 +36,12 @@ final class Notices {
             1,
             new Intent(c, ReceiveService.class).setAction("pause"),
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    PendingIntent sync =
+        PendingIntent.getService(
+            c,
+            2,
+            new Intent(c, ReceiveService.class).setAction("sync"),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     long lastConnection = new Prefs(c).p.getLong("lastNetworkAt", 0);
     Notification.Builder notification =
         builder(c, "connection")
@@ -48,6 +54,7 @@ final class Notices {
             .setWhen(lastConnection)
             .setShowWhen(lastConnection > 0)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .addAction(new Notification.Action.Builder(R.drawable.ic_ninet, "Sync now", sync).build())
             .addAction(new Notification.Action.Builder(R.drawable.ic_ninet, "Pause", stop).build());
     if (Build.VERSION.SDK_INT >= 31)
       notification.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
