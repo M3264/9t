@@ -89,6 +89,7 @@ public final class MainActivity extends Activity {
       sync(false);
       offerBackgroundAccess();
     }
+    if (!prefs.paired() && !pairPolling && pendingPairReq() != null) render();
     gateIfLocked();
   }
 
@@ -611,6 +612,7 @@ public final class MainActivity extends Activity {
 
   private void render() {
     pairGen++;
+    pairPolling = false;
     receiverStatus = null;
     batteryStatus = null;
     renderedVersion = prefs.p.getLong("inboxVersion", 0);
@@ -859,6 +861,22 @@ public final class MainActivity extends Activity {
                       runOnUiThread(
                           () -> {
                             if (!foreground) return;
+                            try {
+                              prefs
+                                  .p
+                                  .edit()
+                                  .putString(
+                                      "pairReq",
+                                      new JSONObject()
+                                          .put("id", reqId)
+                                          .put("token", token)
+                                          .put("session", session)
+                                          .put("expiry", expiry)
+                                          .put("base", normalized)
+                                          .toString())
+                                  .apply();
+                            } catch (Exception ignored) {
+                            }
                             bigCode.setText(session);
                             bigCode.setVisibility(View.VISIBLE);
                             reqStatus.setText(
@@ -874,19 +892,57 @@ public final class MainActivity extends Activity {
                     }
                   });
             }));
+    // Coming back (or rotated) with a request still waiting: show the code again.
+    JSONObject pending = pendingPairReq();
+    if (pending != null) {
+      try {
+        server.setText(pending.getString("base"));
+        bigCode.setText(pending.getString("session"));
+        bigCode.setVisibility(View.VISIBLE);
+        reqStatus.setText("Still waiting — approve the matching number on your Devices page.");
+        pollPairRequest(
+            pending.getString("base"),
+            pending.getString("id"),
+            pending.getString("token"),
+            pending.getString("session"),
+            pending.getLong("expiry"),
+            reqStatus,
+            bigCode);
+      } catch (Exception ignored) {
+      }
+    }
   }
 
   private int pairGen;
+  private boolean pairPolling;
+
+  private JSONObject pendingPairReq() {
+    try {
+      String raw = prefs.p.getString("pairReq", null);
+      if (raw == null) return null;
+      JSONObject o = new JSONObject(raw);
+      if (System.currentTimeMillis() > o.getLong("expiry")) {
+        prefs.p.edit().remove("pairReq").apply();
+        return null;
+      }
+      return o;
+    } catch (Exception e) {
+      return null;
+    }
+  }
 
   private void pollPairRequest(
       String base, String reqId, String token, String session, long expiry,
       TextView status, TextView code) {
     int gen = ++pairGen;
+    pairPolling = true;
     Runnable[] holder = new Runnable[1];
     holder[0] =
         () -> {
           if (gen != pairGen || !foreground) return;
           if (System.currentTimeMillis() > expiry) {
+            pairPolling = false;
+            prefs.p.edit().remove("pairReq").apply();
             status.setText("Request expired. Send a fresh one.");
             code.setVisibility(View.GONE);
             return;
@@ -926,6 +982,8 @@ public final class MainActivity extends Activity {
                     runOnUiThread(
                         () -> {
                           if (gen != pairGen || !foreground) return;
+                          pairPolling = false;
+                          prefs.p.edit().remove("pairReq").apply();
                           SyncJob.schedule(this);
                           render();
                           startLive();
@@ -938,6 +996,8 @@ public final class MainActivity extends Activity {
                   runOnUiThread(
                       () -> {
                         if (gen == pairGen && foreground) {
+                          pairPolling = false;
+                          prefs.p.edit().remove("pairReq").apply();
                           status.setText("Request was declined or expired.");
                           code.setVisibility(View.GONE);
                         }

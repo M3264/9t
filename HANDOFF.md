@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.4.6: phone-initiated pairing + /devices rebuild)
+# 9t project handoff — 2026-09-22 (0.4.7: fix pairing poll dying in background)
+
+## Session summary (live build .next-048)
+
+User approved on web but the app never paired. Root cause: the approval-poll loop guarded on `foreground` and returned without rescheduling once the user switched to the browser to approve — polling died silently, and returning to the app showed a fresh form with no code. Fix: the pending request (id, claim token, session number, expiry, server) is persisted in prefs on send; `onResume` re-renders the waiting UI when a live request exists and no poll is running; expiry/deny/claim all clear the stored request. Polling is generation-guarded against `render()` as before. Shipped as 0.4.7 / code 13, same cert, public bytes verified identical (`0b090e2d…c225a4`). Server unchanged — no web logic changes, only 0.4.7 version refs (needed a `.next-048` rebuild + restart for the download link; 0 errors since). Not yet tested: real-phone approve round-trip with app backgrounded (the exact reported scenario).
 
 ## Session summary (pushed to main as 8dd1966, live build .next-047)
 
