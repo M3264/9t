@@ -138,7 +138,11 @@ export const loginSchema = z.object({
 });
 
 export const shareCreateSchema = z.object({
-  objectId: z.string().uuid(),
+  // Legacy UUID items and current 4-letter short ids both valid.
+  objectId: z.string().regex(
+    /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[a-z]{4})$/i,
+    "Unknown object.",
+  ),
   lifetime: z.enum(["1h", "1d", "7d", "30d", "forever"]).optional(),
   password: z
     .string()

@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.6.0: multiple servers on the app)
+# 9t project handoff — 2026-09-22 (fix: share rejected short IDs)
+
+## Session summary (live build .next-057)
+
+User hit "invalid uuid" sharing a snippet: `shareCreateSchema.objectId` still required UUID while new objects mint 4-letter IDs. Fixed to accept UUID (legacy items) or 4-letter ids; it was the only `.uuid()` object-id check in the codebase (storage-key guards untouched). Verified on an isolated server: created `bhzt`, shared 200, public page 200. Live: 200, 0 errors since restart. (Session survived a host restart mid-fix: rebuilt .next-057 from the intact working tree, /tmp scripts recreated.)
 
 ## Session summary (live build .next-056)
 
