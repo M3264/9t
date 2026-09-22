@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.6.1: notification inline reply)
+# 9t project handoff — 2026-09-22 (9t configure)
+
+## Session summary
+
+Added `9t configure [--section modules|exposure|domain|limits|interface]` (pushed as `e497eba`): interactive scoped re-run for existing installs, closing the gap setup's already-installed guard leaves. Requires login, single PATCH per run, validated inputs, refuses non-TTY. Verified against an isolated server under a real pty: limits applied (100/30), modules toggled (board on), bad theme rejected, bad section shows usage. CLI-only change — no rebuild or restart needed; reaches installs via `9t update`/pull.
 
 ## Session summary (live build .next-059)
 
