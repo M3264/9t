@@ -2,7 +2,9 @@
 
 **The Self-Hosted, Fully Configurable Internet Workspace**
 
-Version 0.2 — Revised Product & Technical Whitepaper
+Version 0.3 — Revised Product & Technical Whitepaper
+
+*Changelog vs v0.2: documents what shipped instead of what was planned. Nginx (not Caddy) terminates TLS; auth is mandatory in every mode (the LAN-unauthenticated option was cut as a safety improvement); the default store is JSON files with Postgres optional; new objects use 4-letter IDs; the CLI, QR handoff, and the Android client all shipped despite being v0.2 "excluded" items. S3, multi-user, and Caddy are formally parked (§17).*
 
 ---
 
@@ -14,7 +16,7 @@ Core promise:
 
 > **Put it in 9t. Get it anywhere — on your terms.**
 
-Where the original concept (v0.1) was a fixed "workspace with objects," 9t v0.2's differentiator is **configurability of identity, not just settings**: the tool reshapes itself into a dev snippet-mover, a personal Dropbox, or a personal dashboard homepage — or all three — based on what modules are turned on. Infra exposure (LAN-only vs. public vs. hybrid) is a first-class, guided decision, not an afterthought bolted on with a `.env` file.
+Where the original concept (v0.1) was a fixed "workspace with objects," 9t's differentiator is **configurability of identity, not just settings**: the tool reshapes itself into a dev snippet-mover, a personal Dropbox, or a personal dashboard homepage — or all three — based on what modules are turned on. LAN-first device handoff with internet fallback, plus a safety-first setup flow, is the other half of the differentiator versus existing self-hosted tools, most of which assume you want to be exposed to the internet and assume you're only one user type.
 
 ---
 
@@ -42,30 +44,27 @@ Three real usage patterns motivate this tool:
 2. **Personal Dropbox** — files between phone/server/laptop. Mobile upload UX, download links, QR handoff.
 3. **Personal dashboard** — one homepage for your own links/notes instead of scattered across apps.
 
-Rather than picking one, 9t treats each as a **toggleable module**. The dashboard, CLI, and API all adapt to whichever modules are active. This — plus dual LAN/public exposure with a guided, safety-first setup flow — is the actual differentiator versus existing self-hosted tools, most of which assume you want to be exposed to the internet and assume you're only one of the three user types above.
+Rather than picking one, 9t treats each as a **toggleable module**. The dashboard, CLI, and API all adapt to whichever modules are active. This — plus LAN-first device handoff and a safety-first setup flow — is the actual differentiator versus existing self-hosted tools.
 
 ---
 
 ## 5. Deployment & Exposure Model
 
-9t can run in three modes:
+9t is a single-owner tool. **Authentication is mandatory in every mode** — the v0.2 plan for an unauthenticated LAN mode was deliberately cut: one login per device with persistent sessions costs nothing in practice, and an "off switch for auth" is exactly the footgun the exposure rule below exists to prevent.
 
-- **LAN only** — no internet exposure, auth optional (default: off, since the network itself is the trust boundary). Recommended default for first-time setup.
-- **Public** — real domain, HTTPS required, auth required (cannot be disabled).
-- **Hybrid** — LAN access trusted/unauthenticated, public URL requires login.
+The live deployment pattern is:
 
-**Design rule (enforced everywhere — wizard, CLI, dashboard, and on server boot):** `auth.mode` cannot be `"none"` while `exposure.mode` is `"public"` or `"hybrid"`. This is validated in one shared function so the message is identical across every surface, and the server refuses to boot if a hand-edited config violates it.
+```
+Internet → Nginx (TLS via Certbot/Let's Encrypt, HSTS) → 9t on localhost:3265
+```
 
-This rule exists because of a well-documented real-world failure mode in comparable self-hosted tools: a significant fraction of self-hosted agent/tool instances end up publicly exposed with no access protection because setup wizards make "public" too easy to pick without friction. 9t's wizard makes going public a deliberate, slightly effortful choice — never a default.
+- Nginx terminates HTTPS; direct access to the app port is firewall-blocked.
+- The app runs as a systemd unit (`9t.service`) with automatic restart.
+- A `compose.yaml` exists for Docker-based installs, but the tested production path is systemd.
 
-### HTTPS & Domain Handling
+The paper's Caddy-with-automatic-cert-provisioning flow is **parked** (see §17): Certbot + Nginx covers the same ground with tooling the host already had, and 9t never handles TLS termination or certificate logic itself either way.
 
-Going public or hybrid chains directly into a domain/HTTPS flow:
-
-1. User provides a domain (or asks 9t to explain how to get one).
-2. 9t checks DNS (A record → this server's IP).
-3. On success, Caddy automatically requests and renews a Let's Encrypt certificate — 9t never handles TLS termination or certificate logic itself.
-4. On failure, setup continues in HTTP-only mode with a persistent dashboard warning until fixed — it never silently proceeds without surfacing the risk.
+**Design rule (enforced):** a 9t instance is never reachable without authentication. Setup refuses to complete in a state that would violate this.
 
 ---
 
@@ -76,7 +75,7 @@ Going public or hybrid chains directly into a domain/HTTPS flow:
 | **Snippets** | Text/code, syntax highlighted, CLI-pushable | language, content, pinned |
 | **Files** | Arbitrary file upload/download | mimeType, sizeBytes, checksum |
 | **Links** | Saved URLs as first-class objects | url, favicon |
-| **Board** | Personal dashboard/homepage layer | layout (x,y,w,h) over existing objects |
+| **Board** | Personal dashboard/homepage layer | layout (x,y) over existing objects |
 
 Board does not hold its own content — it's an arrangement layer over Snippets/Files/Links, which avoids becoming a duplicate, bloated content type.
 
@@ -84,269 +83,67 @@ Each module can be independently enabled/disabled. Disabling a module hides it e
 
 ---
 
-## 7. Setup Wizard (`9t setup`)
+## 7. Setup (`9t setup`)
 
-Modeled on well-regarded patterns from other self-hosted tools with strong CLI onboarding (interactive wizard + scoped re-run + non-interactive scripting).
+First run is guided, in the terminal or the browser:
 
 ```
-$ 9t setup
+$ ./setup.sh            # or: 9t setup
 
-Step 1 — Modules
-  Which modules do you want active? (space to toggle)
-  [x] Snippets   [x] Files   [ ] Links   [ ] Board
-
-Step 2 — Exposure
-  How will this be accessed?
-  > LAN only (recommended for first setup)
-    Public — requires a domain + auth
-    Hybrid — LAN trusted, public needs login
-
-  [if Public/Hybrid selected →]
-  ⚠ You're about to expose 9t to the internet.
-    This requires auth — it cannot be skipped.
-
-  Do you have a domain pointed at this server already?
-  > Yes — I'll enter it
-    No — help me set one up
-    Skip — I'll configure this manually later
-
-  [Yes →]
-  Domain: 9t.example.com
-  Checking DNS... ✓ A record found
-  Requesting HTTPS certificate via Let's Encrypt...
-  ✓ Certificate issued. 9t is live at https://9t.example.com
-
-  Type CONFIRM to proceed with public exposure:
-
-Step 3 — Auth
-  Auth mode?
-  > Required (username + password)
-    None   [only offered when Exposure = LAN only]
-
-Step 4 — Object lifetime
-  Default lifetime for new objects?
-  > Forever
-    Expire after: 1h / 1d / 7d
-  Allow per-object override? [Y/n]
-
-Step 5 — Interface
-  Dashboard layout?  > Grid    List    Terminal
-  Theme?             > System  Dark    Light
-
-Step 6 — Summary
-  Modules: Snippets, Files
-  Exposure: LAN only
-  Auth: none
-  Lifetime: forever
-  Write to 9t.config.json? [Y/n]
+Step 1 — Modules        toggle Snippets / Files / Links / Board
+Step 2 — Exposure       LAN only (recommended) / Public (behind your reverse proxy) / Hybrid
+Step 3 — Auth           administrator username + password (always required)
+Step 4 — Limits         max upload size, trash retention
+Step 5 — Interface      theme, layout
+Step 6 — Summary        review, write config, optionally install systemd unit
 ```
 
-**Scoped re-run:**
+**Scoped operations:**
 ```
-9t configure --section modules
-9t configure --section exposure
-9t configure --section domain
+9t config get|set|export|import   config edits and migration between installs
+9t doctor [--domain host]         exposure/DNS diagnostics
+9t update                         backup, pull, rebuild, restart
+9t status                         service, listener and app health
 ```
 
-**Non-interactive / scriptable:**
-```
-9t setup --non-interactive --accept-risk \
-  --exposure public --auth required \
-  --domain 9t.example.com --https auto \
-  --modules snippets,files
-```
-`--accept-risk` is mandatory whenever `--exposure` isn't `lan`; omitting it fails with an explicit pointer back to interactive `9t setup` rather than silently defaulting to something insecure.
+**Non-interactive / scriptable:** `9t setup` accepts flags for unattended installs (see `docs/installation.md`). Going public is never a silent default: the wizard requires an existing reverse proxy and says so, rather than provisioning exposure quietly.
 
 ---
 
-## 8. Configuration Schema (`9t.config.json`)
+## 8. Configuration
 
-One config file, read and written identically by the wizard, the CLI, and the dashboard Settings UI — never three divergent systems.
+One JSON config, read and written identically by setup, the CLI, and the dashboard Settings UI — never three divergent systems. Sections: `modules`, `exposure` (`lan`/`public`/`hybrid` + domain), `auth` (single owner), `objects` (default lifetime, per-object override, trash retention), `interface` (theme, layout), `cli`, `api`, `storage` (local driver; S3 parked).
 
-```json
-{
-  "$schema": "https://9t.dev/schema/v0.1.json",
-  "meta": {
-    "configVersion": "0.1",
-    "createdAt": "2026-09-15T00:00:00Z",
-    "lastModified": "2026-09-15T00:00:00Z"
-  },
-  "modules": {
-    "snippets": { "enabled": true },
-    "files":    { "enabled": true, "maxSizeMb": 500 },
-    "links":    { "enabled": false },
-    "board":    { "enabled": false }
-  },
-  "exposure": {
-    "mode": "lan",
-    "domain": null,
-    "https": {
-      "mode": "off",
-      "provider": "letsencrypt",
-      "certStatus": null,
-      "lastRenewed": null
-    },
-    "lanBind": "0.0.0.0:7860",
-    "publicBind": "0.0.0.0:443"
-  },
-  "auth": {
-    "mode": "none",
-    "sessionLengthHours": 168,
-    "users": []
-  },
-  "objects": {
-    "defaultLifetime": "forever",
-    "allowPerObjectOverride": true,
-    "trashRetentionDays": 7
-  },
-  "interface": {
-    "theme": "system",
-    "layout": "grid",
-    "quickAccessPins": true
-  },
-  "cli": { "enabled": true },
-  "api": { "publicApi": false },
-  "storage": {
-    "driver": "local",
-    "path": "/data/objects",
-    "s3": null
-  }
-}
-```
-
-Notes:
-- `certStatus` / `lastRenewed` are runtime-written by the app + Caddy reconcile loop, not user-editable — document this clearly to avoid people hand-editing a field that gets overwritten.
-- `api.publicApi` is independent of `exposure.mode` — a LAN-only dashboard can still allow the CLI to hit the API remotely over something like Tailscale.
+There is no versioned remote schema file and no multi-user section: single-owner is the product, not a limitation awaiting retrofit. If a second user is ever needed, that is a new product decision, not a config addition.
 
 ---
 
 ## 9. Dashboard Settings UI
 
-Single settings page, sectioned identically to the wizard, writing to the same config via the same validated API path.
+Single settings surface, sectioned like setup, writing through the same validated API path: modules, max upload size, theme, trash retention. Explicit **Save**, not autosave.
 
-```
-┌─────────────────────────────────────────────┐
-│  ⚙ Settings                          [Save]  │
-├─────────────────────────────────────────────┤
-│  Modules                                     │
-│  ☑ Snippets   ☑ Files   ☐ Links   ☐ Board   │
-│  Files: Max upload size  [500] MB            │
-├─────────────────────────────────────────────┤
-│  Exposure                                    │
-│  ○ LAN only  ● Public  ○ Hybrid              │
-│  Domain: [9t.example.com]                    │
-│  HTTPS: ✓ Active (Let's Encrypt) · 47d left  │
-├─────────────────────────────────────────────┤
-│  Auth                                        │
-│  Mode: Required 🔒 (locked — Exposure=Public)│
-│  Session length: [168] hours                 │
-│  Users: favour ·              [+ Add user]   │
-├─────────────────────────────────────────────┤
-│  Objects                                     │
-│  Default lifetime: [Forever ▾]               │
-│  ☑ Allow per-object override                 │
-├─────────────────────────────────────────────┤
-│  Interface                                   │
-│  Theme:  ○ System ○ Dark ● Light             │
-│  Layout: ● Grid ○ List ○ Terminal            │
-├─────────────────────────────────────────────┤
-│  CLI & API                                   │
-│  ☑ CLI enabled     ☐ Public API access       │
-├─────────────────────────────────────────────┤
-│  Advanced                                    │
-│  Storage driver: Local ▾                     │
-│  [Edit raw config.json]      [Export]        │
-└─────────────────────────────────────────────┘
-```
-
-- Switching Exposure to Public/Hybrid inline re-triggers the same domain/HTTPS flow as the wizard, just embedded rather than full-screen.
-- Explicit **Save** button, not autosave — several toggles here trigger real infrastructure changes (cert issuance, bind port changes) that shouldn't fire on every click.
-- "Edit raw config.json" is the escape hatch for power users, validated on save with the same error codes as everywhere else.
+The raw-config escape hatch lives in the CLI (`9t config export/import`), not the dashboard — one power-user path is enough.
 
 ---
 
 ## 10. Data Model
 
-**Base `objects` table** — shared across all module types:
+JSON files are the default store (atomic writes, mode-0600 secrets); setting `NINE_T_DATABASE_URL` selects the Postgres backend behind the same `readData`/`mutate` contract, so routes never know which is active.
 
-```sql
-CREATE TABLE objects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type TEXT NOT NULL CHECK (type IN ('snippet','file','link','board')),
-  name TEXT NOT NULL,
-  pinned BOOLEAN NOT NULL DEFAULT false,
-  owner_scope UUID REFERENCES users(id),
-  expires_at TIMESTAMPTZ,
-  deleted_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_objects_sweep ON objects (deleted_at, expires_at)
-  WHERE deleted_at IS NOT NULL OR expires_at IS NOT NULL;
-
-CREATE INDEX idx_objects_listing ON objects (type, pinned, created_at DESC)
-  WHERE deleted_at IS NULL;
-```
-
-**Type-specific detail tables** (1:1 with `objects`, not one wide polymorphic table):
-
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username TEXT UNIQUE NOT NULL,
-  password_hash TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE snippet_details (
-  object_id UUID PRIMARY KEY REFERENCES objects(id) ON DELETE CASCADE,
-  language TEXT,
-  content TEXT NOT NULL,
-  line_numbers BOOLEAN NOT NULL DEFAULT false
-);
-
-CREATE TABLE file_details (
-  object_id UUID PRIMARY KEY REFERENCES objects(id) ON DELETE CASCADE,
-  mime_type TEXT,
-  size_bytes BIGINT NOT NULL,
-  storage_key TEXT NOT NULL,
-  checksum TEXT
-);
-
-CREATE TABLE link_details (
-  object_id UUID PRIMARY KEY REFERENCES objects(id) ON DELETE CASCADE,
-  url TEXT NOT NULL,
-  favicon_key TEXT
-);
-
-CREATE TABLE board_layout (
-  object_id UUID PRIMARY KEY REFERENCES objects(id) ON DELETE CASCADE,
-  x INT NOT NULL, y INT NOT NULL, w INT NOT NULL, h INT NOT NULL
-);
-
-CREATE TABLE shares (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  object_id UUID NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
-  token TEXT UNIQUE NOT NULL,
-  password_hash TEXT,
-  expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_shares_token ON shares (token);
-```
-
-`ON DELETE CASCADE` from `objects` → detail tables means a hard purge is always a single `DELETE FROM objects WHERE id = ...`; the sweep job never needs to know about individual detail tables, which keeps purge logic type-agnostic as new module types get added later.
+**Object IDs are 4 letters** (unambiguous lowercase alphabet, no i/l/o — e.g. `matw`), minted inside the serialized write with a uniqueness check, replacing the v0.2 UUID plan. Rationale: IDs appear in URLs (`/o/matw`) that people read out, type, and remember; collision space (~280k) is ample for a personal store and duplicates are retried, not merely unlikely. File *storage keys* remain UUIDs — they are internal and never shown.
 
 Files are never stored under user-provided filenames — the `storage_key` maps to a physical path, preventing path traversal and naming collisions. Example layout:
 
 ```
 /data
+├── 9t.json          # objects, shares, devices, sessions, config
 ├── objects
 │   ├── ab/abc123...
 │   └── ef/ef7821...
 └── backups
 ```
+
+Hourly cleanup purges expired/trashed objects; daily verified backups retain 14 archives (`node scripts/restore.mjs <archive> --verify` checks without touching live data).
 
 ---
 
@@ -359,19 +156,19 @@ For each object where:
   deleted_at IS NOT NULL AND deleted_at < now() - trash_retention_days
   OR
   expires_at IS NOT NULL AND expires_at < now()
-→ purge: delete storage blob, hard-delete row (cascades to detail tables)
+→ purge: delete storage blob, hard-delete record
 ```
 
 **API surface:**
 
 ```
 DELETE /api/objects/:id                 → soft delete (sets deleted_at)
-GET    /api/objects?trashed=true        → list trash, with computed purgesAt
-POST   /api/objects/:id/restore         → clears deleted_at
+GET    /api/objects?trash=true          → list trash
+PATCH  /api/objects/:id { restore:true }→ restore
 DELETE /api/objects/:id?permanent=true  → immediate hard delete
 ```
 
-The sweep job must be idempotent (safe to run twice on the same object without erroring) and timezone-safe, since it is now load-bearing for both trash and expiry rather than a nice-to-have.
+The sweep job is idempotent and timezone-safe, since it is load-bearing for both trash and expiry rather than a nice-to-have.
 
 ---
 
@@ -380,67 +177,52 @@ The sweep job must be idempotent (safe to run twice on the same object without e
 **Objects**
 ```
 POST   /api/objects            { type, name, ...type-specific fields }
-GET    /api/objects            ?type=snippet&pinned=true&trashed=false
+GET    /api/objects            ?type=snippet&trash=true
 GET    /api/objects/:id
 PATCH  /api/objects/:id
 DELETE /api/objects/:id        [?permanent=true]
-POST   /api/objects/:id/restore
 
-POST   /api/files              multipart upload → creates file object
 GET    /api/files/:id          streamed download
-
-POST   /api/board/layout       full or partial layout update
 ```
 
 **Sharing**
 ```
-POST   /api/shares
-GET    /api/shares/:token
+POST   /api/shares             { objectId, lifetime, password? }
+GET    /api/shares
 DELETE /api/shares/:id
+GET    /s/:token               public handoff page (+ unlock + file endpoints)
 ```
 
-**Auth**
+**Devices & phone pairing**
 ```
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/logout
-GET  /api/auth/me
-```
-
-**Config**
-```
-GET   /api/config                     → full config, secrets stripped
-PATCH /api/config                     → partial update, same shape as schema
-
-POST /api/config/domain               { domain } → { status: "checking_dns" }
-GET  /api/config/domain/status        → { dns, cert, expiresAt }
+GET/POST/DELETE /api/devices          list, create code, revoke (revokes sessions too)
+POST /api/pair-requests               phone opens a 5-minute request (unauthenticated)
+GET  /api/pair-requests?id=&token=    phone polls/claims (single-use, token-bound)
+GET  /api/pair-requests               owner lists pending requests
+POST /api/pair-requests               owner approves (mints device key) or denies
 ```
 
-**Validation error shape** (shared code values across wizard, CLI, dashboard, and API — never a divergent message on any one surface):
-
-```json
-{
-  "error": "invalid_config",
-  "violations": [
-    {
-      "field": "auth.mode",
-      "code": "auth_required_when_exposed",
-      "message": "auth.mode cannot be 'none' while exposure.mode is 'public' or 'hybrid'"
-    }
-  ]
-}
+**Auth / config / mobile sync**
 ```
+POST /api/auth/login|logout   GET /api/status
+GET/PATCH /api/config         POST /api/auth/token (CLI tokens)
+POST /api/mobile              encrypted sync, chunked files, idempotent sends
+```
+
+The v0.2 `register`/`me`/board-layout/domain-status endpoints were not built and are not missed: there is one owner, board persists via object PATCH, and domain health is a CLI concern (`9t doctor`).
 
 ---
 
 ## 13. Security Model
 
-- Isolated per-user data via `owner_scope` (present even in single-user v1, to avoid a schema retrofit if multi-user/sharing expands later).
-- `auth.mode` structurally cannot be `none` while exposed — enforced at wizard, CLI, dashboard, and server-boot level, not just in documentation.
+- Single owner; sessions are salted-hash authenticated with HttpOnly cookies. No public-without-auth state can exist.
 - Files stored by opaque key, never user-supplied filename → no path traversal.
-- Signed/expiring share tokens, optional password.
-- TLS handled entirely by Caddy (automatic Let's Encrypt), never hand-rolled inside 9t.
-- Public exposure requires an explicit, deliberate confirmation step during setup — never a silent default — directly addressing the common real-world failure mode where self-hosted tools end up unintentionally exposed with no protection.
+- Signed/expiring share tokens, optional password, access counts, revocation.
+- Phone pairing is approval-gated: unauthenticated requests create only *pending* entries (capped, 5-minute expiry); secrets are minted at approval and claimed once over a token-bound channel. A 5-digit session number shown on both screens defeats mistaken approval.
+- Mobile sync is AES-256-GCM with per-device keys, replay protection, and chunked resumable transfers.
+- TLS terminates at Nginx/Certbot, never inside 9t.
+
+**No external audit has been performed, and none is claimed.** The public rule stands: no security guarantees beyond "reviewed implementation with automated checks" until one happens. A scoped self-review (auth flows, pairing window, rate limits, share-token entropy, backup handling) is the proportionate next step for a personal tool — see §17.
 
 ---
 
@@ -450,85 +232,83 @@ GET  /api/config/domain/status        → { dns, cert, expiresAt }
                     Internet
                        │
                        ▼
-                 Caddy (reverse proxy + auto HTTPS)
+                 Nginx (TLS via Certbot, HSTS, firewall-closed app port)
                        │
                        ▼
-                  9t Application
+                  9t Application (systemd unit, auto-restart, localhost:3265)
                        │
               ┌────────┴────────┐
               ▼                 ▼
-          PostgreSQL       Object Storage (local → S3-compatible later)
+     JSON files (default)   Object Storage (local opaque keys)
+     or Postgres (optional)
 ```
 
-- **Frontend:** Next.js / React
+- **Frontend:** Next.js / React (+ installable PWA with share-target)
 - **Backend:** Node.js
-- **Database:** PostgreSQL
-- **Reverse proxy:** Caddy (automatic HTTPS is the reason it's chosen over nginx)
-- **Deployment:** Docker Compose, single command install
-- **Storage:** local filesystem initially, S3-compatible driver later via a storage abstraction
+- **Reverse proxy:** Nginx (chosen over Caddy: the host already ran it)
+- **Process:** systemd; `deploy/` holds unit + Nginx examples
+- **Storage:** local filesystem; S3-compatible driver parked
 
-Ideal install experience:
+Ideal install experience (as built):
 ```
 git clone 9t
 cd 9t
-cp .env.example .env
-docker compose up -d
+./setup.sh
 ```
-Opens a setup screen at `http://server-ip` if no config exists yet — mirroring the "fresh install → guided onboarding" pattern from comparable tools, so first-run works from the browser alone, with the CLI wizard as an equally valid alternate entry point.
+Opens setup in the terminal; the browser shows a first-run wizard when uninitialized. Node 22+ is the only requirement.
 
 ---
 
-## 15. CLI (Future Phase)
+## 15. CLI
+
+Shipped ahead of schedule (v0.2 called it a future phase). The CLI consumes the same public API as the dashboard — no parallel logic path.
 
 ```
-9t setup                    interactive first-run wizard
-9t configure --section X    scoped re-run of one config section
-9t config get|set|unset     non-interactive config edits
-
-9t push ./file-or-snippet   uploads, returns URL
-9t list [--type=snippet]
-9t get <name-or-id>
-9t share <name-or-id> [--expires=1d] [--password]
-9t trash                    list trashed objects
-9t restore <id>
+9t setup | start | status | update | doctor
+9t login --url https://9t.example.com --username you
+9t push <text|url|file> [--name name]
+9t list [--trash]
+9t get <id|name> [--output file]
+9t share <id|name> [--lifetime 1d]
+9t trash <id|name>
+9t restore <id|name>
+9t config export|import
+9t logout
 ```
-
-CLI consumes the same public API as the web dashboard — no parallel logic path.
 
 ---
 
-## 16. MVP Scope
+## 16. Scope (as shipped)
 
-**Included in v1:**
-- Auth (optional in LAN mode, required otherwise)
-- Snippets + Files modules (Links/Board can ship slightly after)
-- Guided setup wizard (interactive + non-interactive)
-- Domain/HTTPS auto-configuration via Caddy
-- Object URLs, soft-delete + expiry (unified sweep)
-- Basic sharing (token, expiry, optional password)
-- Dashboard Settings UI mirroring the wizard
-- Docker Compose deployment
+**Included:**
+- Mandatory auth, single owner
+- All four modules (Snippets, Files, Links, Board)
+- Guided setup (interactive + non-interactive) with service install
+- Object pages, QR handoff, expiring password-protected public shares
+- Soft-delete + unified expiry sweep, hourly cleanup, daily verified backups
+- PWA with mobile share-target, system/light/dark themes
+- Full CLI, Docker-adjacent `compose.yaml` (untested production path)
+- Android client with encrypted LAN-first sync and approval-gated pairing
 
-**Deliberately excluded from v1:**
-- Multi-user / teams / permissions beyond `owner_scope` scaffolding
-- CLI (spec'd here, built in a later phase)
-- QR code handoff
-- Client-side encryption
-- Billing, cloud hosting, native mobile/desktop apps
+**Deliberately excluded (carried from v0.2, still out):**
+- Multi-user / teams / permissions
+- Client-side (end-to-end) encryption — transport + at-rest OS protection only
+- Billing, cloud hosting, iOS client
+- External security review (see §13/§17)
 
 ---
 
 ## 17. Roadmap
 
-1. **Foundation** — Docker, Postgres, auth, config schema, setup wizard
-2. **Objects** — Snippets + Files, CRUD, object pages
-3. **Storage** — upload/download, storage abstraction (local → S3-ready)
-4. **Exposure** — domain/HTTPS flow, exposure/auth coupling validation
-5. **Sharing & Trash** — share tokens, soft-delete, unified sweep job
-6. **UX** — dashboard, Settings UI, mobile layout, Quick Access pins
-7. **Security review** — external audit before any public security claims
-8. **CLI** — `9t push/list/get/share`
-9. **Links & Board modules**
+Done: foundation, objects, storage, exposure basics, sharing & trash, UX, CLI, Links & Board.
+Parked (explicitly, not forgotten):
+1. **S3-compatible storage** — no need while one disk holds everything.
+2. **Multi-user** — a new product decision, not a backlog item.
+3. **Caddy/DNS automation** — Nginx + Certbot covers it.
+4. **LAN-unauthenticated mode** — cut for safety (§5); do not revive without a new threat analysis.
+Next, proportionate:
+5. **Scoped security self-review** — auth, pairing, rate limits, share entropy, backups; write down the threat model.
+6. **External audit** — only if 9t ever makes public security claims or gains a second trust domain.
 
 ---
 
@@ -548,28 +328,25 @@ CLI consumes the same public API as the web dashboard — no parallel logic path
              Sharing + Trash
                  │
                  ▼
-        Guided exposure (LAN/Public/Hybrid)
+        Guided exposure (LAN-first)
                  │
                  ▼
-              CLI + API
+              CLI + API + Android
                  │
                  ▼
         Personal cloud environment
-                 │
-                 ▼
-         Self-hosted PaaS (future)
 ```
 
 The product grows a layer only once the previous one has proven itself — same discipline as v0.1, now paired with a real differentiator: a workspace that's configured to be exactly what you need it to be, and safe by default when you decide to open it up to the world.
 
 ---
 
-## Android client extension — September 2026
+## Android client — September 2026 (current: 0.5.x)
 
-The phone client carries the workspace beyond browser-only downloads. The implementation combines the existing full workspace UI inside the app with native receiving, Downloads integration, a local inbox, clipboard delivery, and an offline text outbox.
+The phone client carries the workspace beyond browser-only downloads: native inbox with offline history, Downloads/9t auto-save, clipboard delivery, offline text outbox, phone-initiated pairing, LAN subnet scan, per-route connection check, optional app PIN lock — plus the full web workspace embedded for everything else.
 
-Network selection is automatic and prefers a configured LAN endpoint, including Wi-Fi without internet, with fallback to the same server's public HTTPS endpoint. Device pairing binds both routes to one installation; transfers are encrypted and resumable, and devices can be revoked. This does not create a LAN replica of a remote cloud server.
+Pairing is approval-gated both directions: the web can mint a paste-in code, or the phone can send a request that appears on `/devices` with a 5-digit session number shown on both screens. Requests expire in 5 minutes, are capped, and the secret is claimed exactly once over a token-bound channel. Revoking a device kills its key and its sessions.
 
-Android background limits are part of the product contract: live receiving is user-visible, with scheduled recovery and clear status. LAN computer connections use the connected-device service model; cloud-only data sync retains the OS time limit. Background battery access is requested explicitly, and receiver diagnostics distinguish background checks from app-open refreshes. The client must not promise an uninterruptible connection. Full workspace operations require HTTPS; native encrypted transfers also work over private HTTP LAN connections.
+Network selection prefers a configured LAN endpoint (including Wi-Fi without internet) with public-HTTPS fallback; transfers are AES-256-GCM, chunked and resumable. Background rules are part of the contract: live receiving is user-visible with scheduled recovery — no always-on promise, and force-stop/OEM restrictions still apply. Full workspace operations require HTTPS; native transfers also work over private HTTP LAN.
 
-See [Android implementation and operating guide](./android.md) for setup, feature coverage, protocol details, validation, and current limitations. Next platform work can add guided local server deployment, optional discovery, and push-assisted background delivery after real-phone testing.
+See [Android implementation and operating guide](./android.md) for setup, feature coverage, protocol details, validation, and current limitations.
