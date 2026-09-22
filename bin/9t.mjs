@@ -4,6 +4,8 @@ import { basename, join } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import { execFileSync, spawnSync } from "node:child_process";
 
 // Setup must work in a fresh clone, before dependencies or CLI login exist.
 if (process.argv[2] === "setup") {
@@ -84,8 +86,110 @@ const api = async (path, init = {}) => {
   return response;
 };
 const json = async (path, init = {}) => (await api(path, init)).json();
-const find = async (value, trash = false) => {
-  const { objects } = await json(`/api/objects${trash ? "?trash=true" : ""}`);
+// Install-level settings live in .env.production and apply at boot,
+// so unlike workspace settings they need a restart. Edits the file in
+// place (comments and unknown keys preserved) and offers a restart.
+const configureServer = async (rl, ask) => {
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const envPath = join(root, ".env.production");
+  if (!existsSync(envPath))
+    throw new Error("No installation here. Run `./9t setup` first.");
+  const unquote = (v) =>
+    v.length >= 2 && v.startsWith('"') && v.endsWith('"')
+      ? v.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\")
+      : v;
+  const lines = readFileSync(envPath, "utf8").split("\n");
+  const get = (k) => {
+    const line = lines.find((l) => l.startsWith(k + "="));
+    return line === undefined ? "" : unquote(line.slice(k.length + 1));
+  };
+  const cur = {
+    PORT: get("PORT") || "3265",
+    NINE_T_HOST: get("NINE_T_HOST") || "0.0.0.0",
+    NINE_T_DATA_DIR: get("NINE_T_DATA_DIR") || join(root, "data"),
+    NINE_T_HTTPS: get("NINE_T_HTTPS") || "false",
+  };
+  const next = { ...cur };
+  const port = await ask(`  port (1024-65535) [${cur.PORT}] `);
+  if (port) {
+    const n = Number(port);
+    if (!Number.isInteger(n) || n < 1024 || n > 65535)
+      throw new Error("Enter a port between 1024 and 65535.");
+    next.PORT = String(n);
+  }
+  const host = await ask(`  listen address [${cur.NINE_T_HOST}] `);
+  if (host) next.NINE_T_HOST = host;
+  const dir = await ask(`  data directory [${cur.NINE_T_DATA_DIR}] `);
+  if (dir) {
+    if (!dir.startsWith("/")) throw new Error("Use an absolute path.");
+    next.NINE_T_DATA_DIR = dir;
+  }
+  const https = (await ask(`  behind HTTPS proxy? (y/N) [${cur.NINE_T_HTTPS}] `)).toLowerCase();
+  if (https) {
+    if (!["y", "n", "yes", "no"].includes(https)) throw new Error("Answer y or n.");
+    next.NINE_T_HTTPS = https.startsWith("y") ? "true" : "false";
+  }
+  const changed = Object.keys(next).filter((k) => next[k] !== cur[k]);
+  if (!changed.length) {
+    console.log("Nothing to change.");
+    return;
+  }
+  if (
+    next.NINE_T_DATA_DIR !== cur.NINE_T_DATA_DIR &&
+    existsSync(join(cur.NINE_T_DATA_DIR, "9t.json"))
+  )
+    console.log(
+      "warn  data stays where it is — move it yourself or this starts an empty workspace:\n" +
+        `  mv ${join(cur.NINE_T_DATA_DIR, "9t.json")} ${next.NINE_T_DATA_DIR}/`,
+    );
+  const quote = (v) => (/[\s"#]/.test(v) ? `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : v);
+  const seen = new Set();
+  const out = lines.map((l) => {
+    const k = Object.keys(next).find((key) => l.startsWith(key + "="));
+    if (!k) return l;
+    seen.add(k);
+    return `${k}=${quote(next[k])}`;
+  });
+  for (const k of Object.keys(next)) if (!seen.has(k)) out.push(`${k}=${quote(next[k])}`);
+  writeFileSync(envPath, out.join("\n"), { mode: 0o600 });
+  console.log("Saved: " + changed.join(", ") + ". Restart to apply.");
+  // Offer a restart when this checkout runs as a managed service.
+  const sh = (exe, a) => {
+    try {
+      return execFileSync(exe, a, { encoding: "utf8" }).trim();
+    } catch {
+      return null;
+    }
+  };
+  const hash = createHash("sha256").update(root).digest("hex").slice(0, 8);
+  let unit = null;
+  for (const name of [`9t-${hash}.service`, "9t.service"]) {
+    const wd = sh("systemctl", ["show", name, "-p", "WorkingDirectory"]);
+    const dirOf = wd ? wd.replace(/^WorkingDirectory=/, "").trim() : "";
+    if (sh("systemctl", ["is-active", name]) !== "active") continue;
+    if (name === "9t.service" && dirOf !== root) continue;
+    unit = name;
+    break;
+  }
+  if (!unit) {
+    console.log("No managed service running here. Restart with ./9t start.");
+    return;
+  }
+  const go = (await ask(`  restart ${unit} now? [Y/n] `)).toLowerCase();
+  if (go && !go.startsWith("y")) {
+    console.log(`Run later: sudo systemctl restart ${unit}`);
+    return;
+  }
+  const r = spawnSync(
+    ...(process.getuid?.() === 0
+      ? ["systemctl", ["restart", unit]]
+      : ["sudo", ["systemctl", "restart", unit]]),
+    { stdio: "inherit" },
+  );
+  if (r.status !== 0) throw new Error(`Restart failed (${r.status}).`);
+  console.log("Restarted.");
+};
+const find = async (value, trash = false) => {  const { objects } = await json(`/api/objects${trash ? "?trash=true" : ""}`);
   const hits = objects.filter(
     (o) =>
       o.id.startsWith(value) || o.name.toLowerCase() === value.toLowerCase(),
@@ -115,7 +219,7 @@ const help = () =>
   9t restore <id|name>
   9t config export [--output file]
   9t config import <file|->
-  9t configure [--section modules|exposure|domain|limits|interface]
+  9t configure [--section modules|exposure|domain|limits|interface|server]
   9t doctor [--domain host]
   9t logout`);
 
@@ -264,18 +368,21 @@ try {
       } else throw new Error("Usage: 9t config export|import");
     } else if (command === "configure") {
       const section = flag("section", "");
-      const known = ["modules", "exposure", "domain", "limits", "interface"];
+      const known = ["modules", "exposure", "domain", "limits", "interface", "server"];
       if (section && !known.includes(section))
         throw new Error(`Usage: 9t configure [--section ${known.join("|")}]`);
-      if (!saved.url || !saved.token) throw new Error("Run `9t login` first.");
       if (!process.stdin.isTTY)
         throw new Error("configure needs a terminal; use `9t config import` instead.");
-      const { config: current } = await json("/api/status");
-      if (!current) throw new Error("Server did not return its config.");
       const { createInterface } = await import("node:readline");
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       const ask = (q) => new Promise((ok) => rl.question(q, (a) => ok(a.trim())));
       const want = (s) => !section || section === s;
+        if (want("server")) {
+          await configureServer(rl, ask);
+        } else {
+        if (!saved.url || !saved.token) throw new Error("Run `9t login` first.");
+        const { config: current } = await json("/api/status");
+      if (!current) throw new Error("Server did not return its config.");
       const patch = {};
       try {
         if (want("modules")) {
@@ -334,6 +441,7 @@ try {
           body: JSON.stringify(patch),
         });
         console.log("Saved: " + Object.keys(patch).join(", ") + ".");
+        }
       }
     } else if (command === "doctor") {
       const status = await json("/api/status");
