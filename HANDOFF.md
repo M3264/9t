@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.4.8: Check connection button)
+# 9t project handoff — 2026-09-22 (0.4.9: manual Check approval button)
+
+## Session summary (live build .next-050)
+
+User wanted a manual check on the request screen itself (not just auto-poll). Added a **Check approval** button under Send connection request: forces an immediate approval check ("Checking…", then pairs or keeps waiting); says "No waiting request" when there is none. Auto-poll every 3s still runs underneath. Shipped as 0.4.9 / code 15, same cert, public bytes verified identical (`270cdfef…225a4c`), 0 errors since restart. Web logic unchanged (0.4.9 version refs only). Not yet tested on a physical phone.
 
 ## Session summary (live build .next-049)
 

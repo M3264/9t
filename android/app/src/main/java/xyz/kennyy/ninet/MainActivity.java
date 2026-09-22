@@ -613,6 +613,7 @@ public final class MainActivity extends Activity {
   private void render() {
     pairGen++;
     pairPolling = false;
+    pairPollTask = null;
     receiverStatus = null;
     batteryStatus = null;
     renderedVersion = prefs.p.getLong("inboxVersion", 0);
@@ -880,7 +881,7 @@ public final class MainActivity extends Activity {
                             bigCode.setText(session);
                             bigCode.setVisibility(View.VISIBLE);
                             reqStatus.setText(
-                                "Waiting for approval — tap the matching number on your Devices page.");
+                                "Waiting for approval — approve on the web, then tap Check approval.");
                             pollPairRequest(
                                 normalized, reqId, token, session, expiry, reqStatus, bigCode);
                           });
@@ -892,6 +893,18 @@ public final class MainActivity extends Activity {
                     }
                   });
             }));
+    req.addView(
+        secondary(
+            "Check approval",
+            () -> {
+              if (!pairPolling || pairPollTask == null || pendingPairReq() == null) {
+                reqStatus.setText("No waiting request — send one first.");
+                return;
+              }
+              reqStatus.setText("Checking…");
+              handler.removeCallbacks(pairPollTask);
+              handler.post(pairPollTask);
+            }));
     // Coming back (or rotated) with a request still waiting: show the code again.
     JSONObject pending = pendingPairReq();
     if (pending != null) {
@@ -899,7 +912,7 @@ public final class MainActivity extends Activity {
         server.setText(pending.getString("base"));
         bigCode.setText(pending.getString("session"));
         bigCode.setVisibility(View.VISIBLE);
-        reqStatus.setText("Still waiting — approve the matching number on your Devices page.");
+        reqStatus.setText("Still waiting — approve on the web, then tap Check approval.");
         pollPairRequest(
             pending.getString("base"),
             pending.getString("id"),
@@ -915,6 +928,7 @@ public final class MainActivity extends Activity {
 
   private int pairGen;
   private boolean pairPolling;
+  private Runnable pairPollTask;
 
   private JSONObject pendingPairReq() {
     try {
@@ -1007,11 +1021,11 @@ public final class MainActivity extends Activity {
                 }
               });
         };
+    pairPollTask = holder[0];
     handler.postDelayed(holder[0], 3000);
   }
 
   private static final class PairDenied extends Exception {}
-
   private String timedProbe(String base) {
     long t0 = System.currentTimeMillis();
     String hit = probeServer(base);
