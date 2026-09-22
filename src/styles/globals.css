@@ -1,28 +1,28 @@
-/* Quiet neutral surfaces with a muted lavender accent. */
+/* Fresh violet accent on neutral surfaces. */
 @font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Bold.ttf") format("truetype"); font-weight: 600 900; font-style: normal; font-display: swap; }
 :root {
-  --bg: #f7f6f9;
+  --bg: #f6f5fa;
   --paper: #ffffff;
-  --paper-2: #f2eff6;
-  --ink: #292532;
-  --ink-soft: #46404f;
-  --muted: #736d7d;
-  --line: #e7e2ed;
+  --paper-2: #efecf7;
+  --ink: #232030;
+  --ink-soft: #3f3a4e;
+  --muted: #6f6a7e;
+  --line: #e3deee;
   --ink-line: var(--line);
-  --soft: #f1eef5;
-  --blue: #786294;
-  --blue-ink: #604c7c;
-  --blue-soft: #eee8f6;
-  --blue-ring: #78629420;
+  --soft: #efebf7;
+  --blue: #6440d6;
+  --blue-ink: #4e31b3;
+  --blue-soft: #e8e0fb;
+  --blue-ring: #6440d633;
   --on-accent: #ffffff;
   --neon: var(--blue-soft);
   --neon-ink: var(--blue-ink);
   --on-neon: var(--blue-ink);
   --badge-bg: var(--blue-soft);
   --badge-fg: var(--blue-ink);
-  --punch: #786294;
-  --accent: #e0d5ef;
+  --punch: #6440d6;
+  --accent: #c3aef3;
   --danger: #b44552;
   --ok: #42715d;
   --sticker-shadow: none;
@@ -35,20 +35,20 @@
   color-scheme: light;
 }
 html[data-theme="dark"] {
-  --bg: #19171e;
-  --paper: #23202a;
-  --paper-2: #2a2632;
-  --ink: #f0ecf5;
-  --ink-soft: #d7d0e0;
-  --muted: #b0a7bc;
-  --line: #393341;
-  --soft: #2c2735;
-  --blue: #c0acd9;
-  --blue-ink: #d5c5e9;
-  --blue-soft: #383044;
-  --blue-ring: #c0acd926;
-  --on-accent: #251c30;
-  --accent: #524163;
+  --bg: #16141c;
+  --paper: #201d29;
+  --paper-2: #272332;
+  --ink: #f1ecfa;
+  --ink-soft: #d8d1e6;
+  --muted: #aaa1bb;
+  --line: #353044;
+  --soft: #292435;
+  --blue: #b79df5;
+  --blue-ink: #d5c4f9;
+  --blue-soft: #322a48;
+  --blue-ring: #b79df540;
+  --on-accent: #221a38;
+  --accent: #5b4a85;
   --danger: #f2a3ae;
   --ok: #a2d0b9;
   color-scheme: dark;
@@ -236,8 +236,8 @@ kbd {
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
-  background: #e5ecd8;
-  color: #3a533d;
+  background: var(--blue-soft);
+  color: var(--blue-ink);
 }
 .mobile-only,
 .mobile-brand,
@@ -1910,8 +1910,8 @@ html[data-theme="dark"] .link-monogram {
   flex-direction: column;
   justify-content: space-between;
   padding: 48px 64px;
-  background: #202b2c;
-  color: #eef1e8;
+  background: #1d1730;
+  color: #ece5fb;
   position: relative;
   overflow: hidden;
   min-height: 100dvh;
@@ -1924,7 +1924,7 @@ html[data-theme="dark"] .link-monogram {
 .access-poster > div > small {
   font: 10px var(--mono);
   letter-spacing: 0.12em;
-  color: #b5c5b7;
+  color: #b7a8e0;
 }
 .login-story h2,
 .access-poster h1 {
@@ -1934,17 +1934,17 @@ html[data-theme="dark"] .link-monogram {
   letter-spacing: -3px;
   line-height: 1.04;
   margin: 30px 0;
-  color: #e3edce;
+  color: #f0eafa;
 }
 .access-poster h1 i {
   font-style: normal;
-  color: #b8d48c;
+  color: #b79df5;
 }
 .login-story p {
   font-size: 14px;
   line-height: 1.9;
   max-width: 350px;
-  color: #a7b5ab;
+  color: #b6abd0;
 }
 .story-tags {
   display: flex;
@@ -1954,14 +1954,14 @@ html[data-theme="dark"] .link-monogram {
 .story-tags span {
   font-size: 10px;
   padding: 9px 15px;
-  border: 1px solid #50604f;
+  border: 1px solid #4c4266;
   border-radius: 30px;
-  color: #cbdcc1;
+  color: #d6c9f0;
 }
 .login-story > small,
 .access-poster footer {
   font: 10px var(--mono);
-  color: #9cafa0;
+  color: #8f85ab;
   line-height: 1.8;
 }
 .access-poster footer {
