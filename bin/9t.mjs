@@ -115,6 +115,7 @@ const help = () =>
   9t restore <id|name>
   9t config export [--output file]
   9t config import <file|->
+  9t configure [--section modules|exposure|domain|limits|interface]
   9t doctor [--domain host]
   9t logout`);
 
@@ -261,6 +262,79 @@ try {
         });
         console.log("Config imported.");
       } else throw new Error("Usage: 9t config export|import");
+    } else if (command === "configure") {
+      const section = flag("section", "");
+      const known = ["modules", "exposure", "domain", "limits", "interface"];
+      if (section && !known.includes(section))
+        throw new Error(`Usage: 9t configure [--section ${known.join("|")}]`);
+      if (!saved.url || !saved.token) throw new Error("Run `9t login` first.");
+      if (!process.stdin.isTTY)
+        throw new Error("configure needs a terminal; use `9t config import` instead.");
+      const { config: current } = await json("/api/status");
+      if (!current) throw new Error("Server did not return its config.");
+      const { createInterface } = await import("node:readline");
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      const ask = (q) => new Promise((ok) => rl.question(q, (a) => ok(a.trim())));
+      const want = (s) => !section || section === s;
+      const patch = {};
+      try {
+        if (want("modules")) {
+          patch.modules = {};
+          for (const m of ["snippets", "files", "links", "board"]) {
+            const cur = current.modules?.[m] ? "Y/n" : "y/N";
+            const a = (await ask(`  ${m} [${cur}] `)).toLowerCase();
+            patch.modules[m] = a ? a.startsWith("y") : !!current.modules?.[m];
+          }
+        }
+        if (want("exposure")) {
+          const a = (
+            await ask(`  exposure (lan/public/hybrid) [${current.exposure}] `)
+          ).toLowerCase();
+          if (a) {
+            if (!["lan", "public", "hybrid"].includes(a)) throw new Error("Pick lan, public, or hybrid.");
+            patch.exposure = a;
+          }
+        }
+        if (want("domain")) {
+          const a = await ask(`  domain (empty to clear) [${current.domain || "none"}] `);
+          if (a || current.domain) patch.domain = a || null;
+        }
+        if (want("limits")) {
+          const mb = await ask(`  max upload MB (1-2048) [${current.maxSizeMb}] `);
+          if (mb) {
+            const n = Number(mb);
+            if (!Number.isInteger(n) || n < 1 || n > 2048) throw new Error("Enter 1-2048.");
+            patch.maxSizeMb = n;
+          }
+          const trash = await ask(`  trash retention days (0-365) [${current.trashRetentionDays}] `);
+          if (trash) {
+            const n = Number(trash);
+            if (!Number.isInteger(n) || n < 0 || n > 365) throw new Error("Enter 0-365.");
+            patch.trashRetentionDays = n;
+          }
+        }
+        if (want("interface")) {
+          const a = (
+            await ask(`  theme (system/light/dark) [${current.theme}] `)
+          ).toLowerCase();
+          if (a) {
+            if (!["system", "light", "dark"].includes(a)) throw new Error("Pick system, light, or dark.");
+            patch.theme = a;
+          }
+        }
+      } finally {
+        rl.close();
+      }
+      if (!Object.keys(patch).length) {
+        console.log("Nothing to change.");
+      } else {
+        await api("/api/config", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        console.log("Saved: " + Object.keys(patch).join(", ") + ".");
+      }
     } else if (command === "doctor") {
       const status = await json("/api/status");
       const runtime = status.runtime || {};

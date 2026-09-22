@@ -127,6 +127,7 @@ npm link
 9t share ab12cd34 --lifetime 1d --password optional-password
 9t trash ab12cd34
 9t restore ab12cd34
+9t configure [--section modules|exposure|domain|limits|interface]
 ```
 
 The token is stored with owner-only permissions in `~/.config/9t/config.json`. Run `9t logout` to revoke it on the server.
