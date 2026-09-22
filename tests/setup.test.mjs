@@ -22,6 +22,7 @@ import {
   assertFresh,
   serviceUnit,
   serviceName,
+  servicePort,
   setup,
   preflight,
 } from "../scripts/setup.mjs";
@@ -185,6 +186,35 @@ test("systemd unit preserves spaces and escapes specifiers; unique service names
   assert.throws(() =>
     serviceUnit("/srv/9t", "/usr/bin/node", "bad\nExecStart=anything"),
   );
+});
+
+test("setup --service needs an existing installation; dry-run prints the unit", async () => {
+  const empty = await mkdtemp(join(tmpdir(), "9t-nosvc-"));
+  try {
+    await assert.rejects(setup(["--service"], empty), /No installation here/);
+    await assert.rejects(
+      setup(["--service", "--answers", "x"], empty),
+      /cannot be combined/,
+    );
+  } finally {
+    await rm(empty, { recursive: true, force: true });
+  }
+  const root = await mkdtemp(join(tmpdir(), "9t-svc-"));
+  try {
+    await writeFile(join(root, ".env.production"), "PORT=4321\n");
+    assert.equal(servicePort(root), 4321);
+    const noEnv = await mkdtemp(join(tmpdir(), "9t-noenv-"));
+    try {
+      assert.equal(servicePort(noEnv), 3265);
+    } finally {
+      await rm(noEnv, { recursive: true, force: true });
+    }
+    const before = await readdir(root);
+    await setup(["--service", "--dry-run"], root);
+    assert.deepEqual(await readdir(root), before);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("installed command symlink resolves the original checkout", async () => {

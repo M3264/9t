@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, constants } from "node:fs";
+import { existsSync, constants, readFileSync } from "node:fs";
 import {
   mkdir,
   readFile,
@@ -29,6 +29,9 @@ const help = `9t setup — install and configure a fresh checkout
   ./9t setup --dry-run             Preview choices; no installation writes
   ./9t setup --answers FILE --yes  Unattended setup (JSON preferences)
   ./9t setup --check               Pre-flight only: disk, RAM, data dir, port
+  ./9t setup --service            Install the systemd boot service for this
+                                 (already installed) checkout; data is untouched
+  ./9t setup --service --dry-run  Print the unit file without installing it
 
 Unattended passwords come from NINE_T_ADMIN_PASSWORD, never command arguments.
 Preferences: exposure (local|lan|public), publicUrl, port, dataDir, username,
@@ -195,7 +198,7 @@ export async function assertFresh(root, dataDir) {
       throw error;
     }
     throw new Error(
-      `An installation already exists at ${path}. Nothing was changed. Use ./9t start or the web Settings; use a separate checkout for another instance.`,
+      `An installation already exists at ${path}. Nothing was changed. Use ./9t start, the web Settings, or ./9t setup --service to start it at boot; use a separate checkout for another instance.`,
     );
   }
 }
@@ -274,6 +277,70 @@ export function serviceUnit(
   if (!/^[a-zA-Z0-9_.-]+\$?$/.test(username))
     throw new Error("Unsupported service account name.");
   return `[Unit]\nDescription=9t personal workspace\nAfter=network.target\n\n[Service]\nType=simple\nUser=${username}\nWorkingDirectory=${unitQuote(root)}\nEnvironment=NODE_ENV=production\nExecStart=${unitQuote(executable)} ${unitQuote(join(root, "scripts/run-server.mjs"))}\nRestart=on-failure\nRestartSec=3\nNoNewPrivileges=true\nPrivateTmp=true\nUMask=0077\n\n[Install]\nWantedBy=multi-user.target\n`;
+}
+
+export function servicePort(root) {
+  let text = "";
+  try {
+    text = readFileSync(join(root, ".env.production"), "utf8");
+  } catch {
+    return 3265;
+  }
+  const line = text
+    .split("\n")
+    .find((l) => l.startsWith("PORT="));
+  if (!line) return 3265;
+  let value = line.slice("PORT=".length).trim();
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"'))
+    value = value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  const port = Number(value);
+  return Number.isInteger(port) && port >= 1024 && port <= 65535
+    ? port
+    : 3265;
+}
+
+// Install and enable the systemd boot service for a checkout that is
+// already installed. Writes only the unit file; data is never touched.
+export async function installService(root, port) {
+  if (process.platform !== "linux" || !existsSync("/run/systemd/system"))
+    throw new Error(
+      "Automatic service installation needs Linux with systemd.",
+    );
+  const name = serviceName(root);
+  if (existsSync(`/etc/systemd/system/${name}`))
+    throw new Error(
+      "A service for this checkout already exists. It will not be replaced.",
+    );
+  if (process.getuid?.() !== 0) await command("sudo", ["-v"]);
+  await mkdir(join(root, ".9t"), { recursive: true, mode: 0o700 });
+  const file = join(root, ".9t", name);
+  await writeFile(file, serviceUnit(root), { flag: "wx", mode: 0o600 });
+  const privileged = async (exe, args) =>
+    process.getuid?.() === 0
+      ? command(exe, args)
+      : command("sudo", [exe, ...args]);
+  await privileged("install", ["-m", "644", file, `/etc/systemd/system/${name}`]);
+  await privileged("systemctl", ["daemon-reload"]);
+  await privileged("systemctl", ["enable", "--now", name]);
+  await privileged("systemctl", ["is-active", name]);
+  let healthy = false;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/status`, {
+        signal: AbortSignal.timeout(1000),
+      });
+      if (response.ok && (await response.json()).initialized === true) {
+        healthy = true;
+        break;
+      }
+    } catch {}
+    await new Promise((done) => setTimeout(done, 500));
+  }
+  if (!healthy)
+    throw new Error(
+      `Service did not become ready. Inspect sudo journalctl -u ${name}; your configuration is saved.`,
+    );
+  console.log(`Service enabled: ${name}\nView logs: sudo journalctl -u ${name} -f`);
 }
 
 async function command(executable, args, options = {}) {
@@ -405,12 +472,29 @@ export async function setup(args = [], root = projectRoot) {
     console.log(help);
     return;
   }
-  const known = new Set(["--dry-run", "--answers", "--yes", "--check"]);
+  const known = new Set(["--dry-run", "--answers", "--yes", "--check", "--service"]);
   for (let i = 0; i < args.length; i++) {
     if (!known.has(args[i]))
       throw new Error(`Unknown setup option: ${args[i]}`);
     if (args[i] === "--answers" && !args[++i])
       throw new Error("--answers needs a JSON file.");
+  }
+  if (args.includes("--service")) {
+    if (
+      args.includes("--answers") ||
+      args.includes("--yes") ||
+      args.includes("--check")
+    )
+      throw new Error("--service cannot be combined with other setup options.");
+    if (!existsSync(join(root, ".env.production")))
+      throw new Error("No installation here. Run `./9t setup` first.");
+    if (args.includes("--dry-run")) {
+      console.log(serviceUnit(root));
+      console.log(`Service name: ${serviceName(root)}`);
+      return;
+    }
+    await installService(root, servicePort(root));
+    return;
   }
   if (args.includes("--check")) {
     const checks = await preflight(root, { port: 3265 });
@@ -690,44 +774,7 @@ export async function setup(args = [], root = projectRoot) {
       }
     }
     if (p.startup === "service") {
-      await mkdir(join(root, ".9t"), { recursive: true, mode: 0o700 });
-      const name = serviceName(root),
-        file = join(root, ".9t", name);
-      await writeFile(file, serviceUnit(root), { flag: "wx", mode: 0o600 });
-      const privileged = async (exe, args) =>
-        process.getuid() === 0
-          ? command(exe, args)
-          : command("sudo", [exe, ...args]);
-      await privileged("install", [
-        "-m",
-        "644",
-        file,
-        `/etc/systemd/system/${name}`,
-      ]);
-      await privileged("systemctl", ["daemon-reload"]);
-      await privileged("systemctl", ["enable", "--now", name]);
-      await privileged("systemctl", ["is-active", name]);
-      let healthy = false;
-      for (let attempt = 0; attempt < 30; attempt++) {
-        try {
-          const response = await fetch(
-            `http://127.0.0.1:${p.port}/api/status`,
-            { signal: AbortSignal.timeout(1000) },
-          );
-          if (response.ok && (await response.json()).initialized === true) {
-            healthy = true;
-            break;
-          }
-        } catch {}
-        await new Promise((done) => setTimeout(done, 500));
-      }
-      if (!healthy)
-        throw new Error(
-          `Service did not become ready. Inspect sudo journalctl -u ${name}; your configuration is saved.`,
-        );
-      console.log(
-        `Service enabled: ${name}\nView logs: sudo journalctl -u ${name} -f`,
-      );
+      await installService(root, p.port);
     }
     console.log(`\nReady. Sign in as ${p.username}.`);
     if (p.publicUrl) console.log(p.publicUrl);
