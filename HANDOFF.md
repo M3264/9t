@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (0.4.7: fix pairing poll dying in background)
+# 9t project handoff — 2026-09-22 (0.4.8: Check connection button)
+
+## Session summary (live build .next-049)
+
+User asked for a check-connection button. Added to Connect → Your workspace, under Save: **Check connection** probes both typed addresses (not just saved) via `/api/status` and reports `LAN: ✓ N ms` / `Internet: ✗ unreachable` lines in place. Shipped as 0.4.8 / code 14, same cert, public bytes verified identical (`2a05d5aa…928e`), 0 errors since restart. Web logic unchanged (0.4.8 version refs only). Not yet tested on a physical phone.
 
 ## Session summary (live build .next-048)
 

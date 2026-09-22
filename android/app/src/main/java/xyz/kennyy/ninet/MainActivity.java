@@ -1012,6 +1012,12 @@ public final class MainActivity extends Activity {
 
   private static final class PairDenied extends Exception {}
 
+  private String timedProbe(String base) {
+    long t0 = System.currentTimeMillis();
+    String hit = probeServer(base);
+    return hit == null ? null : (System.currentTimeMillis() - t0) + " ms";
+  }
+
   private String probeServer(String base) {
     try {
       String url = Endpoint.validate(base, base.trim().startsWith("http:"));
@@ -1717,6 +1723,36 @@ public final class MainActivity extends Activity {
               } catch (Exception e) {
                 toast(e.getMessage());
               }
+            }));
+    TextView routeStatus = text("", 14, muted);
+    conn.addView(routeStatus);
+    conn.addView(
+        secondary(
+            "Check connection",
+            () -> {
+              String l = lan.getText().toString().trim();
+              String r = remote.getText().toString().trim();
+              if (l.isEmpty() && r.isEmpty()) {
+                toast("Enter an address first.");
+                return;
+              }
+              routeStatus.setText("Checking…");
+              io.execute(
+                  () -> {
+                    String lanRes = l.isEmpty() ? null : timedProbe(l);
+                    String pubRes = r.isEmpty() ? null : timedProbe(r);
+                    StringBuilder sb = new StringBuilder();
+                    if (!l.isEmpty()) sb.append("LAN: ").append(lanRes == null ? "✗ unreachable" : "✓ " + lanRes);
+                    if (!r.isEmpty()) {
+                      if (sb.length() > 0) sb.append("\n");
+                      sb.append("Internet: ").append(pubRes == null ? "✗ unreachable" : "✓ " + pubRes);
+                    }
+                    String out = sb.toString();
+                    runOnUiThread(
+                        () -> {
+                          if (foreground) routeStatus.setText(out);
+                        });
+                  });
             }));
     LinearLayout downloads = disclosure("Files & clipboard", "download", "Auto-save, clipboard and download limits");
     toggleIn(downloads, "Automatically save incoming files", "files", true);

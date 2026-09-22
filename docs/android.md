@@ -1,10 +1,10 @@
 # 9t Android — network and transfer client
 
-9t Android 0.4.7 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets. The native screens use bundled Space Grotesk typography, drawn icons, neutral surfaces and muted lavender accents matching the website. The launcher icon and in-app header use the website 9t mark. Inbox includes local search and type filters, image/video previews, pinning, per-item share/delete, compact item actions and code previews; Connect groups settings into expandable sections. The composer retains its draft across tab changes and activity recreation.
+9t Android 0.4.8 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets. The native screens use bundled Space Grotesk typography, drawn icons, neutral surfaces and muted lavender accents matching the website. The launcher icon and in-app header use the website 9t mark. Inbox includes local search and type filters, image/video previews, pinning, per-item share/delete, compact item actions and code previews; Connect groups settings into expandable sections. The composer retains its draft across tab changes and activity recreation.
 
 ## Install and pair
 
-1. Install the signed [9t-android-0.4.7.apk](https://9t.kennyy.xyz/downloads/9t-android-0.4.7.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
+1. Install the signed [9t-android-0.4.8.apk](https://9t.kennyy.xyz/downloads/9t-android-0.4.8.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
 2. **Easiest — ask from the phone:** open the app, tap **Find server** (or **Scan local network** on Wi-Fi) to detect your server, name the phone, and tap **Send connection request**. The phone shows a 5-digit session number.
 3. On the web, open **Settings → Android devices & pairing** (`/devices`). The request appears as a notification card — check the 5-digit number matches the phone screen, then tap **Approve**. The phone pairs itself within seconds. Requests expire after 5 minutes.
 4. **Alternatively — paste a code:** create a pairing code on `/devices`, paste it into the app. Select whether to receive existing items; the default receives newly created items only. Existing items remain available for manual receiving.
@@ -64,7 +64,7 @@ References: [connected-device service requirements](https://developer.android.co
 
 ### If receiving stops when you switch apps
 
-1. Install 0.4.7 over the existing app; do not uninstall, so pairing and history remain. Open it once after installing. Confirm **9t 0.4.7** in Connect.
+1. Install 0.4.8 over the existing app; do not uninstall, so pairing and history remain. Open it once after installing. Confirm **9t 0.4.8** in Connect.
 2. In **Connect**, select **Start live receiving** if previously paused. Allow notifications. Confirm the **9t · Live receiving** notification remains after switching to another app.
 3. Tap **Connect → Allow background receiving** and approve Android's prompt. Confirm the app reports background battery access allowed. Open **Phone app settings** and allow background activity and auto-start if your phone offers these controls. With a LAN server, use Automatic or LAN-only with your saved LAN address. Internet-only mode retains Android's data-sync time limit.
 4. Send a new small file and snippet from the same paired server while another phone app is visible. Check **Downloads/9t** and paste into an editor. Repeat with the screen locked; files should arrive during live receiving, while clipboard copying intentionally waits until unlocked/opened.
