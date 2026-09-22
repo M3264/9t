@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="9t Android 0.6.1: install the APK, pair with your server, and keep background receiving alive.">
+  <title>9t Android — install and pair</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="icon" href="../assets/9t-mark.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="34" height="26">9t</a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a class="nav-link" href="index.html">Guide</a>
+        <a class="nav-link" href="android.html">Android</a>
+        <a class="nav-link" href="install.html">Install</a>
+        <a class="btn btn-neon btn-small" href="https://9t.kennyy.xyz">Open app</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="breadcrumb"><a href="index.html">← Guide</a> · Android</p>
+
+    <section class="card hero">
+      <span class="hero-kicker">2 · Android 0.6.1</span>
+      <h1>Install + pair.</h1>
+      <p class="lede">A native receiver with the full web workspace embedded. Android 5 (API 21) or newer.</p>
+      <div class="cta-row">
+        <a class="btn btn-neon" href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">Download APK</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Install and pair</h2>
+      <ol class="steps">
+        <li><strong>Install</strong> the signed <a href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">9t-android-0.6.1.apk</a>. Android may ask you to allow installation from the app you downloaded it with. Upgrade over the existing install to keep pairing and history.</li>
+        <li><strong>Easiest — ask from the phone:</strong> open the app, tap <strong>Find server</strong> (or <strong>Scan local network</strong> on Wi-Fi), name the phone, tap <strong>Send connection request</strong>. The phone shows a 5-digit session number.</li>
+        <li><strong>Approve on the web:</strong> open <strong>Settings → Android devices &amp; pairing</strong> (<code>/devices</code>). Check the 5-digit number matches the phone screen, then tap <strong>Approve</strong>. The phone pairs itself within seconds. Requests expire after 5 minutes.</li>
+        <li><strong>Alternatively — paste a code:</strong> create a pairing code on <code>/devices</code>, paste it into the app. Choose whether to receive existing items (default: new items only).</li>
+        <li><strong>Start live receiving:</strong> allow notifications and accept the <strong>Allow background receiving</strong> battery prompt (also under Connect). New files save in <strong>Downloads/9t</strong>. Under Connect, optionally add the server's LAN address; keep Automatic for LAN-first with public fallback.</li>
+      </ol>
+      <p class="note">Pairing codes contain an access key and are shown only once — keep them private, enroll over HTTPS or a trusted local connection, and revoke lost devices from the website (this kills their transfer key and sessions).</p>
+    </section>
+
+    <section class="card">
+      <h2>Screens</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Screen</th><th>What you get</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Inbox</strong></td><td>Native local history, file auto-saving, resumable transfers, per-item errors/retry, offline text viewing and copying, image/video previews, pinning, per-item share/delete, arrival notifications</td></tr>
+            <tr><td><strong>Workspace</strong></td><td>The existing 9t grid/list, search, snippets, links, files/upload, pinning, Board, share links/passwords/QR, trash/restore, settings, theme, device management — signed in through pairing; needs a trusted HTTPS endpoint (HTTP LAN is an explicit opt-in)</td></tr>
+            <tr><td><strong>Send</strong></td><td>Native text composer with send-as-link detection, link sender, file picker, camera capture, Android Share targets, <strong>Send to 9t</strong> in the text-selection toolbar, durable offline outbox with idempotent retry, resumable chunked uploads</td></tr>
+            <tr><td><strong>Connect</strong></td><td>Multiple servers, LAN/public addresses, automatic / LAN-only / internet-only modes, auto-save and clipboard switches, arrival notifications, metered-data control, file-size cap, app PIN lock, pause, live receiver, shortcuts/widget/Quick Settings tile</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Background receiving notes</h2>
+      <ul class="tight">
+        <li>A foreground receiver starts when you open a paired, unpaused app. The notification carries <strong>Sync now</strong>, <strong>Send</strong> (inline reply), and <strong>Pause</strong>. If the socket is unavailable, the receiver falls back to polling.</li>
+        <li><strong>With a LAN address (Automatic or LAN-only)</strong> the app uses the <code>connectedDevice</code> service type — no five-hour deadline, sticky, restarts after boot or APK update.</li>
+        <li><strong>Without a LAN address, or Internet-only</strong>, the receiver uses <code>dataSync</code>: Android 15+ caps it at six hours per 24 h. The app ends each session after five hours; opening the app can start a new one.</li>
+        <li><strong>Allow background receiving</strong> requests the battery-optimization exemption — a notification and wake lock alone do not survive Doze. A JobScheduler job (~every 15 min, deferrable) provides recovery.</li>
+        <li>Force-stop blocks jobs until you reopen the app. OEM battery managers can still delay or stop reception — there is no unconditional always-on promise.</li>
+        <li>Incoming text is copied while unlocked (latest snippet wins; locked-phone copying is deferred). Files queue offline; transfers are AES-256-GCM, chunked and resumable.</li>
+      </ul>
+      <p>If receiving stops when you switch apps: reinstall 0.6.1 over the app, confirm the live-receiving notification survives app switching, grant background receiving, keep the laptop awake, and test the LAN URL in the phone browser. Then use <strong>Connect → Receiver details → Copy details</strong> to report.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="30" height="22">9t</a>
+      <nav aria-label="Footer">
+        <a href="index.html">Guide</a>
+        <a href="https://9t.kennyy.xyz">App</a>
+        <a href="https://github.com/M3264/9t">GitHub</a>
+        <a href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">APK</a>
+      </nav>
+      <p class="footer-note">Self-hosted workspace. Your server, your storage, your terms.</p>
+    </div>
+  </footer>
+</body>
+</html>

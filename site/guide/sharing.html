@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Share from 9t with control: expiring public links, passwords, access counts, revocation, and QR handoff.">
+  <title>9t Sharing — public links and QR handoff</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="icon" href="../assets/9t-mark.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="34" height="26">9t</a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a class="nav-link" href="index.html">Guide</a>
+        <a class="nav-link" href="android.html">Android</a>
+        <a class="nav-link" href="install.html">Install</a>
+        <a class="btn btn-neon btn-small" href="https://9t.kennyy.xyz">Open app</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="breadcrumb"><a href="index.html">← Guide</a> · Sharing</p>
+
+    <section class="card hero">
+      <span class="hero-kicker">4 · Sharing</span>
+      <h1>Share with <span class="hl">control</span>.</h1>
+      <p class="lede">Hand anything in your inbox to another device or person — without giving away your workspace. Every public link is expiring, countable, and revocable.</p>
+    </section>
+
+    <section class="card">
+      <h2>Public share links</h2>
+      <p>From any item, create a public handoff at <code>/s/:token</code> — a page (plus unlock and file endpoints) that works without a login. From the dashboard UI or the CLI:</p>
+      <pre><code>9t share ab12cd34 --lifetime 1d --password optional-password</code></pre>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Control</th><th>How it works</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Expiry</strong></td><td>Every share has a lifetime (e.g. <code>1d</code>). Expired objects are purged by the hourly cleanup sweep — deletion and expiry converge on one lifecycle.</td></tr>
+            <tr><td><strong>Password</strong></td><td>Optional password on any share. Tokens are signed and expiring; access without the password (when set) is rejected.</td></tr>
+            <tr><td><strong>Access counts</strong></td><td>Each share tracks how often it was opened. List shares with <code>GET /api/shares</code> or in the dashboard.</td></tr>
+            <tr><td><strong>Revoke</strong></td><td>Delete the share (<code>DELETE /api/shares/:id</code>) at any time. The link stops working immediately; the underlying object stays in your workspace.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Design rule: a 9t instance is never reachable without authentication — shares are the only public surface, and each one is scoped to a single object with a signed, expiring token.</p>
+    </section>
+
+    <section class="card">
+      <h2>QR handoff to phones</h2>
+      <ol class="steps">
+        <li>Open the item's stable page (<code>/o/xxxx</code> — 4-letter IDs are made to be read out and typed).</li>
+        <li>Show its QR code on screen.</li>
+        <li>Scan it with the phone: on the same LAN it opens the local address; shared publicly it opens the expiring <code>/s/:token</code> link.</li>
+      </ol>
+      <p>QR handoff pairs well with the Android client: scan, receive into <strong>Downloads/9t</strong>, done. For a permanent phone connection instead of a one-off link, see <a href="android.html">pairing</a>.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="30" height="22">9t</a>
+      <nav aria-label="Footer">
+        <a href="index.html">Guide</a>
+        <a href="https://9t.kennyy.xyz">App</a>
+        <a href="https://github.com/M3264/9t">GitHub</a>
+        <a href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">APK</a>
+      </nav>
+      <p class="footer-note">Self-hosted workspace. Your server, your storage, your terms.</p>
+    </div>
+  </footer>
+</body>
+</html>

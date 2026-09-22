@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Operate 9t: backups, CLI commands, systemd service, and the update flow.">
+  <title>9t Operations — backups, CLI, service, updates</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="icon" href="../assets/9t-mark.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="34" height="26">9t</a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a class="nav-link" href="index.html">Guide</a>
+        <a class="nav-link" href="android.html">Android</a>
+        <a class="nav-link" href="install.html">Install</a>
+        <a class="btn btn-neon btn-small" href="https://9t.kennyy.xyz">Open app</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="breadcrumb"><a href="index.html">← Guide</a> · Operations</p>
+
+    <section class="card hero">
+      <span class="hero-kicker">5 · Operations</span>
+      <h1>Keep it running.</h1>
+      <p class="lede">Backups, the CLI, the systemd service, and updates. The CLI consumes the same public API as the dashboard — no parallel logic path.</p>
+    </section>
+
+    <section class="card">
+      <h2>Backups</h2>
+      <p>Systemd timers (install from <code>deploy/systemd/</code>) clean expired and trashed objects hourly and create a <strong>daily archive</strong>. Fourteen backups are retained by default.</p>
+      <pre><code>node scripts/restore.mjs backups/9t-….tar.gz --verify</code></pre>
+      <p>Verify an archive without touching live data. For a real restore: stop 9t first, then omit <code>--verify</code> — the tool keeps the previous data directory beside the restored copy.</p>
+    </section>
+
+    <section class="card">
+      <h2>CLI commands</h2>
+      <p>From a checkout, link the CLI and authenticate it once (token stored owner-only in <code>~/.config/9t/config.json</code>; <code>9t logout</code> revokes it):</p>
+      <pre><code>npm link
+9t login --url https://9t.example.com --username owner
+9t push ./photo.jpg
+9t push 'docker compose up -d' --name deploy
+9t list
+9t get ab12cd34
+9t share ab12cd34 --lifetime 1d --password optional-password
+9t trash ab12cd34
+9t restore ab12cd34
+9t configure [--section modules|exposure|domain|limits|interface|server]</code></pre>
+      <p>Service and maintenance scope: <code>9t setup | start | status | update | doctor</code>, plus <code>9t config get|set|export|import</code> for edits and migration between installs.</p>
+    </section>
+
+    <section class="card">
+      <h2>Systemd service</h2>
+      <p>Deployment examples live under <code>deploy/</code> — adjust user, checkout path, and env-file path before installing. The HTTPS Nginx example is <code>deploy/nginx/9t.conf</code> (Certbot paths assumed).</p>
+      <pre><code>sudo install -m 644 deploy/systemd/9t.service /etc/systemd/system/9t.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now 9t.service</code></pre>
+      <p>Service names for wizard installs are <code>9t-&lt;checkout-hash&gt;.service</code> so they never overwrite an existing <code>9t.service</code>. Status and logs: <code>sudo systemctl status NAME</code>, <code>sudo journalctl -u NAME -f</code>.</p>
+    </section>
+
+    <section class="card">
+      <h2>Update flow</h2>
+      <pre><code>./9t status     # service state, build presence, listener + initialized flag
+./9t update      # backup, git pull, rebuild into staging, migrate, restart</code></pre>
+      <ul class="tight">
+        <li><code>update</code> refuses on a dirty working tree and backs up data before touching anything.</li>
+        <li>Managed systemd installs restart on the new build automatically (previous build drop-in saved under <code>/tmp</code>); foreground installs print the <code>NINE_T_BUILD_DIR</code> to restart with.</li>
+        <li>After pulling a release with phone-socket support, run <code>npm ci</code> + <code>npm run build</code> and restart — keep the data directory, never rerun setup. The socket lives at <code>/api/mobile/socket</code> on the same port; <code>npm start</code> (not raw <code>next start</code>) serves it.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="30" height="22">9t</a>
+      <nav aria-label="Footer">
+        <a href="index.html">Guide</a>
+        <a href="https://9t.kennyy.xyz">App</a>
+        <a href="https://github.com/M3264/9t">GitHub</a>
+        <a href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">APK</a>
+      </nav>
+      <p class="footer-note">Self-hosted workspace. Your server, your storage, your terms.</p>
+    </div>
+  </footer>
+</body>
+</html>

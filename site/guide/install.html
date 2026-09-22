@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Install 9t: start-here steps, local/LAN/public modes, preferences, Docker alternative, updates and recovery.">
+  <title>Install 9t — start here</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="icon" href="../assets/9t-mark.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="34" height="26">9t</a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a class="nav-link" href="index.html">Guide</a>
+        <a class="nav-link" href="android.html">Android</a>
+        <a class="nav-link" href="install.html">Install</a>
+        <a class="btn btn-neon btn-small" href="https://9t.kennyy.xyz">Open app</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="breadcrumb"><a href="index.html">← Guide</a> · Install</p>
+
+    <section class="card hero">
+      <span class="hero-kicker">1 · Install</span>
+      <h1>Start here.</h1>
+      <p class="lede">In your Linux/macOS terminal, or Ubuntu inside WSL on Windows:</p>
+      <pre><code>git clone https://github.com/M3264/9t.git
+cd 9t
+./setup.sh</code></pre>
+      <p>Choose <strong>LAN</strong> if your phone will connect over Wi-Fi or a hotspot. Keep the printed port and startup instructions, open the address, sign in with the administrator you created, then follow the <a href="network.html">network guide</a>. On Windows/WSL, complete the forwarding steps there <em>before</em> using the address on your phone.</p>
+      <p class="note">The download/build needs internet. After installation, a running LAN server exchanges data with the Android client without internet access. Requirements: Node.js 22+ (the wizard installs a local copy under <code>.tools/node</code> if missing and you agree).</p>
+    </section>
+
+    <section class="card">
+      <h2>Modes: local, LAN, public</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Mode</th><th>Binds to</th><th>Use when</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Local</strong></td><td><code>127.0.0.1</code></td><td>This computer only.</td></tr>
+            <tr><td><strong>LAN</strong> (default)</td><td><code>0.0.0.0</code>, login still required</td><td>Phone and other devices on the same network should reach it. Does not distinguish trusted Wi-Fi from other reachable interfaces — on a cloud host, use its firewall.</td></tr>
+            <tr><td><strong>Public</strong></td><td><code>127.0.0.1</code> behind your same-host HTTPS proxy</td><td>You already run an HTTPS reverse proxy (e.g. Nginx + Certbot). Set <code>NINE_T_HTTPS=true</code> so session cookies get the Secure flag.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Auth is mandatory in every mode. To change the binding later, edit <code>NINE_T_HOST</code> and <code>PORT</code> in <code>.env.production</code> and restart — do not rerun setup.</p>
+    </section>
+
+    <section class="card">
+      <h2>Preferences</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Setting</th><th>Options</th></tr></thead>
+          <tbody>
+            <tr><td>Access</td><td>LAN (default), this computer only, or public behind an existing same-host HTTPS proxy</td></tr>
+            <tr><td>Port</td><td>3265 by default; any free unprivileged port 1024–65535</td></tr>
+            <tr><td>Modules</td><td>snippets, files, links, optional Board — at least one content module required</td></tr>
+            <tr><td>Appearance</td><td>system, light, or dark</td></tr>
+            <tr><td>Maximum upload</td><td>1–2048 MB, default 500</td></tr>
+            <tr><td>Trash retention</td><td>0–365 days, default 7 (install cleanup/backup timers separately from <code>deploy/systemd/</code>)</td></tr>
+            <tr><td>Data</td><td>Ignored <code>data/</code> directory in the checkout, or a dedicated external directory</td></tr>
+            <tr><td>Administrator</td><td>Username + hidden password entry; stored only as a salted scrypt hash</td></tr>
+            <tr><td>Startup</td><td>Foreground, Linux systemd service (needs sudo), or configuration only</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Unattended installs: <code>./9t setup --answers /path/to/preferences.json --yes</code> (password via <code>NINE_T_ADMIN_PASSWORD</code> env, never in the JSON). Preview with <code>--dry-run</code>; pre-flight checks with <code>./9t setup --check</code>.</p>
+    </section>
+
+    <section class="card">
+      <h2>Docker alternative</h2>
+      <p>Requires Docker Engine with Compose v2. Data persists in the <code>9t-data</code> volume; the phone event socket shares port 3265.</p>
+      <pre><code>git clone https://github.com/M3264/9t.git
+cd 9t
+NINE_T_SETUP_TOKEN=$(openssl rand -hex 16) docker compose up -d --build</code></pre>
+      <p>Open <code>http://&lt;host&gt;:3265</code> and create the administrator in the browser. Behind an HTTPS proxy add <code>NINE_T_HTTPS=true</code>. Update with <code>git pull</code> then <code>docker compose up -d --build</code>; back up with <code>docker compose exec 9t node scripts/backup.mjs</code>.</p>
+    </section>
+
+    <section class="card">
+      <h2>Updates</h2>
+      <pre><code>./9t status     # service state, build presence, listener + initialized flag
+./9t update      # backup, git pull, rebuild into staging, migrate, restart</code></pre>
+      <p><code>update</code> refuses when the working tree has local changes and backs up data first. <code>start</code> warns when sources are newer than the running build — that usually means an update was pulled but not rebuilt.</p>
+    </section>
+
+    <section class="card">
+      <h2>Recovery</h2>
+      <ul class="tight">
+        <li>The installer never overwrites an existing data directory, config, or service for the checkout.</li>
+        <li>Key files: <code>.env.production</code> (private env), <code>data/9t.json</code> (admin, modules, workspace data), <code>.9t-install.json</code> (install summary), <code>.9t/</code> (generated proxy/service files).</li>
+        <li>If a build fails, fix the displayed error and retry; if config was saved, resume with <code>./9t start</code>.</li>
+        <li>Systemd units are named <code>9t-&lt;checkout-hash&gt;.service</code>. Diagnose with <code>sudo systemctl status NAME</code> and <code>sudo journalctl -u NAME -f</code>.</li>
+        <li>Stop the service before moving or removing its checkout. Back up data before any update or restore.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="brand" href="../index.html"><img src="../assets/9t-mark.svg" alt="9t logo" width="30" height="22">9t</a>
+      <nav aria-label="Footer">
+        <a href="index.html">Guide</a>
+        <a href="https://9t.kennyy.xyz">App</a>
+        <a href="https://github.com/M3264/9t">GitHub</a>
+        <a href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">APK</a>
+      </nav>
+      <p class="footer-note">Self-hosted workspace. Your server, your storage, your terms.</p>
+    </div>
+  </footer>
+</body>
+</html>
