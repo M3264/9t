@@ -1,3 +1,23 @@
+# 9t project handoff — 2026-09-22 (0.4.6: phone-initiated pairing + /devices rebuild)
+
+## Session summary (pushed to main as 8dd1966, live build .next-047)
+
+Phone-initiated pairing with 5-digit numeric comparison + rebuilt /devices UI. User also reported /devices 500ing: root cause was the service pointed at deleted build dir `.next-045` (client reference manifest missing). Fixed by building `.next-047` and switching the drop-in. Full pair flow verified against an isolated server (create → owner list → approve → claim-once → wrong-token rejected). APK 0.4.6 signed with the same cert, public bytes verified identical. Uncommitted build churn intentionally left out (`next-env.d.ts`, `tsconfig.json` build-dir paths).
+
+## What shipped
+
+- `src/app/api/pair-requests/route.ts` (new): public POST creates a 5-minute pending request (name + 5-digit number + claim token, hash-stored); public GET polls/claims (single-use, token-bound); authed GET lists pending for the owner view; authed POST approves (mints device id+key) or denies. Caps: 10 pending, 30 devices. No key material leaks into the owner list.
+- `src/lib/server/store.ts`: `PairRequest` type + `pairRequests` on `Data`.
+- `/devices` rebuilt in the violet theme: pending-request notification cards (big mono 5-digit number, name, expiry countdown, Approve/Deny), 5s auto-refresh, "pair from phone" 3-step explainer, restyled code flow + device list. Old hardcoded greens removed.
+- Android 0.4.6 / code 12 (`MainActivity.java`): onboarding "No code? Ask from here" card — server address + Find server (`/api/status` probe) + Scan local network (Wi-Fi /24 probe on :3265, needs new `ACCESS_WIFI_STATE` normal permission) + Send request showing the big 5-digit code + 3s approval polling that feeds the existing encrypted `pair()` path on success. Polling generation-guarded against `render()`.
+- Version refs → 0.4.6 (`DeviceManager`, README, `docs/android.md` with new request-first pairing steps).
+
+## Verification
+
+- Isolated-server flow: setup 200 → login 200 → create 200 → bad number 400 → owner list (1 pending, number matches, no key) → approve 200 → claim 200 (v:1, 44-char key) → re-claim 404 → wrong token 404.
+- Live: `/devices` 307 (signed-out redirect, correct), `/api/pair-requests` unauth list 401, APK hash `0e103b8e…261dd47` matches signed artifact, 0 service errors since restart. `tsc` clean; release `assembleRelease` BUILD SUCCESSFUL.
+- Not yet tested: real-phone approval round-trip (needs the 0.4.6 APK on a device); LAN scan on a real subnet.
+
 # 9t project handoff — 2026-09-20 (0.4.5: phone sends files/links + website-mark icon)
 
 ## Session summary (pushed to main as 5ba5022 + a43b70e, live build .next-045)
