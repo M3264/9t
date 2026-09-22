@@ -1,4 +1,8 @@
-# 9t project handoff — 2026-09-22 (short 4-letter share codes)
+# 9t project handoff — 2026-09-22 (0.6.1: notification inline reply)
+
+## Session summary (live build .next-059)
+
+User wanted to send text from the notification without opening the app. The live-receiving notification now has a **Send** action with inline reply (`RemoteInput`, key `text`, generated replies off): typed text (1–100k chars) queues into the outbox and a sync pass runs, all via the existing `sync` machinery refactored into `runSyncPass()`. Gotchas handled: reply PendingIntent is mutable (required for RemoteInput on API 31+), unpaired/paused phones get a status ping instead of silent drop. Shipped as 0.6.1 / code 21, same cert, public bytes verified identical (`ba86e4d2…395282`), 0 errors since restart. Web logic unchanged (0.6.1 version refs + docs line). Also fixed `9t update` to tolerate service-regenerated `next-env.d.ts`/`tsconfig.json` (stash around pull, names real blockers). Not yet tested on a physical phone.
 
 ## Session summary (live build .next-058)
 

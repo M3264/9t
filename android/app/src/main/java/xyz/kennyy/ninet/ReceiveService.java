@@ -72,21 +72,26 @@ public final class ReceiveService extends Service {
     if (intent != null && "sync".equals(intent.getAction())) {
       // Notification button: one sync pass without opening the app.
       if (!prefs.paired() || !prefs.p.getBoolean("enabled", true)) return START_NOT_STICKY;
-      if (SyncEngine.isRunning()) {
-        ping("Sync already running…");
+      runSyncPass();
+      return START_STICKY;
+    }
+    if (intent != null && "send".equals(intent.getAction())) {
+      // Notification inline reply: queue text straight into the outbox, then sync.
+      if (!prefs.paired() || !prefs.p.getBoolean("enabled", true)) return START_NOT_STICKY;
+      android.os.Bundle reply = android.app.RemoteInput.getResultsFromIntent(intent);
+      CharSequence typed = reply == null ? null : reply.getCharSequence("text");
+      String text = typed == null ? "" : typed.toString().trim();
+      if (text.isEmpty() || text.length() > 100000) {
+        ping("Type 1–100,000 characters to send.");
         return START_STICKY;
       }
-      ping("Syncing…");
-      new Thread(
-          () -> {
-            try {
-              SyncEngine.run(this, () -> Thread.currentThread().isInterrupted(), "notification");
-              ping(prefs.p.getString("status", "Synced"));
-            } catch (Exception e) {
-              ReceiverDiagnostics.error(this, e);
-              ping("Sync failed — will retry automatically");
-            }
-          }).start();
+      try (LocalStore db = new LocalStore(this)) {
+        db.enqueue(text);
+      } catch (Exception e) {
+        ping("Could not queue text.");
+        return START_STICKY;
+      }
+      runSyncPass();
       return START_STICKY;
     }
     if (stopped || !prefs.paired() || !prefs.p.getBoolean("enabled", true)) {
@@ -320,6 +325,24 @@ public final class ReceiveService extends Service {
       if (n != null) n.notify(1, Notices.live(this, text));
     } catch (Exception ignored) {
     }
+  }
+
+  private void runSyncPass() {
+    if (SyncEngine.isRunning()) {
+      ping("Sync already running…");
+      return;
+    }
+    ping("Syncing…");
+    new Thread(
+        () -> {
+          try {
+            SyncEngine.run(this, () -> Thread.currentThread().isInterrupted(), "notification");
+            ping(prefs.p.getString("status", "Synced"));
+          } catch (Exception e) {
+            ReceiverDiagnostics.error(this, e);
+            ping("Sync failed — will retry automatically");
+          }
+        }).start();
   }
 
   @Override

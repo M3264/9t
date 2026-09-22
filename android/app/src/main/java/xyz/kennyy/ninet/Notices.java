@@ -42,6 +42,13 @@ final class Notices {
             2,
             new Intent(c, ReceiveService.class).setAction("sync"),
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    // RemoteInput requires a mutable PendingIntent on API 31+.
+    PendingIntent send =
+        PendingIntent.getService(
+            c,
+            3,
+            new Intent(c, ReceiveService.class).setAction("send"),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
     long lastConnection = new Prefs(c).p.getLong("lastNetworkAt", 0);
     Notification.Builder notification =
         builder(c, "connection")
@@ -55,6 +62,12 @@ final class Notices {
             .setShowWhen(lastConnection > 0)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .addAction(new Notification.Action.Builder(R.drawable.ic_ninet, "Sync now", sync).build())
+            .addAction(
+                new Notification.Action.Builder(R.drawable.ic_ninet, "Send", send)
+                    .addRemoteInput(
+                        new RemoteInput.Builder("text").setLabel("Send text to 9t…").build())
+                    .setAllowGeneratedReplies(false)
+                    .build())
             .addAction(new Notification.Action.Builder(R.drawable.ic_ninet, "Pause", stop).build());
     if (Build.VERSION.SDK_INT >= 31)
       notification.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
