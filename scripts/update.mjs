@@ -48,12 +48,11 @@ export async function update(root, args = []) {
     const GENERATED = new Set(["next-env.d.ts", "tsconfig.json"]);
     const dirty = (sh("git", ["-C", root, "status", "--porcelain"]) || "")
       .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const generated = dirty.filter((l) =>
-      GENERATED.has(l.slice(3).trim().replace(/^"|"$/g, "")),
-    );
-    const real = dirty.filter((l) => !generated.includes(l));
+      .filter((l) => l.trim());
+    // Porcelain v1: two status columns, a space, then the path.
+    const pathOf = (l) => l.slice(3).trim().replace(/^"|"$/g, "");
+    const generated = dirty.filter((l) => GENERATED.has(pathOf(l)));
+    const real = dirty.filter((l) => !GENERATED.has(pathOf(l)));
     if (real.length)
       throw new Error(
         "Working tree has local changes:\n  " +
