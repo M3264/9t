@@ -54,11 +54,7 @@ export function DocsChrome({
   const title = PAGES.find((p) => p.slug === current)?.title || "Docs";
   const { prev, next } = neighbors(current);
   const [active, setActive] = useState("");
-  useEffect(() => {
-    document.getElementById("docs-menu-btn")?.addEventListener("click", () => {
-      document.getElementById("docs-shell")?.classList.toggle("open");
-    });
-  }, []);
+  const [navOpen, setNavOpen] = useState(false);
   useEffect(() => {
     const headings = Array.from(
       document.querySelectorAll<HTMLElement>(".prose h2[id], .prose h3[id]"),
@@ -77,15 +73,30 @@ export function DocsChrome({
   }, [current]);
   const href = (s: string) => (s === "index" ? "/docs/" : `/docs/${s}/`);
   return (
-    <div className="docs" id="docs-shell">
-      <aside className="docs-side" aria-label="Documentation sections">
+    <div className="docs-shell">
+      <div className="docs-mobile-bar">
+        <button
+          className="docs-menu-button"
+          type="button"
+          aria-controls="docs-side"
+          aria-expanded={navOpen}
+          onClick={() => setNavOpen((open) => !open)}
+        >
+          <span aria-hidden="true">{navOpen ? "×" : "☰"}</span>
+          {navOpen ? "Close menu" : "Browse docs"}
+        </button>
+        <span>{title}</span>
+      </div>
+      <div className={navOpen ? "docs docs-open" : "docs"}>
+      <aside className="docs-side" id="docs-side" aria-label="Documentation sections">
+        <Link className="docs-side-home" href="/docs/" onClick={() => setNavOpen(false)}>9t documentation <span aria-hidden="true">↗</span></Link>
         {GROUPS.map((g) => (
           <div key={g.label} className="docs-group">
             <h2>{g.label}</h2>
             <ul>
               {g.pages.map((p) => (
                 <li key={p.slug}>
-                  <Link href={href(p.slug)} aria-current={p.slug === current ? "page" : undefined}>
+                  <Link href={href(p.slug)} aria-current={p.slug === current ? "page" : undefined} onClick={() => setNavOpen(false)}>
                     {p.title}
                   </Link>
                 </li>
@@ -95,15 +106,13 @@ export function DocsChrome({
         ))}
       </aside>
       <div className="docs-main">
-        <button id="docs-menu-btn" className="ghostbtn menubtn" aria-label="Open sections menu">
-          Sections
-        </button>
         <p className="crumbs">
           <Link href="/docs/">Docs</Link>
           <span aria-hidden="true"> / </span>
           <span aria-current="page">{title}</span>
         </p>
         <article className="prose">{children}</article>
+        <a className="docs-edit" href={`https://github.com/M3264/9t/edit/main/site/content/${current}.md`}>Edit this page on GitHub <span aria-hidden="true">↗</span></a>
         <nav className="pager" aria-label="Previous and next">
           {prev ? (
             <Link href={href(prev.slug)}>
@@ -137,6 +146,7 @@ export function DocsChrome({
           </ul>
         </aside>
       )}
+      </div>
     </div>
   );
 }

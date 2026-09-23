@@ -5,7 +5,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
   return (
     <>
       <SiteHeader section="docs" />
-      <main className="main" id="main">
+      <main className="main docs-page" id="main">
         <Suspense>{children}</Suspense>
       </main>
       <SiteFooter />

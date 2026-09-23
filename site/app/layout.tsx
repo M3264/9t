@@ -4,12 +4,12 @@ import "../styles/site.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://9t.kennyy.tech"),
-  title: { default: "9t — Put it in 9t. Get it anywhere.", template: "%s — 9t" },
+  title: { default: "9t | Self-hosted workspace", template: "%s | 9t" },
   description:
-    "9t is a quiet, self-hosted workspace for moving files, snippets, links and handoffs between your devices — on your terms.",
+    "Keep files, snippets, and links on your own server. Find them later from your browser, CLI, or Android phone.",
   openGraph: {
-    title: "9t — Put it in 9t. Get it anywhere.",
-    description: "A quiet, self-hosted workspace. Your server, your storage, your terms.",
+    title: "9t | Self-hosted workspace",
+    description: "Keep files, snippets, and links on your own server. Find them later from your browser, CLI, or Android phone.",
     type: "website",
     images: ["/9t-mark.svg"],
   },

@@ -5,11 +5,11 @@ description: Install the 9t Android app and pair it.
 
 # 9t Android — network and transfer client
 
-9t Android 0.6.2 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets.
+9t Android 0.6.3 is a native Android receiver with the **full existing web workspace embedded inside the app**. It is not a rewrite of every web feature into native widgets.
 
 ## Install and pair
 
-1. Install the signed [9t-android-0.6.2.apk](https://github.com/M3264/9t/releases/download/v0.6.2/9t-android-0.6.2.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
+1. Install the signed [9t-android-0.6.3.apk](https://github.com/M3264/9t/releases/download/v0.6.3/9t-android-0.6.3.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
 2. **Easiest — ask from the phone:** open the app, tap **Find server** (or **Scan local network** on Wi-Fi) to detect your server, name the phone, and tap **Send connection request**. The phone shows a 5-digit session number.
 3. On the web, open **Settings → Android devices & pairing** (`/devices`). The request appears as a notification card — check the 5-digit number matches the phone screen, then tap **Approve**. The phone pairs itself within seconds. Requests expire after 5 minutes.
 4. **Alternatively — paste a code:** create a pairing code on `/devices`, paste it into the app. Select whether to receive existing items; the default receives newly created items only.
@@ -28,6 +28,8 @@ Pairing codes contain an access key and are only displayed when created. Keep th
 | Connect | Servers, LAN/public addresses, auto-save and clipboard switches, notifications, file-size cap, app PIN lock, live receiver, diagnostics |
 
 Workspace prefers a reachable **HTTPS** endpoint with a trusted certificate. Native sending (text up to 100,000 characters, links, chunked resumable uploads) queues offline.
+
+In the native Inbox, **Delete from phone** and **Clear local history** keep items hidden after future syncs without deleting the server copy. Files sent from this phone appear as **On server** without downloading a second copy; tap **Download a copy** if you want one in Downloads/9t.
 
 ## LAN and internet routing
 
@@ -48,7 +50,7 @@ Workspace prefers a reachable **HTTPS** endpoint with a trusted certificate. Nat
 
 ### If receiving stops when you switch apps
 
-1. Install 0.6.2 over the existing app; do not uninstall. Confirm **9t 0.6.2** in Connect.
+1. Install 0.6.3 over the existing app; do not uninstall. Confirm **9t 0.6.3** in Connect.
 2. In **Connect**, select **Start live receiving** if paused. Allow notifications. Confirm the **9t · Live receiving** notification remains after switching apps.
 3. Tap **Connect → Allow background receiving** and approve Android's prompt. With a LAN server, use Automatic or LAN-only with your saved LAN address.
 4. Send a small file and snippet while another phone app is visible. Check **Downloads/9t** and paste into an editor. Repeat with the screen locked.

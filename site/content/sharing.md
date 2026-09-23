@@ -5,31 +5,35 @@ description: Expiring public links and QR handoff.
 
 # Sharing with control
 
-9t shares outward in two ways: **public handoffs** for other people, and **QR handoff** for your own devices. Nothing shared stays shared by accident.
+9t has two different links: a **public share** (`/s/…`) for other people, and a **private item page** (`/o/…`) for your own signed-in devices. Choose the one that fits the handoff.
 
 ## Public handoff links
 
 Open any item and choose **Share** (or `9t share <id|name>` from the CLI):
 
 ```bash
-9t share ab12cd34 --lifetime 1d --password optional-password
+9t share matw --lifetime 1d
 ```
 
-Each link gets a signed, unguessable token under `/s/…` with:
+New public links use a short, four-letter code under `/s/…`. You can choose:
 
-- **Expiry** — 1 hour, 1 day, 7 days, or custom. Expired links stop resolving; the sweeper purges them.
-- **Optional password** — visitors see an unlock screen first. Wrong passwords never reveal whether the item exists.
-- **Access counts** — every view is counted on the link so you can see if it spread.
-- **Revocation** — kill the link any time from the Shares tab. The item itself is untouched.
+- **Expiry** — 1 hour, 1 day, 7 days, 30 days, or no expiry. The default is 1 day. Expired links stop resolving and are later purged.
+- **Optional password** — at least 8 characters. Visitors must unlock the link first; the server stores a salted password hash.
+- **Access counts** — non-file page opens and file downloads are counted. Repeated visits count again.
+- **Revocation** — remove a link from **Shared links** at any time without deleting the item.
 
-Files download through a protected endpoint; snippets render as text; links show a destination preview before redirecting. Passwords are hashed — the server never stores them in plain text.
+Files download through a route that checks the share; snippets render as text; links show their destination before someone opens it.
 
-> Share links are bearer tokens. Anyone with the URL (and password, if set) can open them until they expire or you revoke them. Send them over a channel you trust.
+<Callout type="warn">
+
+Four-letter links are convenient, but their codes can be guessed by trying combinations. **Use a password and a short expiry for sensitive items.** Anyone who has or guesses an unprotected link can open it until it expires or you revoke it. A no-expiry link remains public until you revoke it.
+
+</Callout>
 
 ## QR handoff to your own devices
 
-Every item page (`/o/<id>`) shows a QR code. Sign in on the other device, scan, done — the item opens there in seconds. This is the fastest way to move something from laptop to phone when both are in your hands.
+Every private item page (`/o/<id>`) shows a QR code. Sign in to the **same 9t instance** on the other device, then scan it. Unlike a public share, this page still requires your account.
 
 ## Trash, restore, and lifetimes
 
-Deleting an object moves it to Trash; it is purged after your retention window (default 7 days, configurable 0–365). Per-object lifetimes (1 hour / 1 day / 7 days / forever) converge on the same sweeper. Restore any time before the purge with `9t restore` or the Trash tab.
+Deleting an item moves it to Trash; it is purged after your retention window (default 7 days, configurable 0–365). Restore it before then with `9t restore` or **Trash**. An item's own lifetime (1 hour, 1 day, 7 days, or forever) is separate: once it expires, the maintenance sweep removes it rather than keeping a recoverable copy in Trash.

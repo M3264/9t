@@ -1,153 +1,64 @@
-import { SiteHeader, SiteFooter } from "../components/chrome";
+import { SiteFooter, SiteHeader } from "../components/chrome";
 
-const features = [
-  { k: "CAPTURE", h: "One inbox", p: "Paste text, links, screenshots, and files into the same capture flow. The inbox classifies it — you never pick a type first." },
-  { k: "STORAGE", h: "Your server", p: "Data stays in storage you choose, with opaque file keys and atomic writes. No third-party workspace in the middle." },
-  { k: "HANDOFF", h: "LAN-first handoff", p: "The Android client prefers the local network, falls back to the internet route, and reconnects in the background." },
-  { k: "SHARING", h: "Share with control", p: "Expiring, optional-password public handoffs with access counts and revocation." },
-  { k: "PHONE", h: "Phone sync", p: "Encrypted persistent connection, background receiving, Downloads/9t auto-save, HTTP catch-up fallback." },
-  { k: "SAFETY", h: "Private by default", p: "Auth is mandatory in every mode. No public-without-auth state can exist." },
+const repo = "https://github.com/M3264/9t";
+const android = `${repo}/releases/download/v0.6.3/9t-android-0.6.3.apk`;
+
+const steps = [
+  { n: "01", title: "Capture", text: "Paste text or a link, drag in a file, or push an item from the CLI. They all land in the same inbox.", tags: "Text · links · screenshots · files" },
+  { n: "02", title: "Find", text: "Search your items, pin the ones you use often, and organize them in collections.", tags: "Search · collections · quick access" },
+  { n: "03", title: "Transfer", text: "Send an item to Android, fetch it from another computer, or create an expiring share link.", tags: "Android · CLI · sharing links" },
 ];
 
 export default function Home() {
   return (
     <>
       <SiteHeader />
-      <main className="main" id="main">
-        <div className="hero">
-          <div>
-            <span className="eyebrow">SELF-HOSTED · LAN-FIRST · SINGLE OWNER</span>
-            <h1>
-              Put it in 9t. <span className="accent">Get it anywhere</span> — on your terms.
-            </h1>
-            <p>
-              A quiet workspace for moving the things you need between your devices.
-              Files, snippets, links, handoffs, phone sync — without routing your
-              life through someone else&apos;s cloud.
-            </p>
-            <div className="cta-row">
-              <a className="primarybtn" href="/docs/">
-                Read the docs
-              </a>
-              <a className="ghostbtn" href="https://github.com/M3264/9t/releases/download/v0.6.2/9t-android-0.6.2.apk">
-                Download Android
-              </a>
-              <a className="ghostbtn" href="https://github.com/M3264/9t">
-                GitHub
-              </a>
+      <main className="main landing" id="main">
+        <section className="landing-hero" aria-labelledby="hero-title">
+          <div className="landing-hero-copy">
+            <span className="landing-kicker"><span className="status-dot" /> FILES · SNIPPETS · LINKS</span>
+            <h1 id="hero-title">Move files and snippets <em>between your devices.</em></h1>
+            <p>Save files, links, and text on your own 9t server. Find them in the browser, fetch them from the CLI, or send them to Android.</p>
+            <div className="landing-actions">
+              <a className="primarybtn landing-primary" href="/docs/install/">Install 9t <span aria-hidden="true">↗</span></a>
+              <a className="landing-link" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
             </div>
-            <p className="meta">
-              Free software (GPL-3.0) · Node.js 22+ is the only requirement ·{" "}
-              <code>./setup.sh</code> builds, configures, and can install a boot service.
-            </p>
+            <div className="landing-trust"><span>Self-hosted</span><span>Open source</span><span>LAN first</span></div>
           </div>
-          <div className="mock" aria-hidden="true">
-            <div className="mock-bar">
-              <span className="mock-logo">9t</span>
-              <span className="mock-search">Search files, snippets, links…</span>
-            </div>
-            <div className="mock-tabs">
-              <span className="on">All</span>
-              <span>Snippets</span>
-              <span>Files</span>
-              <span>Links</span>
-            </div>
-            <div className="mock-stick">
-              + Quick stick<small>Stick a thought, command, code…</small>
-            </div>
-            <div className="mock-item">
-              <span>SNIPPET · SH</span>
-              <code>9t push deploy.sh --name deploy</code>
-              <span>2m ago · Copy</span>
-            </div>
-            <div className="mock-item">
-              <span>FILE · 2.4 MB</span>
-              <b>photos.zip</b>
-              <span>LAN → phone · Grab</span>
-            </div>
-            <div className="mock-item">
-              <span>LINK · 1D LEFT</span>
-              <b>cool-paper.pdf</b>
-              <span>Shared · Open</span>
-            </div>
-            <div className="mock-note">Beamed to phone · saved in Downloads/9t</div>
-          </div>
-        </div>
-
-        <section className="section" aria-label="Features">
-          <h2>Why 9t</h2>
-          <p className="sub">Six promises, kept small on purpose.</p>
-          <div className="cards">
-            {features.map((f) => (
-              <div className="card" key={f.h}>
-                <span className="k">{f.k}</span>
-                <h3>{f.h}</h3>
-                <p>{f.p}</p>
+          <div className="landing-preview" aria-label="Illustration of the 9t workspace">
+            <div className="preview-window">
+              <div className="preview-chrome"><b>9t<span>.</span></b><span>9t / workspace</span><i>K</i></div>
+              <div className="preview-content">
+                <div className="preview-heading"><div><small>ALL ITEMS</small><strong>Recent items</strong></div><span>＋</span></div>
+                <div className="preview-search">⌕ <span>Search items</span><kbd>⌘ K</kbd></div>
+                <div className="preview-filters"><b>All</b><span>Snippets</span><span>Files</span><span>Links</span></div>
+                <div className="preview-items">
+                  <div className="preview-item"><span className="preview-item-icon">{'{ }'}</span><div><small>SNIPPET</small><strong>deploy command</strong><span>docker compose up -d</span></div><i>↗</i></div>
+                  <div className="preview-item"><span className="preview-item-icon file">↧</span><div><small>FILE</small><strong>weekend-photos.zip</strong><span>Ready on your devices</span></div><i>↗</i></div>
+                  <div className="preview-item"><span className="preview-item-icon link">↗</span><div><small>LINK</small><strong>reference article</strong><span>Saved yesterday</span></div><i>↗</i></div>
+                </div>
               </div>
-            ))}
+            </div>
+            <div className="preview-received"><span>↓</span><div><b>Sent to your phone</b><small>Saved in Downloads/9t</small></div></div>
           </div>
         </section>
 
-        <section className="section" aria-label="Who is 9t for">
-          <h2>It reshapes into what you need</h2>
-          <p className="sub">
-            Snippets, Files, Links, Board — each a toggleable module. 9t becomes
-            exactly your mix, nothing more.
-          </p>
-          <div className="cards">
-            <div className="card">
-              <span className="k">01</span>
-              <h3>Dev snippet-mover</h3>
-              <p>
-                Move code, config, and commands between machines. CLI-first,
-                syntax highlighted. <code>9t push</code> it here, <code>9t get</code> it there.
-              </p>
-            </div>
-            <div className="card">
-              <span className="k">02</span>
-              <h3>Dropbox replacement</h3>
-              <p>
-                Files between phone, server, and laptop. QR handoff, download
-                links, auto-save to <code>Downloads/9t</code>.
-              </p>
-            </div>
-            <div className="card">
-              <span className="k">03</span>
-              <h3>Personal dashboard</h3>
-              <p>
-                One homepage for your own links and notes instead of scattered
-                apps. Toggleable Board over your objects.
-              </p>
-            </div>
-          </div>
+        <section className="landing-section" id="how-it-works" aria-labelledby="how-title">
+          <div className="landing-section-head"><div><span className="section-label">HOW IT WORKS</span><h2 id="how-title">Save once. Use it on <em>another device.</em></h2></div><p>The browser, CLI, and Android client work with the same 9t instance.</p></div>
+          <div className="landing-steps">{steps.map((step) => <article className="landing-step" key={step.n}><span className="step-number">{step.n}</span><h3>{step.title}</h3><p>{step.text}</p><small>{step.tags}</small></article>)}</div>
         </section>
 
-        <section className="section" aria-label="Quick start">
-          <h2>Running in minutes</h2>
-          <p className="sub">The wizard asks, builds, and optionally installs a boot service.</p>
-          <div className="term">
-            <div className="term-bar">
-              <i />
-              <i />
-              <i />
-              <span>terminal</span>
-            </div>
-            <pre>{`$ git clone https://github.com/M3264/9t.git
-$ cd 9t
-$ ./setup.sh
-? Access: lan — reachable by your phone over Wi-Fi
-✓ Built · admin created · service installed
-$ ./9t start`}</pre>
-          </div>
-          <div className="cta-row">
-            <a className="primarybtn" href="/docs/install/">
-              Full install guide
-            </a>
-            <a className="ghostbtn" href="/docs/android/">
-              Pair your phone
-            </a>
-          </div>
+        <section className="landing-control" aria-labelledby="control-title">
+          <div><span className="section-label">HOSTING AND ACCESS</span><h2 id="control-title">Run 9t on <em>your server.</em></h2><p>Choose where it runs and where its data lives. Sign-in is always required. Share links can expire, use a password, and be revoked whenever you want.</p><a href="/docs/install/">Set up your server <span aria-hidden="true">↗</span></a></div>
+          <div className="control-diagram" aria-hidden="true"><span>YOUR DEVICES</span><i /><strong>9t<small>YOUR SERVER</small></strong><i /><span>YOUR STORAGE</span><small>LOCAL WHEN POSSIBLE · ENCRYPTED HANDOFF</small></div>
         </section>
+
+        <section className="landing-phone" aria-labelledby="phone-title">
+          <div className="phone-art" aria-hidden="true"><div className="phone-screen"><div className="phone-top"><b>9t</b><span>● Connected</span></div><small>RECENTLY RECEIVED</small><div className="phone-file"><span>↧</span><div><b>weekend-photos.zip</b><small>Saved to Downloads/9t</small></div></div><div className="phone-file"><span>{'{ }'}</span><div><b>deploy command</b><small>Ready to copy</small></div></div><div className="phone-nav"><span>Home</span><span>Send</span><span>Connect</span></div></div></div>
+          <div className="phone-copy"><span className="section-label">ANDROID</span><h2 id="phone-title">Receive files <em>on your phone.</em></h2><p>The Android client can receive in the background, save files to Downloads/9t, and prefer your local network before falling back to your public route.</p><div className="landing-actions"><a className="primarybtn" href={android}>Download Android <span aria-hidden="true">↗</span></a><a className="landing-link" href="/docs/android/">How pairing works <span aria-hidden="true">↗</span></a></div></div>
+        </section>
+
+        <section className="landing-start" aria-labelledby="start-title"><div><span className="section-label">INSTALLATION</span><h2 id="start-title">Install 9t <em>on your machine.</em></h2><p>Run the setup wizard, choose local, LAN, or public access, and create your account.</p><div className="landing-actions"><a className="primarybtn" href="/docs/install/">Read the install guide <span aria-hidden="true">↗</span></a><a className="landing-link" href={repo}>View on GitHub <span aria-hidden="true">↗</span></a></div></div><div className="start-terminal"><div className="term-bar"><i /><i /><i /><span>terminal</span></div><pre><span>$</span> git clone https://github.com/M3264/9t.git<br /><span>$</span> cd 9t<br /><span>$</span> ./setup.sh</pre><small>Node.js 22+ · GPL-3.0</small></div></section>
       </main>
       <SiteFooter />
     </>

@@ -127,3 +127,5 @@ The installer refuses to replace existing configuration, workspace data, or a se
 ```
 
 `update` refuses when the working tree has local changes and backs up data before touching anything.
+
+Once you can sign in, follow [Use the workspace](/docs/workspace/) to save your first item and open it on another device.

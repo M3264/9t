@@ -1,115 +1,83 @@
 ---
 title: Documentation
-description: Everything you need to run 9t — install it, pair your phone, fix the network, share with control, and keep it running.
+description: Set up 9t, save your first item, connect Android, and keep your instance running.
 order: 0
 ---
 
-# Documentation
+# 9t documentation
 
-9t is a quiet, self-hosted workspace for moving the things you need between your devices — files, snippets, links, handoffs, phone sync. One server, one owner, your infrastructure.
+9t is a self-hosted workspace for files, snippets, and links. Start with installation, save something in the workspace, then connect another device if you need one.
+
+## Get started
+
+On Linux, macOS, or Ubuntu inside Windows Subsystem for Linux:
+
+```bash
+git clone https://github.com/M3264/9t.git
+cd 9t
+./setup.sh
+```
+
+The setup wizard creates your administrator account and lets you choose local, LAN, or public access. Follow the startup instruction it prints, open the resulting address, and sign in. See [Install](/docs/install/) for requirements, Docker, and network choices.
 
 <CardGroup cols={2}>
 
 <Card title="Install 9t" href="/docs/install/">
 
-Three commands, then a wizard. Local, LAN, or public behind your proxy.
+Requirements, setup wizard, access modes, and first sign-in.
 
 </Card>
 
-<Card title="Pair your phone" href="/docs/android/">
+<Card title="Use the workspace" href="/docs/workspace/">
 
-APK install, 5-digit approval, background receiving that survives Doze.
-
-</Card>
-
-<Card title="Fix the network" href="/docs/network/">
-
-The right address for your phone, WSL forwarding, hotspots.
-
-</Card>
-
-<Card title="Share with control" href="/docs/sharing/">
-
-Expiring links, passwords, access counts, revocation, QR handoff.
+Save a note, file, or link; search and pin it; open it on another device.
 
 </Card>
 
 </CardGroup>
 
-## How it fits together
+## Connect and share
 
-<Diagram
-  rows={[
-    { from: "You", label: "paste / drop / push", to: "9t inbox" },
-    { from: "9t inbox", label: "classify", to: "snippet · file · link" },
-    { from: "Your server", label: "LAN-first · encrypted", to: "Android app" },
-    { from: "Any item", label: "expiry + password", to: "public link" },
-  ]}
-  caption="Everything flows through your instance. Nothing touches a third party."
-/>
+<CardGroup cols={2}>
 
-## What 9t promises
+<Card title="Connect Android" href="/docs/android/">
 
-<AccordionGroup>
+Install the app, pair it with your server, and set up background receiving.
 
-<Accordion title="One inbox, not three apps">
+</Card>
 
-Paste text, links, screenshots, and files into the same capture flow. The inbox classifies it — you never pick a type first.
+<Card title="Network setup" href="/docs/network/">
 
-</Accordion>
+Choose a reachable address and troubleshoot LAN, WSL, hotspots, and proxies.
 
-<Accordion title="Your server, your storage">
+</Card>
 
-Data stays in storage you choose, with opaque file keys and atomic writes. No third-party workspace in the middle.
+<Card title="Sharing" href="/docs/sharing/">
 
-</Accordion>
+Create expiring links, protect them with a password, and revoke access.
 
-<Accordion title="LAN-first handoff">
+</Card>
 
-The Android client prefers the local network, falls back to the internet route, and reconnects in the background.
+</CardGroup>
 
-</Accordion>
-
-<Accordion title="Share with control">
-
-Expiring, optional-password public handoffs with access counts and revocation. Nothing shared stays shared by accident.
-
-</Accordion>
-
-<Accordion title="Private by default">
-
-Auth is mandatory in every mode. No public-without-auth state can exist — setup refuses to create one.
-
-</Accordion>
-
-</AccordionGroup>
-
-## Go deeper
+## Run your instance
 
 <CardGroup cols={2}>
 
 <Card title="Operations" href="/docs/operations/">
 
-Backups, full CLI reference, systemd service, safe updates.
+Run the service, use the CLI, make backups, and update safely.
 
 </Card>
 
-<Card title="API" href="/docs/api/">
+<Card title="API reference" href="/docs/api/">
 
-The HTTP API behind the dashboard, CLI, and Android client.
-
-</Card>
-
-<Card title="Principles" href="/docs/principles/">
-
-What 9t is, what it refuses to become, and the roadmap.
+Use the authenticated HTTP API behind the web workspace and clients.
 
 </Card>
 
 </CardGroup>
 
-<Callout>
+## How 9t handles your data
 
-The markdown originals live in the repo under [`docs/`](https://github.com/M3264/9t/tree/main/docs). Found a mistake? Open a pull request — docs fixes are the easiest first contribution.
-
-</Callout>
+9t runs on a server and storage location you choose. Sign-in is required in every access mode. The Android client prefers a configured local route and can fall back to a public route. See the [network guide](/docs/network/) to choose the right address for your devices.

@@ -31,9 +31,9 @@ Preview locally with `npm --prefix site run dev`.
 
 ## Layout
 
-- `site/app/page.tsx` — landing (hero, features, personas, quick-start).
-- `site/content/` — install, android, network, sharing, operations,
-  principles guides as markdown (rendered to `/docs/*` with sidebar, prev/next,
+- `site/app/page.tsx` — landing (product story, capture flow, ownership, Android, setup).
+- `site/content/` — install, workspace, android, network, sharing, operations,
+  and API guides as markdown (rendered to `/docs/*` with sidebar, prev/next,
   and Pagefind search).
 - `site/components/`, `site/styles/tokens.css` — shared chrome + the app's
   visual tokens (mirrored from `src/styles/globals.css` — keep in sync).

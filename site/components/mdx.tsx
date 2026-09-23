@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CopyableCode, CopyablePre } from "./copy-code";
 
 // Rich docs primitives (Card / Accordion / Callout / Diagram), usable as JSX
 // inside any content/*.md file. Server components — no client JS needed.
@@ -86,4 +87,4 @@ export function Diagram({
   );
 }
 
-export const mdxComponents = { CardGroup, Card, Accordion, AccordionGroup, Callout, Diagram };
+export const mdxComponents = { CardGroup, Card, Accordion, AccordionGroup, Callout, Diagram, pre: CopyablePre, code: CopyableCode };

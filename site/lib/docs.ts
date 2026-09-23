@@ -4,18 +4,18 @@ export type DocGroup = { label: string; pages: DocPage[] };
 const ALL: DocPage[] = [
   { slug: "index", title: "Introduction" },
   { slug: "install", title: "Install" },
+  { slug: "workspace", title: "Use the workspace" },
   { slug: "android", title: "Android" },
   { slug: "network", title: "Network" },
   { slug: "sharing", title: "Sharing" },
   { slug: "operations", title: "Operations" },
   { slug: "api", title: "API" },
-  { slug: "principles", title: "Principles" },
 ];
 
 export const GROUPS: DocGroup[] = [
-  { label: "Start", pages: [ALL[0], ALL[1]] },
-  { label: "Guides", pages: [ALL[2], ALL[3], ALL[4]] },
-  { label: "Reference", pages: [ALL[5], ALL[6], ALL[7]] },
+  { label: "Start", pages: [ALL[0], ALL[1], ALL[2]] },
+  { label: "Guides", pages: [ALL[3], ALL[4], ALL[5]] },
+  { label: "Reference", pages: [ALL[6], ALL[7]] },
 ];
 
 export const PAGES: DocPage[] = ALL;
