@@ -1,17 +1,18 @@
 #!/usr/bin/env node
-// Publish the static landing + guide site (site/) to the nginx web root.
+// Publish the landing + docs site (site/, Astro build) to the nginx web root.
 // Safe to re-run. Never touches the app, data/, or .env.production.
 import { cp, mkdir, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
-  console.log(`9t publish-site — sync site/ to the nginx web root
+  console.log(`9t publish-site — build site/ and sync it to the nginx web root
 
-  sudo node scripts/publish-site.mjs [--target DIR] [--no-reload]
+  sudo node scripts/publish-site.mjs [--target DIR] [--no-reload] [--no-build]
 
 Defaults: target /var/www/9t-tech, then \`nginx -t\` and a reload.
 Writes need root (web root + reload); run with sudo or as root.`);
@@ -22,7 +23,21 @@ const flag = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const target = resolve(flag("target", "/var/www/9t-tech"));
-const source = join(root, "site");
+const siteDir = join(root, "site");
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const runHere = (a, cwd) => {
+  const r = spawnSync(npm, a, { cwd, stdio: "inherit" });
+  if (r.status !== 0) throw new Error(`npm ${a.join(" ")} failed (${r.status}).`);
+};
+if (!args.includes("--no-build")) {
+  if (!existsSync(join(siteDir, "node_modules"))) {
+    console.log("Installing site dependencies…");
+    runHere(["ci"], siteDir);
+  }
+  console.log("Building site…");
+  runHere(["run", "build"], siteDir);
+}
+const source = join(siteDir, "dist");
 try {
   const entries = await stat(source).then((s) => (s.isDirectory() ? true : false));
   if (!entries) throw new Error("not a directory");
@@ -39,7 +54,7 @@ const run = (exe, a) => {
 };
 await mkdir(target, { recursive: true });
 await cp(source, target, { recursive: true });
-console.log(`Published site/ → ${target}`);
+console.log(`Published ${source} → ${target}`);
 if (!args.includes("--no-reload")) {
   run("nginx", ["-t"]);
   try {

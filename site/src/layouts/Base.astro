@@ -1,0 +1,76 @@
+---
+import '../styles/brand.css';
+
+interface Props {
+  title: string;
+  description: string;
+  section?: 'docs' | 'home';
+  search?: boolean;
+}
+const { title, description, section = 'home', search = false } = Astro.props;
+const pageTitle = section === 'home' ? title : `${title} — 9t docs`;
+---
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content={description}>
+  <meta name="theme-color" content="#ece7da">
+  <meta property="og:title" content={pageTitle}>
+  <meta property="og:description" content={description}>
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://9t.kennyy.tech/9t-mark.svg">
+  <link rel="icon" href="/9t-mark.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/SpaceGrotesk-Bold.ttf" as="font" type="font/ttf" crossorigin>
+  <title>{pageTitle}</title>
+  <script is:inline>
+    try {
+      const t = localStorage.getItem('9t-site-theme');
+      document.documentElement.dataset.theme =
+        t === 'dark' || t === 'light'
+          ? t
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch { document.documentElement.dataset.theme = 'light'; }
+  </script>
+  {search && <link href="/pagefind/pagefind-ui.css" rel="stylesheet">}
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="9t home">
+        <span class="brand-mark"><img src="/9t-mark.svg" alt="" width="32" height="24"></span>9t
+      </a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a class="nav-link" href="/docs/" aria-current={section === 'docs' ? 'page' : undefined}>Docs</a>
+        <a class="nav-link" href="/docs/android/">Android</a>
+        <a class="nav-link" href="/docs/install/">Install</a>
+        {search && <span id="search-slot"></span>}
+        <button class="icon-btn" id="theme-btn" aria-label="Toggle dark mode" title="Toggle theme">◐</button>
+        <a class="btn btn-neon btn-small" href="https://9t.kennyy.xyz">Open app</a>
+      </nav>
+    </div>
+  </header>
+  <slot />
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="brand" href="/"><span class="brand-mark"><img src="/9t-mark.svg" alt="" width="30" height="22"></span>9t</a>
+      <nav aria-label="Footer">
+        <a href="/docs/">Docs</a>
+        <a href="https://9t.kennyy.xyz">App</a>
+        <a href="https://github.com/M3264/9t">GitHub</a>
+        <a href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">APK</a>
+      </nav>
+      <p class="footer-note">Self-hosted workspace · GPL-3.0 · Your server, your storage, your terms.</p>
+    </div>
+  </footer>
+  <script is:inline>
+    document.getElementById('theme-btn')?.addEventListener('click', () => {
+      const el = document.documentElement;
+      el.dataset.theme = el.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('9t-site-theme', el.dataset.theme); } catch {}
+    });
+  </script>
+</body>
+</html>

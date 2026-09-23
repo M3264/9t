@@ -1,0 +1,18 @@
+{
+  "name": "9t-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Public landing + docs for https://9t.kennyy.tech (static Astro build)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && pagefind --site dist",
+    "preview": "astro preview"
+  },
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "astro": "^7.3.4"
+  },
+  "devDependencies": {
+    "pagefind": "^1.5.2"
+  }
+}

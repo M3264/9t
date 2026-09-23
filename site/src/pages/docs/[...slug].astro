@@ -1,0 +1,24 @@
+---
+import { getCollection } from 'astro:content';
+import Docs from '../../layouts/Docs.astro';
+
+export async function getStaticPaths() {
+  const toSlug = (id: string) => id.replace(/\.mdx?$/, '');
+  const entries = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.order);
+  const pages = entries.map((e) => ({ slug: toSlug(e.id), title: e.data.title }));
+  return entries.map((entry, i) => {
+    const slug = toSlug(entry.id);
+    const at = (j: number) =>
+      j < 0 || j >= entries.length
+        ? undefined
+        : { slug: toSlug(entries[j].id), title: entries[j].data.title };
+    return {
+      params: { slug: slug === 'index' ? undefined : slug },
+      props: { entry, slug, pages, prev: at(i - 1), next: at(i + 1) },
+    };
+  });
+}
+
+const { entry, slug, pages, prev, next } = Astro.props;
+---
+<Docs entry={entry} slug={slug} pages={pages} prev={prev} next={next} />

@@ -1,0 +1,119 @@
+---
+import Base from '../layouts/Base.astro';
+
+const features = [
+  { tag: 'Capture', glyph: '✎', h: 'One inbox', p: 'Paste text, links, screenshots, and files into the same capture flow. The inbox classifies it — you never pick a type first.' },
+  { tag: 'Storage', glyph: '⌂', h: 'Your server', p: 'Data stays in storage you choose, with opaque file keys and atomic writes. No third-party workspace in the middle.' },
+  { tag: 'Handoff', glyph: '⇄', h: 'LAN-first handoff', p: 'The Android client prefers the local network, falls back to the internet route, and reconnects in the background.' },
+  { tag: 'Sharing', glyph: '↗', h: 'Share with control', p: 'Expiring, optional-password public handoffs with access counts and revocation. Nothing shared stays shared by accident.' },
+  { tag: 'Phone', glyph: '✆', h: 'Phone sync', p: 'Encrypted persistent connection, background receiving, Downloads/9t auto-save, and HTTP catch-up fallback.' },
+  { tag: 'Safety', glyph: '◈', h: 'Private by default', p: 'Auth is mandatory in every mode. No public-without-auth state can exist — the setup refuses to create one.' },
+];
+const personas = [
+  { n: '01', h: 'Dev snippet-mover', p: 'Move code, config, and commands between machines. CLI-first, syntax highlighted, snippet-heavy.', code: '9t push deploy.sh --name deploy' },
+  { n: '02', h: 'Dropbox replacement', p: 'Files between phone, server, and laptop. QR handoff, download links, auto-save to Downloads/9t.' },
+  { n: '03', h: 'Personal dashboard', p: 'One homepage for your own links and notes instead of scattered apps. Toggleable Board over your objects.' },
+];
+---
+<Base
+  title="9t — Put it in 9t. Get it anywhere."
+  description="9t is a quiet, self-hosted workspace for moving files, snippets, links and handoffs between your devices — on your terms."
+>
+  <main class="wrap" id="main">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <span class="kicker"><span class="dot"></span>Self-hosted · LAN-first · Single owner</span>
+        <h1>Put it in 9t. <span class="hl">Get it anywhere</span> — on your terms.</h1>
+        <p class="lede">A quiet workspace for moving the things you need between your devices. Files, snippets, links, handoffs, phone sync — without routing your life through someone else's cloud.</p>
+        <div class="cta-row">
+          <a class="btn btn-grape" href="/docs/">Read the docs</a>
+          <a class="btn btn-neon" href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">↓ Android app</a>
+          <a class="btn" href="https://github.com/M3264/9t">★ GitHub</a>
+        </div>
+        <p class="hero-meta">Free software (GPL-3.0) · Node.js 22+ is the only requirement · <code>./setup.sh</code> builds, configures, and can install a boot service.</p>
+      </div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-bar">
+          <span class="mock-logo">9t</span>
+          <span class="mock-search">Search files, snippets, links…</span>
+          <span class="mock-avatar">O</span>
+        </div>
+        <div class="mock-tabs"><span class="on">All</span><span>Snippets</span><span>Files</span><span>Links</span><span>Board</span></div>
+        <div class="mock-stick"><b>+ QUICK STICK</b><i>Stick a thought, command, code…</i></div>
+        <div class="mock-cards">
+          <div class="mock-card"><b>snippet · sh</b><code>9t push deploy.sh --name deploy</code><span>2m ago · Copy</span></div>
+          <div class="mock-card"><b>file · 2.4 MB</b><strong>photos.zip</strong><span>LAN → phone · Grab</span></div>
+          <div class="mock-card"><b>link · 1d left</b><strong>cool-paper.pdf</strong><span>↗ shared · Open</span></div>
+        </div>
+        <div class="mock-toast">✓ Beamed to phone · saved in Downloads/9t</div>
+      </div>
+    </div>
+  </main>
+
+  <div class="strip" aria-hidden="true">
+    <div class="strip-track">
+      <span>PUT IT IN 9T <i>●</i> GET IT ANYWHERE <i>●</i> YOUR SERVER <i>●</i> YOUR TERMS <i>●</i></span>
+      <span>PUT IT IN 9T <i>●</i> GET IT ANYWHERE <i>●</i> YOUR SERVER <i>●</i> YOUR TERMS <i>●</i></span>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <section aria-label="Features">
+      <div class="section-head">
+        <h2>Why 9t</h2>
+        <p>Six promises, kept small on purpose.</p>
+      </div>
+      <div class="grid">
+        {features.map((f) => (
+          <div class="feature">
+            <span class="glyph">{f.glyph}</span>
+            <span class="tag">{f.tag}</span>
+            <h3>{f.h}</h3>
+            <p>{f.p}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="card" aria-label="Who is 9t for">
+      <span class="kicker"><span class="dot"></span>One tool, three shapes</span>
+      <h2>It reshapes into what you need</h2>
+      <p class="lede">Snippets, Files, Links, Board — each a toggleable module. 9t becomes exactly your mix, nothing more.</p>
+      <div class="grid grid-2">
+        {personas.slice(0, 2).map((p) => (
+          <div class="feature">
+            <span class="persona-num">{p.n}</span>
+            <h3>{p.h}</h3>
+            <p>{p.p}</p>
+            {p.code && <p><code>{p.code}</code></p>}
+          </div>
+        ))}
+      </div>
+      <div class="feature">
+        <span class="persona-num">{personas[2].n}</span>
+        <h3>{personas[2].h}</h3>
+        <p>{personas[2].p}</p>
+      </div>
+    </section>
+
+    <section aria-label="Quick start">
+      <div class="section-head">
+        <h2>Running in minutes</h2>
+        <p>The wizard asks, builds, and optionally installs a boot service.</p>
+      </div>
+      <div class="term">
+        <div class="term-bar"><i></i><i></i><i></i><span>terminal</span></div>
+        <pre><code><span class="p">$</span> git clone https://github.com/M3264/9t.git
+<span class="p">$</span> cd 9t
+<span class="p">$</span> ./setup.sh
+<span class="p">?</span> Access: <b>lan</b> — reachable by your phone over Wi-Fi
+<span class="p">✓</span> Built · admin created · service installed
+<span class="p">$</span> ./9t start</code></pre>
+      </div>
+      <div class="cta-row">
+        <a class="btn btn-neon" href="/docs/install/">Full install guide</a>
+        <a class="btn" href="/docs/android/">Pair your phone</a>
+      </div>
+    </section>
+  </main>
+</Base>
