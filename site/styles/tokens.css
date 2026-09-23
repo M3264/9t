@@ -61,6 +61,7 @@ html, body {
   background: var(--bg); color: var(--ink);
   font-family: var(--display), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 button, input, textarea, select { font: inherit; color: inherit; }
 button { border: 0; cursor: pointer; background: transparent; }

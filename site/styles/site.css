@@ -128,6 +128,7 @@ html[data-theme="dark"] .term { background: #121016; }
 
 /* docs */
 .docs { display: grid; grid-template-columns: 230px minmax(0, 1fr) 200px; gap: 28px; align-items: start; margin: 28px 0; }
+.docs > * { min-width: 0; }
 .docs-side {
   position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto;
   background: var(--paper);
@@ -139,6 +140,7 @@ html[data-theme="dark"] .term { background: #121016; }
 .docs-side a { display: block; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--muted); }
 .docs-side a:hover { background: var(--soft); color: var(--ink); }
 .docs-side a[aria-current="page"] { background: var(--blue-soft); color: var(--blue-ink); font-weight: 700; }
+.docs-main, .prose { min-width: 0; overflow-wrap: anywhere; }
 .prose { min-width: 0; }
 .prose h1 { font-size: clamp(26px, 3.5vw, 34px); letter-spacing: -0.05em; line-height: 1.15; margin: 0 0 8px; }
 .prose .desc { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
@@ -151,13 +153,13 @@ html[data-theme="dark"] .term { background: #121016; }
 .prose a:hover { text-decoration-color: var(--blue-ink); }
 .prose pre {
   background: #1e1b28; color: #efeaf8; border: 1px solid var(--line);
-  border-radius: var(--r-sm); padding: 14px 16px; overflow-x: auto;
+  border-radius: var(--r-sm); padding: 14px 16px; overflow-x: auto; max-width: 100%;
   font: 12.5px/1.7 var(--mono);
 }
 html[data-theme="dark"] .prose pre { background: #121016; }
 .prose p code, .prose li code, .prose td code {
   font: 12px var(--mono); background: var(--soft); color: var(--blue-ink);
-  border-radius: 5px; padding: 2px 6px;
+  border-radius: 5px; padding: 2px 6px; overflow-wrap: anywhere;
 }
 .prose table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; display: block; overflow-x: auto; }
 .prose th, .prose td { text-align: left; border: 1px solid var(--line); padding: 8px 10px; vertical-align: top; }
@@ -227,10 +229,10 @@ html[data-theme="dark"] .doc-callout.warn .doc-callout-icon { background: #4a2b3
 .doc-callout p { margin: 0 0 8px; font-size: 13.5px; }
 .doc-callout p:last-child { margin-bottom: 0; }
 .doc-diagram { margin: 16px 0; display: grid; gap: 6px; }
-.doc-diagram-row { display: flex; align-items: stretch; }
+.doc-diagram-row { display: flex; align-items: stretch; flex-wrap: wrap; row-gap: 6px; }
 .doc-diagram-node {
   background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
-  padding: 8px 14px; font-size: 13px; font-weight: 700; white-space: nowrap;
+  padding: 8px 14px; font-size: 13px; font-weight: 700; min-width: 0;
 }
 .doc-diagram-arrow {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
