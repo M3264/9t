@@ -29,7 +29,7 @@ Preview locally with any static server, e.g. `npx serve site`.
 ## Layout
 
 - `site/index.html` — landing (hero, features, personas, quick-start).
-- `site/guide/` — install, android, network, sharing, operations guides,
+- `site/docs/` — install, android, network, sharing, operations guides,
   converted from `docs/`.
 - `site/assets/` — `style.css`, `9t-mark.svg`, Space Grotesk fonts.
 - `deploy/nginx/9t-tech.conf` — the vhost (port 80 → 301, port 443 static).

@@ -11,10 +11,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/M3264/9t/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0" /></a>
+  <img src="https://img.shields.io/badge/node-22%2B-brightgreen" alt="Node 22+" />
+  <img src="https://img.shields.io/badge/platform-linux-lightgrey" alt="Linux" />
+  <img src="https://img.shields.io/badge/PRs-welcome-neon" alt="PRs welcome" />
+</p>
+
+<p align="center">
+  <a href="https://9t.kennyy.tech">Website</a> ·
+  <a href="https://9t.kennyy.tech/docs">Documentation</a> ·
   <a href="https://9t.kennyy.xyz">Live instance</a> ·
-  <a href="./docs/whitepaper.md">Whitepaper</a> ·
-  <a href="./docs/installation.md">Installation guide</a> ·
-  <a href="./docs/network-troubleshooting.md">Network guide</a>
+  <a href="#quick-start">Quick start</a> ·
+  <a href="./CONTRIBUTING.md">Contributing</a>
 </p>
 
 9t is a small personal cloud you run yourself. Capture text, URLs, and files in one inbox, find them later, and hand them off to another device without routing your data through a third-party workspace.
@@ -151,10 +159,15 @@ src/lib/client/       Browser API and formatting helpers
 src/lib/server/       Authentication, configuration, and persistence
 src/styles/           Global visual system
 public/               PWA, fonts, brand assets (pinned at root by Next.js)
-scripts/              Server, cleanup, backup, and restore operations
+scripts/              Server, CLI (cli/), cleanup, backup, and restore operations
+scripts/setup.mjs     Install wizard (also: ./9t setup --service for boot)
 android/              Android client
-deploy/               Nginx and systemd examples
-docs/                 Whitepaper, installation, network, and Android guides
+deploy/               Nginx (nginx/), systemd (systemd/), Docker (docker/)
+db/migrations/        PostgreSQL migration target
+docs/                 Whitepaper, installation, network, Android, site ops
+docs/archive/         Historical handoffs and plans
+site/                 Public landing + docs for 9t.kennyy.tech (static)
+tests/                Node test suites + install smoke test
 ```
 
 ## Service deployment
@@ -171,10 +184,21 @@ The HTTPS Nginx example is `deploy/nginx/9t.conf`; its certificate paths assume 
 
 ## Documentation and roadmap
 
+Full documentation lives at **<https://9t.kennyy.tech/docs>** (source: [`site/docs`](./site/docs)). The markdown originals ship in this repo:
+
 - [Whitepaper](./docs/whitepaper.md) — product principles and technical direction
 - [Installation](./docs/installation.md) — guided and repeatable setup
 - [Network troubleshooting](./docs/network-troubleshooting.md) — LAN, WSL, hotspots, and reverse proxies
 - [Android client](./docs/android.md) — pairing, background receiving, and releases
+- [Site operations](./docs/site.md) — publishing 9t.kennyy.tech
 - [TODO](./docs/archive/TODO.md) — planned work, including multi-user ownership and S3 storage
 
 9t is currently designed for a single owner. PostgreSQL, multi-user ownership, automated exposure switching, and S3 storage remain on the roadmap.
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, tests, and pull-request guidance. Security reports: [SECURITY.md](./SECURITY.md).
+
+## License
+
+9t is free software under the [GNU General Public License v3.0](./LICENSE). Self-host it, modify it, share it — under the same terms.
