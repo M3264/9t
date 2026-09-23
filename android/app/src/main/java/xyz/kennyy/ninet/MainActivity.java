@@ -522,6 +522,7 @@ public final class MainActivity extends Activity {
 
   private String actionIcon(String label) {
     String l = label.toLowerCase(Locale.ROOT);
+    if (l.equals("more")) return "more";
     if (l.contains("paste") || l.contains("copy")) return "copy";
     if (l.contains("pause")) return "pause";
     if (l.contains("refresh") || l.contains("again")) return "refresh";
@@ -1152,8 +1153,10 @@ public final class MainActivity extends Activity {
   }
 
   private void inbox() {
-    hero("YOUR POCKET WORKSPACE", "Good things.\nWithin reach.",
-        "Your files, links and little flashes of genius.");
+    TextView inboxTitle = text("Inbox", 30, ink);
+    inboxTitle.setTypeface(boldFont);
+    body.addView(inboxTitle);
+    body.addView(text("Files, snippets and links saved on this phone.", 14, muted));
     LinearLayout quick = new LinearLayout(this);
     quick.setGravity(Gravity.CENTER_VERTICAL);
     TextView status = text(ReceiveService.active ? "Receiver active" : "Ready when you are", 14, ink);
@@ -1206,7 +1209,7 @@ public final class MainActivity extends Activity {
     }
     filterScroll.addView(filters);
     body.addView(filterScroll);
-    sectionLabel("SAVED ON THIS PHONE");
+    sectionLabel("SAVED ITEMS");
     inboxItems = new LinearLayout(this);
     inboxItems.setOrientation(LinearLayout.VERTICAL);
     body.addView(inboxItems);
@@ -1257,7 +1260,7 @@ public final class MainActivity extends Activity {
         card.addView(name);
         String preview =
             item.optString(
-                "content", item.optString("url", item.optLong("sizeBytes") / 1024 + " KB"));
+                "content", item.optString("url", readableSize(item.optLong("sizeBytes"))));
         TextView p = text(preview, 14, muted);
         p.setMaxLines(3);
         p.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -1328,39 +1331,47 @@ public final class MainActivity extends Activity {
                     sync(true);
                   }
                 });
-        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-2, -2);
-        actionParams.gravity = Gravity.END;
-        actionParams.setMargins(0, dp(8), 0, 0);
-        card.addView(itemAction, actionParams);
-        LinearLayout manage = new LinearLayout(this);
-        manage.setGravity(Gravity.END);
-        manage.addView(
-            secondary(
-                item.optBoolean("pinned") ? "Unpin" : "Pin",
-                () -> {
-                  try (LocalStore writable = new LocalStore(this)) {
-                    writable.setPinned(item.optString("id"), !item.optBoolean("pinned"));
-                  }
-                  render();
-                }));
-        manage.addView(secondary("Share", () -> shareItem(item)));
-        manage.addView(
-            secondary(
-                "Delete",
-                () ->
-                    new PocketDialog()
-                        .setTitle("Forget this item?")
-                        .setMessage("Removes it from this phone only. The workspace keeps its copy;"
-                            + " downloaded files stay in Downloads/9t.")
-                        .setPositiveButton("Delete", (d, w) -> {
-                          try (LocalStore writable = new LocalStore(this)) {
-                            writable.remove(item.optString("id"));
-                          }
-                          render();
-                        })
-                        .setNegativeButton("Cancel", null)
-                        .show()));
-        card.addView(manage);
+        LinearLayout actions = new LinearLayout(this);
+        actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, -2);
+        actionsParams.setMargins(0, dp(8), 0, 0);
+        card.addView(actions, actionsParams);
+        Button more = secondary("More", () -> {});
+        LinearLayout.LayoutParams moreParams = new LinearLayout.LayoutParams(-2, -2);
+        moreParams.setMargins(0, 0, dp(8), 0);
+        actions.addView(more, moreParams);
+        actions.addView(itemAction, new LinearLayout.LayoutParams(-2, -2));
+        more.setOnClickListener(v -> {
+          PopupMenu menu = new PopupMenu(this, more);
+          menu.getMenu().add(0, 1, 0, item.optBoolean("pinned") ? "Unpin" : "Pin");
+          menu.getMenu().add(0, 2, 1, "Share");
+          menu.getMenu().add(0, 3, 2, "Delete from phone");
+          menu.setOnMenuItemClickListener(choice -> {
+            if (choice.getItemId() == 1) {
+              try (LocalStore writable = new LocalStore(this)) {
+                writable.setPinned(item.optString("id"), !item.optBoolean("pinned"));
+              }
+              renderInboxItems();
+            } else if (choice.getItemId() == 2) {
+              shareItem(item);
+            } else if (choice.getItemId() == 3) {
+              new PocketDialog()
+                  .setTitle("Forget this item?")
+                  .setMessage("Removes it from this phone only. The workspace keeps its copy;"
+                      + " downloaded files stay in Downloads/9t.")
+                  .setPositiveButton("Delete", (d, w) -> {
+                    try (LocalStore writable = new LocalStore(this)) {
+                      writable.remove(item.optString("id"));
+                    }
+                    renderInboxItems();
+                  })
+                  .setNegativeButton("Cancel", null)
+                  .show();
+            }
+            return true;
+          });
+          menu.show();
+        });
       }
       if (shown == 0) {
         TextView empty = text(items.isEmpty() ? "A little space for everything." : "Nothing matches yet.", 23, ink);
@@ -1400,6 +1411,18 @@ public final class MainActivity extends Activity {
                         .setNegativeButton("Cancel", null)
                         .show()));
     } catch (Exception ignored) {}
+  }
+
+  private String readableSize(long bytes) {
+    if (bytes >= 1024L * 1024L) {
+      if (bytes % (1024L * 1024L) == 0) return bytes / (1024L * 1024L) + " MB";
+      return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+    if (bytes >= 1024L) {
+      if (bytes % 1024L == 0) return bytes / 1024L + " KB";
+      return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
+    }
+    return bytes + " B";
   }
 
   private void shareItem(JSONObject item) {

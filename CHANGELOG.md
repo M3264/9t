@@ -13,6 +13,11 @@ Follows the `main` branch. Older per-release notes live in
   checkout; systemd unit quoting fixed (`WorkingDirectory` unquoted).
 - `./9t update` auto-stashes regenerable build churn instead of refusing.
 
+## 0.6.2
+
+- Android Inbox refresh: compact header, clearer saved-item list, readable file
+  sizes, and a More menu for pinning, sharing, and removing local items.
+
 ## 0.6.1
 
 - Android 0.6.1 / version code 21: Paper + Neon native UI matching the web

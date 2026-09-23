@@ -53,6 +53,7 @@ final class PocketArt extends Drawable {
         case "moon": path = "M20 15A9 9 0 0 1 9 3A8 8 0 1 0 20 15Z"; break;
         case "shield": path = "M12 2L21 6V12Q21 18 12 22Q3 18 3 12V6Z M8 12L11 15L16 9"; break;
         case "chevron": path = "M9 5L16 12L9 19"; break;
+        case "more": path = "M5 12L5.1 12 M12 12L12.1 12 M19 12L19.1 12"; break;
         case "server": path = "M4 3H20V10H4Z M4 14H20V21H4Z M7.5 6.5H7.6 M7.5 17.5H7.6"; break;
         default: path = "M5 12H19 M13 6L19 12L13 18";
       }
