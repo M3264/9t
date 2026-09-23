@@ -1,7 +1,6 @@
 ---
 title: Network
-description: Pick the right server address for your phone — LAN, WSL port forwarding, hotspots, and a fix-it-in-order table.
-order: 3
+description: Pick the right server address for your phone.
 ---
 
 # Connecting your phone to 9t
@@ -111,6 +110,4 @@ If Windows' Wi-Fi/hotspot IP changed, update the app's LAN URL too.
 | Sign-in does not persist over HTTP | `NINE_T_HTTPS` must be false for plain HTTP; restart after changing it |
 | Browser works, native app cannot authenticate | Pairing from this exact instance, correct LAN URL, device not revoked, clocks accurate |
 | Transfers work but Workspace does not | Workspace needs trusted HTTPS; an HTTP LAN URL alone is insufficient |
-| Sync works only while app is open | Follow the [Android background-receiver guide](/docs/android/#background-receiving) |
-
-For a failed WSL connection, collect these **without sharing pairing codes, passwords, or `.env.production`** — Ubuntu: `hostname -I`, `ss -ltnp 'sport = :3265'`, `curl -fsS http://127.0.0.1:3265/api/status`; Windows PowerShell: `wsl -l -v`, `ipconfig`, `netsh interface portproxy show all`.
+| Sync works only while app is open | Follow the [Android background-receiver guide](/docs/android/) |

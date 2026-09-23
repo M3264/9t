@@ -1,7 +1,6 @@
 ---
 title: Android
-description: Install the 9t Android app, pair it with your server, and keep background receiving alive.
-order: 2
+description: Install the 9t Android app and pair it.
 ---
 
 # 9t Android — network and transfer client

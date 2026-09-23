@@ -1,7 +1,6 @@
 ---
 title: Documentation
-description: Everything you need to run 9t — install it, pair your phone, fix the network, share with control, and keep it running.
-order: 0
+description: Everything you need to run 9t.
 ---
 
 # Documentation

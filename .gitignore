@@ -1,7 +1,7 @@
 node_modules/
 .next/
 .next-*/
-site/dist/
+site/out/
 data/
 backups/
 .env

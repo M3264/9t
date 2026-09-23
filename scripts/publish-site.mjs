@@ -36,8 +36,15 @@ if (!args.includes("--no-build")) {
   }
   console.log("Building site…");
   runHere(["run", "build"], siteDir);
+  // A sudo build leaves root-owned cache/output behind, which poisons later
+  // unprivileged builds (stale chunks, dropped metadata). Hand it back.
+  if (process.env.SUDO_USER) {
+    const r = spawnSync("chown", ["-R", `${process.env.SUDO_USER}:${process.env.SUDO_USER || ""}`, join(siteDir, ".next"), join(siteDir, "out")], { stdio: "inherit" });
+    if (r.status !== 0) throw new Error("chown of site build output failed.");
+  }
 }
-const source = join(siteDir, "dist");
+const source = ["out", "dist"].map((d) => join(siteDir, d)).find((d) => existsSync(d));
+if (!source) throw new Error("No site build found. Run `npm --prefix site run build` first.");
 try {
   const entries = await stat(source).then((s) => (s.isDirectory() ? true : false));
   if (!entries) throw new Error("not a directory");

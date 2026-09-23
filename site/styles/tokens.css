@@ -1,0 +1,81 @@
+/* Mirrored from src/styles/globals.css — the 9t app visual system.
+   Keep these tokens in sync with the app. */
+/* Fresh violet accent on neutral surfaces. */
+@font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Bold.ttf") format("truetype"); font-weight: 600 900; font-style: normal; font-display: swap; }
+:root {
+  --bg: #f6f5fa;
+  --paper: #ffffff;
+  --paper-2: #efecf7;
+  --ink: #232030;
+  --ink-soft: #3f3a4e;
+  --muted: #6f6a7e;
+  --line: #e3deee;
+  --ink-line: var(--line);
+  --soft: #efebf7;
+  --blue: #6440d6;
+  --blue-ink: #4e31b3;
+  --blue-soft: #e8e0fb;
+  --blue-ring: #6440d633;
+  --on-accent: #ffffff;
+  --neon: var(--blue-soft);
+  --neon-ink: var(--blue-ink);
+  --on-neon: var(--blue-ink);
+  --badge-bg: var(--blue-soft);
+  --badge-fg: var(--blue-ink);
+  --punch: #6440d6;
+  --accent: #c3aef3;
+  --danger: #b44552;
+  --ok: #42715d;
+  --sticker-shadow: none;
+  --sticker-shadow-sm: none;
+  --r-lg: 16px;
+  --r-md: 13px;
+  --r-sm: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --display: "Space Grotesk", system-ui, sans-serif;
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  --bg: #16141c;
+  --paper: #201d29;
+  --paper-2: #272332;
+  --ink: #f1ecfa;
+  --ink-soft: #d8d1e6;
+  --muted: #aaa1bb;
+  --line: #353044;
+  --soft: #292435;
+  --blue: #b79df5;
+  --blue-ink: #d5c4f9;
+  --blue-soft: #322a48;
+  --blue-ring: #b79df540;
+  --on-accent: #221a38;
+  --accent: #5b4a85;
+  --danger: #f2a3ae;
+  --ok: #a2d0b9;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; min-height: 100%;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--display), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+button { border: 0; cursor: pointer; background: transparent; }
+a { color: inherit; text-decoration: none; }
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 3px;
+}
+::selection { background: var(--accent); color: var(--ink); }
+h1, h2, h3, p { overflow-wrap: anywhere; }
+kbd {
+  font: 10px var(--mono); border: 1px solid var(--line);
+  padding: 3px 5px; border-radius: 4px; color: var(--muted);
+}
+.skip-link {
+  position: fixed; top: -100px; left: 16px; z-index: 200;
+  background: var(--ink); color: var(--paper); padding: 12px; border-radius: 0 0 8px 8px;
+}
+.skip-link:focus { top: 0; }

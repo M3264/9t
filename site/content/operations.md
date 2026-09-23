@@ -1,7 +1,6 @@
 ---
 title: Operations
-description: Backups, the CLI, the systemd service, and the safe update flow.
-order: 5
+description: Backups, CLI, service, updates.
 ---
 
 # Keeping 9t running

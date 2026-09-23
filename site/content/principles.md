@@ -1,7 +1,6 @@
 ---
 title: Principles
-description: What 9t is, what it refuses to become, and where it's going.
-order: 6
+description: What 9t is and refuses to become.
 ---
 
 # Principles

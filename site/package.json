@@ -2,17 +2,26 @@
   "name": "9t-site",
   "version": "1.0.0",
   "private": true,
-  "description": "Public landing + docs for https://9t.kennyy.tech (static Astro build)",
+  "description": "Public landing + docs for https://9t.kennyy.tech (Next.js static export)",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build && pagefind --site dist",
-    "preview": "astro preview"
+    "dev": "next dev",
+    "build": "next build && pagefind --site out",
+    "start": "next start"
   },
   "license": "GPL-3.0-only",
   "dependencies": {
-    "astro": "^7.3.4"
+    "gray-matter": "^4.0.3",
+    "next": "^16.3.5",
+    "next-mdx-remote": "^5.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "pagefind": "^1.5.2"
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "pagefind": "^1.5.2",
+    "typescript": "^5.9.0"
   }
 }

@@ -1,7 +1,6 @@
 ---
 title: Install
-description: Install 9t with the setup wizard or Docker — local, LAN, or public modes, preferences, automation, updates, and recovery.
-order: 1
+description: Install 9t with the setup wizard or Docker.
 ---
 
 # Installing 9t
@@ -16,7 +15,7 @@ cd 9t
 ./setup.sh
 ```
 
-Choose **LAN** if your phone will connect through Wi-Fi or a hotspot. Keep the printed port and startup instructions. Open the resulting address, sign in with the administrator account you created, then follow [phone connection and network troubleshooting](/docs/network/). **On Windows/WSL, complete that guide's forwarding steps before using the address on your phone.** An address that works on the Windows laptop may be private to WSL.
+Choose **LAN** if your phone will connect through Wi-Fi or a hotspot. Keep the printed port and startup instructions. Open the resulting address, sign in with the administrator account you created, then follow [phone connection and network troubleshooting](/docs/network/). **On Windows/WSL, complete that guide's forwarding steps before using the address on your phone.**
 
 The initial download/build needs internet access. After installation, a running LAN server can exchange data with the Android client without internet access.
 
@@ -71,7 +70,7 @@ LAN mode binds to all interfaces and still requires login. On a cloud host, use 
 
 ## Windows and WSL startup
 
-Run the Linux commands in Ubuntu, and Windows networking commands in **PowerShell as Administrator**, as labeled in the [network guide](/docs/network/#windows-with-ubuntu-in-wsl-2). The wizard does not configure Windows forwarding or Windows Firewall.
+Run the Linux commands in Ubuntu, and Windows networking commands in **PowerShell as Administrator**, as labeled in the [network guide](/docs/network/). The wizard does not configure Windows forwarding or Windows Firewall.
 
 If you already completed setup, do not rerun it to change the network binding. Edit `NINE_T_HOST` and `PORT` in `.env.production`, then restart. For ordinary LAN HTTP, use `NINE_T_HOST=0.0.0.0` and `NINE_T_HTTPS=false`.
 

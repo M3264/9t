@@ -1,7 +1,6 @@
 ---
 title: Sharing
-description: Expiring public links with passwords and access counts, plus QR handoff to your own devices.
-order: 4
+description: Expiring public links and QR handoff.
 ---
 
 # Sharing with control
