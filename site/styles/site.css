@@ -245,10 +245,14 @@ html[data-theme="dark"] .doc-callout.warn .doc-callout-icon { background: #4a2b3
 @media (max-width: 700px) {
   .doc-cards { grid-template-columns: 1fr; }
   .doc-diagram-node { padding: 6px 10px; font-size: 12px; }
+  .pager { flex-direction: column; }
 }
+.pager { display: flex; gap: 10px; margin: 30px 0 10px; }
+.pager > * { flex: 1 1 0; min-width: 0; }
 .pager a {
-  flex: 1; background: var(--paper); border: 1px solid var(--line);
+  display: block; background: var(--paper); border: 1px solid var(--line);
   border-radius: var(--r-sm); padding: 12px 14px; font-size: 13px; font-weight: 700;
+  overflow-wrap: anywhere;
 }
 .pager a:hover { border-color: var(--blue); }
 .pager small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
