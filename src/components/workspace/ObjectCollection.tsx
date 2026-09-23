@@ -27,6 +27,7 @@ import {
   timeAgo as ago,
   timeUntil as until,
 } from "../../lib/client/workspace";
+import { canPreviewImage } from "../../lib/shared/image-preview";
 import styles from "./Cards.module.css";
 
 const iconFor = { snippet: Code2, file: FileText, link: Link2 };
@@ -141,7 +142,7 @@ export function ObjectList({
                   </pre>
                 ) : o.type === "file" ? (
                   <div className={styles.fileInner}>
-                    {layout === "grid" && /^image\/(png|jpeg|gif|webp|avif)$/.test(o.mimeType || "") && <img className={styles.imagePreview} src={`/api/files/${o.id}`} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
+                    {layout === "grid" && canPreviewImage(o) && <img className={styles.imagePreview} src={`/api/files/${o.id}?preview=1`} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
                     <div className={styles.sheet}>
                       <FileText />
                       <b>{extension}</b>
