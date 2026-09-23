@@ -1,26 +1,32 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import matter from "gray-matter";
-import { serialize } from "next-mdx-remote/serialize";
-import remarkGfm from "remark-gfm";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
 import type { Metadata } from "next";
+import { tocOf } from "../lib/docs";
+import { DocsChrome } from "./docs-chrome";
 
-// NOTE: chrome (header, sidebar, footer) comes from app/docs/layout.tsx.
-// This component renders only the page content.
+// NOTE: site header/footer come from app/docs/layout.tsx.
+// DocRoute renders the sidebar + content + TOC shell for one slug.
 export async function docMeta(slug: string): Promise<Metadata> {
   const raw = readFileSync(join(process.cwd(), "content", `${slug}.md`), "utf8");
   const { data } = matter(raw);
   return { title: data.title as string, description: data.description as string };
 }
 
-export default async function DocPage({ slug }: { slug: string }) {
+export async function DocRoute({ slug }: { slug: string }) {
   const raw = readFileSync(join(process.cwd(), "content", `${slug}.md`), "utf8");
   const { content } = matter(raw);
   return (
-    <MDXRemote
-      source={content}
-      options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }}
-    />
+    <DocsChrome slug={slug} toc={tocOf(content)}>
+      <MDXRemote
+        source={content}
+        options={{ mdxOptions: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug] } }}
+      />
+    </DocsChrome>
   );
 }
+
+export default DocRoute;

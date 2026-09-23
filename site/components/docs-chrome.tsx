@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PAGES, neighbors } from "../lib/docs";
+import { GROUPS, PAGES, neighbors, type TocItem } from "../lib/docs";
 
 function slugOf(pathname: string) {
   const m = pathname.match(/^\/docs\/([^/]+)\/?$/);
@@ -40,34 +40,69 @@ export function SearchBox() {
   );
 }
 
-export function DocsChrome({ children }: { children: React.ReactNode }) {
+export function DocsChrome({
+  slug,
+  toc,
+  children,
+}: {
+  slug?: string;
+  toc?: TocItem[];
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
-  const slug = slugOf(pathname || "/docs/");
-  const { prev, next } = neighbors(slug);
+  const current = slug || slugOf(pathname || "/docs/");
+  const title = PAGES.find((p) => p.slug === current)?.title || "Docs";
+  const { prev, next } = neighbors(current);
+  const [active, setActive] = useState("");
   useEffect(() => {
     document.getElementById("docs-menu-btn")?.addEventListener("click", () => {
       document.getElementById("docs-shell")?.classList.toggle("open");
     });
   }, []);
+  useEffect(() => {
+    const headings = Array.from(
+      document.querySelectorAll<HTMLElement>(".prose h2[id], .prose h3[id]"),
+    );
+    if (!headings.length) return;
+    const seen = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) setActive(e.target.id);
+        }
+      },
+      { rootMargin: "-20% 0px -70% 0px" },
+    );
+    headings.forEach((h) => seen.observe(h));
+    return () => seen.disconnect();
+  }, [current]);
   const href = (s: string) => (s === "index" ? "/docs/" : `/docs/${s}/`);
   return (
     <div className="docs" id="docs-shell">
       <aside className="docs-side" aria-label="Documentation sections">
-        <h2>Documentation</h2>
-        <ul>
-          {PAGES.map((p) => (
-            <li key={p.slug}>
-              <Link href={href(p.slug)} aria-current={p.slug === slug ? "page" : undefined}>
-                {p.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        {GROUPS.map((g) => (
+          <div key={g.label} className="docs-group">
+            <h2>{g.label}</h2>
+            <ul>
+              {g.pages.map((p) => (
+                <li key={p.slug}>
+                  <Link href={href(p.slug)} aria-current={p.slug === current ? "page" : undefined}>
+                    {p.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </aside>
-      <div>
+      <div className="docs-main">
         <button id="docs-menu-btn" className="ghostbtn menubtn" aria-label="Open sections menu">
           Sections
         </button>
+        <p className="crumbs">
+          <Link href="/docs/">Docs</Link>
+          <span aria-hidden="true"> / </span>
+          <span aria-current="page">{title}</span>
+        </p>
         <article className="prose">{children}</article>
         <nav className="pager" aria-label="Previous and next">
           {prev ? (
@@ -88,6 +123,20 @@ export function DocsChrome({ children }: { children: React.ReactNode }) {
           )}
         </nav>
       </div>
+      {toc && toc.length > 0 && (
+        <aside className="docs-toc" aria-label="On this page">
+          <h2>On this page</h2>
+          <ul>
+            {toc.map((t) => (
+              <li key={t.id} data-depth={t.depth}>
+                <a href={`#${t.id}`} aria-current={active === t.id ? "true" : undefined}>
+                  {t.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
     </div>
   );
 }
