@@ -20,7 +20,6 @@
 <p align="center">
   <a href="https://9t.kennyy.tech">Website</a> ·
   <a href="https://9t.kennyy.tech/docs">Documentation</a> ·
-  <a href="https://9t.kennyy.xyz">Live instance</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="./CONTRIBUTING.md">Contributing</a>
 </p>
@@ -84,9 +83,9 @@ For repeatable or unattended installs, see [docs/installation.md](./docs/install
 
 ## Connect a phone
 
-Install the Android client from the Devices page or download the current release:
+Install the Android client from the [v0.6.1 release](https://github.com/M3264/9t/releases/tag/v0.6.1):
 
-<https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk>
+<https://github.com/M3264/9t/releases/download/v0.6.1/9t-android-0.6.1.apk>
 
 Pair it from the 9t Devices page. The client uses an encrypted persistent connection when supported, prefers the LAN address, switches to the public route when needed, and catches up through the authenticated HTTP API after reconnecting. Enable background receiving in Android settings so the operating system does not stop the receiver when the app is closed.
 

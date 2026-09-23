@@ -145,7 +145,7 @@ Internet is not required for native LAN transfers once 9t and the app are instal
 
 For Automatic mode, the LAN and public URLs must reach **the same 9t installation and data directory**. The public URL needs an already working HTTPS reverse proxy or tunnel to that instance. The app does not create a tunnel, open router ports, or replicate data between servers.
 
-A laptop-hosted workspace and `https://9t.kennyy.xyz` are separate installations. Pairing keys and items from one do not work on the other. Entering the cloud URL as fallback for an independently hosted laptop workspace will not provide synchronization between them.
+A laptop-hosted workspace and a cloud-hosted instance are separate installations. Pairing keys and items from one do not work on the other. Entering the cloud URL as fallback for an independently hosted laptop workspace will not provide synchronization between them.
 
 ## Troubleshoot in order
 

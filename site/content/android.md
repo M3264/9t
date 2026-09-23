@@ -9,7 +9,7 @@ description: Install the 9t Android app and pair it.
 
 ## Install and pair
 
-1. Install the signed [9t-android-0.6.1.apk](https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
+1. Install the signed [9t-android-0.6.1.apk](https://github.com/M3264/9t/releases/download/v0.6.1/9t-android-0.6.1.apk) (Android 5/API 21 or newer). Android may ask you to allow installation from the app you used to download it. Upgrade over the existing installation to retain pairing and history.
 2. **Easiest — ask from the phone:** open the app, tap **Find server** (or **Scan local network** on Wi-Fi) to detect your server, name the phone, and tap **Send connection request**. The phone shows a 5-digit session number.
 3. On the web, open **Settings → Android devices & pairing** (`/devices`). The request appears as a notification card — check the 5-digit number matches the phone screen, then tap **Approve**. The phone pairs itself within seconds. Requests expire after 5 minutes.
 4. **Alternatively — paste a code:** create a pairing code on `/devices`, paste it into the app. Select whether to receive existing items; the default receives newly created items only.
@@ -36,7 +36,7 @@ Workspace prefers a reachable **HTTPS** endpoint with a trusted certificate. Nat
 - Automatic: try LAN routes first, then public HTTPS. A failed LAN route cools down for 45 seconds. Each request can fail over; partial files keep their byte offset.
 - LAN-only: never attempt the public URL. Internet-only: skip the LAN URL.
 
-> The hosted `9t.kennyy.xyz` server is cloud-hosted. It cannot become an offline home-LAN server because the phone joins Wi-Fi. Run 9t on a LAN machine for internet-free access.
+> A cloud-hosted 9t server cannot become an offline home-LAN server because the phone joins Wi-Fi. Run 9t on a LAN machine for internet-free access.
 
 ## Background receiving
 

@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Suspense } from "react";
 import matter from "gray-matter";
-import { MDXRemote } from "next-mdx-remote/rsc";
+import { serialize } from "next-mdx-remote/serialize";
 import remarkGfm from "remark-gfm";
-import { SiteHeader, SiteFooter } from "./chrome";
-import { DocsChrome } from "./docs-chrome";
+import { MDXRemote } from "next-mdx-remote/rsc";
 import type { Metadata } from "next";
 
+// NOTE: chrome (header, sidebar, footer) comes from app/docs/layout.tsx.
+// This component renders only the page content.
 export async function docMeta(slug: string): Promise<Metadata> {
   const raw = readFileSync(join(process.cwd(), "content", `${slug}.md`), "utf8");
   const { data } = matter(raw);
@@ -18,16 +18,9 @@ export default async function DocPage({ slug }: { slug: string }) {
   const raw = readFileSync(join(process.cwd(), "content", `${slug}.md`), "utf8");
   const { content } = matter(raw);
   return (
-    <>
-      <SiteHeader section="docs" />
-      <main className="main" id="main">
-        <Suspense>
-          <DocsChrome>
-            <MDXRemote source={content} options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }} />
-          </DocsChrome>
-        </Suspense>
-      </main>
-      <SiteFooter />
-    </>
+    <MDXRemote
+      source={content}
+      options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }}
+    />
   );
 }

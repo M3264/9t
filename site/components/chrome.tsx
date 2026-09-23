@@ -37,9 +37,9 @@ export function SiteHeader({ section }: { section?: "docs" }) {
         <button id="site-theme-btn" className="iconbtn" aria-label="Toggle theme" title="Toggle theme">
           ◐
         </button>
-        <a className="primarybtn small" href="https://9t.kennyy.xyz">
-          Open app
-        </a>
+        <Link className="primarybtn small" href="/docs/install/">
+          Get started
+        </Link>
       </nav>
     </header>
   );
@@ -54,9 +54,9 @@ export function SiteFooter() {
       </Link>
       <nav aria-label="Footer">
         <Link href="/docs/">Docs</Link>
-        <a href="https://9t.kennyy.xyz">App</a>
         <a href="https://github.com/M3264/9t">GitHub</a>
-        <a href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">APK</a>
+        <a href="https://github.com/M3264/9t/releases">Releases</a>
+        <a href="https://github.com/M3264/9t/releases/download/v0.6.1/9t-android-0.6.1.apk">APK</a>
       </nav>
       <p>Self-hosted workspace · GPL-3.0 · Your server, your storage, your terms.</p>
     </footer>

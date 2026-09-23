@@ -29,7 +29,7 @@ export default function Home() {
               <a className="primarybtn" href="/docs/">
                 Read the docs
               </a>
-              <a className="ghostbtn" href="https://9t.kennyy.xyz/downloads/9t-android-0.6.1.apk">
+              <a className="ghostbtn" href="https://github.com/M3264/9t/releases/download/v0.6.1/9t-android-0.6.1.apk">
                 Download Android
               </a>
               <a className="ghostbtn" href="https://github.com/M3264/9t">

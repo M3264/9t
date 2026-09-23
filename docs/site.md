@@ -2,8 +2,8 @@
 
 Static site in `site/` (**Next.js static export** — same framework and visual
 tokens as the app, so the marketing pages look like the product), served by
-nginx from `/var/www/9t-tech`. The app (`9t.kennyy.xyz` → Next on :3265) is
-untouched by everything here.
+nginx from `/var/www/9t-tech`. The private app instance (Next on :3265,
+separate vhost) is untouched by everything here.
 
 ## First-time setup (production host)
 
@@ -41,5 +41,6 @@ Preview locally with `npm --prefix site run dev`.
 - `deploy/nginx/9t-tech.conf` — the vhost (port 80 → 301, port 443 static).
 - `scripts/publish-site.mjs` — build + sync + `nginx -t` + reload.
 
-APK and app links on the site are absolute (`https://9t.kennyy.xyz/...`)
-so the static host needs no proxy rules.
+APK and release links on the site are absolute (`https://github.com/M3264/9t/releases/...`)
+so the static host needs no proxy rules. The APK is published as a GitHub
+release asset, not served from the app instance.

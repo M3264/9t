@@ -7,6 +7,7 @@ export const PAGES: DocPage[] = [
   { slug: "network", title: "Network" },
   { slug: "sharing", title: "Sharing" },
   { slug: "operations", title: "Operations" },
+  { slug: "api", title: "API" },
   { slug: "principles", title: "Principles" },
 ];
 

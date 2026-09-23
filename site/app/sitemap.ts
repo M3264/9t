@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export const dynamic = "force-static";
 
-const ROUTES = ["", "/docs/", "/docs/install/", "/docs/android/", "/docs/network/", "/docs/sharing/", "/docs/operations/", "/docs/principles/"];
+const ROUTES = ["", "/docs/", "/docs/install/", "/docs/android/", "/docs/network/", "/docs/sharing/", "/docs/operations/", "/docs/api/", "/docs/principles/"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return ROUTES.map((route) => ({
