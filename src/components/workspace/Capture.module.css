@@ -1,34 +1,7 @@
-.wrap { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-.wrap:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-ring); }
-.wrap[data-drag="true"] { outline: 2px dashed var(--blue); outline-offset: -5px; background: var(--blue-soft); }
-.grid { display: flex; flex-direction: column; }
-.editor { padding: 18px 20px 14px; min-width: 0; }
-.label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.label b { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--muted); }
-.label b svg { width: 15px; height: 15px; }
-.textarea { width: 100%; border: 0; background: transparent; resize: vertical; min-height: 84px; max-height: 260px; font-size: 17px; line-height: 1.5; padding: 14px 0; outline: none; color: var(--ink); }
-.textarea::placeholder { color: var(--muted); }
-.row, .tools { display: flex; align-items: center; gap: 8px; }
-.row { justify-content: space-between; flex-wrap: wrap; }
-.attach { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 9px; background: var(--soft); color: var(--muted); }
-.attach:hover { background: var(--blue-soft); color: var(--blue-ink); }
-.attach svg { width: 17px; height: 17px; }
-.keep { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
-.keep select { border: 0; background: transparent; min-height: 40px; font-size: 12px; color: var(--muted); }
-.keep svg { width: 14px; height: 14px; }
-.save { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--blue); color: var(--on-accent); border-radius: 10px; min-height: 42px; padding: 0 18px; font-weight: 700; font-size: 13px; }
-.save:not(:disabled):hover { background: var(--blue-ink); }
-.save svg { width: 16px; height: 16px; }
-.drop { border-top: 1px solid var(--line); background: transparent; display: flex; align-items: center; gap: 10px; padding: 12px 20px; text-align: left; color: var(--muted); }
-.drop:hover { background: var(--blue-soft); color: var(--blue-ink); }
-.emblem { display: grid; place-items: center; flex-shrink: 0; }
-.emblem svg { width: 18px; height: 18px; }
-.drop strong { font-size: 12px; font-weight: 400; }
-.drop small { font-size: 11px; opacity: .8; margin-left: 8px; }
-.drop u { text-underline-offset: 3px; }
-.error { margin: 0; padding: 12px 20px; border-top: 1px solid var(--line); color: var(--danger); font-size: 13px; }
-.empty { border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; text-align: center; }
-.empty h2 { margin: 0 0 8px; font-size: 22px; }
-.empty p, .fileIntro p { color: var(--muted); font-size: 13px; }
-.fileIntro h2 { font-size: 22px; letter-spacing: -.04em; margin: 14px 0 8px; }
-@media (max-width: 480px) { .editor { padding: 16px; } .drop { padding: 12px 16px; } .drop small { display: block; margin: 3px 0 0; } }
+.wrap{background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 2px 3px #201b3003}.wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--blue-ring)}.wrap[data-drag=true]{outline:2px dashed var(--blue);outline-offset:-5px;background:var(--blue-soft)}
+.grid{display:flex;align-items:stretch}.editor{padding:17px 20px 12px;min-width:0;flex:1}.label{display:flex;align-items:center;justify-content:space-between;gap:8px}.label b{display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:700;color:var(--ink-soft)}.label b svg{width:13px;height:13px;color:var(--blue)}
+.textarea{width:100%;border:0;background:transparent;resize:vertical;min-height:56px;max-height:240px;font-size:13px;line-height:1.5;padding:11px 0;outline:none;color:var(--ink)}.textarea::placeholder{color:var(--muted)}.row,.tools{display:flex;align-items:center;gap:8px}.row{justify-content:space-between;flex-wrap:wrap}.attach{width:28px;height:29px;display:grid;place-items:center;border-radius:5px;background:transparent;color:var(--muted)}.attach:hover{background:var(--soft);color:var(--blue-ink)}.attach svg{width:14px;height:14px}.keep{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:10px}.keep select{border:0;background:transparent;min-height:29px;font-size:10px;color:var(--muted)}.keep svg{width:12px;height:12px}
+.save{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--blue-soft);color:var(--blue-ink);border-radius:6px;min-height:29px;padding:0 12px;font-weight:700;font-size:10px}.save:not(:disabled):hover{background:var(--blue);color:var(--on-accent)}.save svg{width:13px;height:13px}.save:disabled{opacity:.6}
+.drop{width:235px;border-left:1px dashed var(--line);background:var(--sidebar);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:11px;padding:16px;text-align:center;color:var(--muted);flex-shrink:0}.drop:hover{background:var(--blue-soft);color:var(--blue-ink)}.emblem{display:grid;place-items:center;width:34px;height:34px;background:var(--paper);border:1px solid var(--line);border-radius:9px;box-shadow:0 2px 3px #00000005}.emblem svg{width:17px;height:17px;stroke-width:1.5}.drop strong{font-size:11px;font-weight:700;color:var(--ink-soft)}.drop small{display:block;font-size:9px;margin-top:7px}.drop u{text-decoration:none;color:var(--blue-ink)}.error{margin:0;padding:12px 20px;border-top:1px solid var(--line);color:var(--danger);font-size:12px}.empty{border:1px solid var(--line);border-radius:10px;padding:28px 24px;text-align:center}.empty h2{margin:0 0 8px;font-size:22px}.empty p,.fileIntro p{color:var(--muted);font-size:12px}.fileIntro h2{font-size:19px;letter-spacing:-.04em;margin:12px 0 8px}
+@media(max-width:1100px){.drop{width:185px}.editor{padding-inline:16px}}
+@media(max-width:560px){.grid{flex-direction:column}.editor{padding:16px 15px 11px}.textarea{font-size:12px;min-height:58px}.drop{width:100%;border-left:0;border-top:1px dashed var(--line);flex-direction:row;gap:10px;padding:12px 15px;text-align:left;justify-content:flex-start}.emblem{width:28px;height:28px;border-radius:7px}.emblem svg{width:15px}.drop small{display:inline;margin-left:6px;font-size:9px}.drop strong{font-size:10px}.keep select,.save,.attach{min-height:34px}.attach{width:34px}}

@@ -2,19 +2,25 @@
 @font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk-Bold.ttf") format("truetype"); font-weight: 600 900; font-style: normal; font-display: swap; }
 :root {
-  --bg: #f6f5fa;
+  --bg: #fdfcfe;
+  --sidebar: #f7f7fa;
+  --snippet-bg: #f5f2fc;
+  --snippet-ink: #6e51a2;
+  --link-bg: #f2f7f5;
+  --file-bg: #fcf6ef;
+  --file-ink: #a67a45;
   --paper: #ffffff;
   --paper-2: #efecf7;
-  --ink: #232030;
+  --ink: #282533;
   --ink-soft: #3f3a4e;
-  --muted: #6f6a7e;
-  --line: #e3deee;
+  --muted: #797585;
+  --line: #eae8ef;
   --ink-line: var(--line);
-  --soft: #efebf7;
-  --blue: #6440d6;
-  --blue-ink: #4e31b3;
-  --blue-soft: #e8e0fb;
-  --blue-ring: #6440d633;
+  --soft: #f1f0f5;
+  --blue: #7957bf;
+  --blue-ink: #6847ab;
+  --blue-soft: #eae4f6;
+  --blue-ring: #7957bf22;
   --on-accent: #ffffff;
   --neon: var(--blue-soft);
   --neon-ink: var(--blue-ink);
@@ -35,13 +41,19 @@
   color-scheme: light;
 }
 html[data-theme="dark"] {
-  --bg: #16141c;
-  --paper: #201d29;
+  --sidebar: #19171f;
+  --snippet-bg: #272132;
+  --snippet-ink: #c4abea;
+  --link-bg: #1f2b28;
+  --file-bg: #2d2722;
+  --file-ink: #d7b07d;
+  --bg: #1c1922;
+  --paper: #221f29;
   --paper-2: #272332;
   --ink: #f1ecfa;
   --ink-soft: #d8d1e6;
   --muted: #aaa1bb;
-  --line: #353044;
+  --line: #35313e;
   --soft: #292435;
   --blue: #b79df5;
   --blue-ink: #d5c4f9;
