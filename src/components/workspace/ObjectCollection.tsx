@@ -27,6 +27,7 @@ import {
   timeAgo as ago,
   timeUntil as until,
 } from "../../lib/client/workspace";
+import { canPreviewImage } from "../../lib/shared/image-preview";
 import styles from "./Cards.module.css";
 
 const iconFor = { snippet: Code2, file: FileText, link: Link2 };
@@ -104,11 +105,11 @@ export function ObjectList({
               <div className={styles.top}>
                 <span className={styles.kind} data-t={o.type}>
                   <Icon />
-                  {o.type === "snippet"
+                  <span>{o.type === "snippet"
                     ? o.language || "Snippet"
                     : o.type === "file"
                       ? "File"
-                      : "Link"}
+                      : "Link"}</span>
                 </span>
                 <button
                   className={styles.pin}
@@ -141,6 +142,7 @@ export function ObjectList({
                   </pre>
                 ) : o.type === "file" ? (
                   <div className={styles.fileInner}>
+                    {layout === "grid" && canPreviewImage(o) && <img className={styles.imagePreview} src={`/api/files/${o.id}?preview=1`} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
                     <div className={styles.sheet}>
                       <FileText />
                       <b>{extension}</b>
@@ -169,6 +171,7 @@ export function ObjectList({
                       : `${o.content?.split("\n").length || 0} lines · ${o.language || "Plain text"}`}
                 </p>
               </div>
+              <span className={styles.rowType} data-t={o.type}>{o.type === "snippet" ? "Snippet" : o.type === "link" ? "Link" : "File"}</span>
               <div className={styles.foot}>
                 <span className={styles.age}>
                   {o.expiresAt
@@ -176,6 +179,7 @@ export function ObjectList({
                     : ago(o.updatedAt) === "now" ? "Just now" : `${ago(o.updatedAt)} ago`}
                 </span>
                 <div className={styles.actionsRow}>
+                  {!trash && <button className={`${styles.act} ${styles.listPin}`} aria-label={`${o.pinned ? "Unpin" : "Pin"} ${o.name}`} aria-pressed={o.pinned} onClick={() => patch(o, { pinned: !o.pinned })}><Pin /></button>}
                   {trash ? (
                     <>
                       <button

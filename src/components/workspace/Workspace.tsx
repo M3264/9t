@@ -16,6 +16,8 @@ import {
   ShareList as ShareLog,
 } from "./ObjectCollection";
 import QuickAdd from "./UniversalInbox";
+import { PinnedItems } from "./PinnedItems";
+import Link from "next/link";
 import {
   CommandsDialog as Commands,
   CreateDialog as Create,
@@ -41,6 +43,12 @@ import {
   Share2,
   Sun,
   Trash2,
+  ArrowUpRight,
+  ChevronRight,
+  HardDrive,
+  Settings2,
+  ShieldCheck,
+  Smartphone,
 } from "lucide-react";
 import type {
   Theme,
@@ -49,7 +57,7 @@ import type {
   WorkspaceShare as Share,
   WorkspaceView as View,
 } from "../../types/workspace";
-import { ApiError, workspaceApi as api } from "../../lib/client/workspace";
+import { ApiError, formatBytes, workspaceApi as api } from "../../lib/client/workspace";
 import styles from "./Workspace.module.css";
 
 type Phase = "loading" | "setup" | "login" | "desk";
@@ -88,6 +96,7 @@ function WorkspaceInner() {
   const [config, setConfig] = useState<Config | null>(null);
   const [username, setUsername] = useState("");
   const [objects, setObjects] = useState<Obj[]>([]);
+  const [library, setLibrary] = useState<Obj[]>([]);
   const [shares, setShares] = useState<Share[]>([]);
   const [view, setView] = useState<View>("all");
   const [query, setQuery] = useState("");
@@ -153,12 +162,14 @@ function WorkspaceInner() {
       setLoadingObjects(true);
       setLoadError("");
       try {
-        const [items, links] = await Promise.all([
-          api(`/api/objects${currentView === "trash" ? "?trash=true" : ""}`),
+        const [items, links, trashItems] = await Promise.all([
+          api("/api/objects"),
           api("/api/shares"),
+          currentView === "trash" ? api("/api/objects?trash=true") : Promise.resolve(null),
         ]);
         if (currentRequest !== requestId.current) return;
-        setObjects(items.objects ?? []);
+        setObjects((trashItems ?? items).objects ?? []);
+        setLibrary(items.objects ?? []);
         setShares(links.shares ?? []);
       } catch (e) {
         if (currentRequest !== requestId.current) return;
@@ -302,7 +313,7 @@ function WorkspaceInner() {
   }, [objects, view, query, pinnedOnly, sort, config]);
 
   const counts = useMemo(() => {
-    const active = objects.filter(
+    const active = library.filter(
       (o) =>
         !o.deletedAt &&
         (!config ||
@@ -314,7 +325,7 @@ function WorkspaceInner() {
       file: active.filter((o) => o.type === "file").length,
       link: active.filter((o) => o.type === "link").length,
     };
-  }, [objects, config]);
+  }, [library, config]);
 
   const patch = async (o: Obj, body: Record<string, unknown>) => {
     try {
@@ -335,6 +346,7 @@ function WorkspaceInner() {
       ),
     );
     setSelected((s) => (s?.id === o.id ? { ...s, ...body } : s));
+    setLibrary((items) => items.map((x) => x.id === o.id ? { ...x, ...body } : x));
     return true;
   };
 
@@ -348,6 +360,7 @@ function WorkspaceInner() {
       return;
     }
     setObjects((items) => items.filter((x) => x.id !== o.id));
+    setLibrary((items) => items.filter((x) => x.id !== o.id));
     setSelected(null);
     flash(permanent ? "Item deleted" : "Moved to Trash");
   };
@@ -375,7 +388,7 @@ function WorkspaceInner() {
     count?: number;
     show: boolean;
   }> = [
-    { id: "all", label: "All", count: counts.all, show: true },
+    { id: "all", label: "All items", count: counts.all, show: true },
     {
       id: "snippet",
       label: "Snippets",
@@ -407,12 +420,12 @@ function WorkspaceInner() {
   const title = pinnedOnly
     ? "Pinned"
     : view === "all"
-      ? "My workspace"
+      ? "Workspace"
       : view === "shares"
         ? "Shared links"
         : view === "trash"
           ? "Trash"
-          : tabs.find((t) => t.id === view)?.label || "My workspace";
+          : tabs.find((t) => t.id === view)?.label || "Workspace";
   const activeModules =
     config &&
     (config.modules.files || config.modules.snippets || config.modules.links);
@@ -465,7 +478,7 @@ function WorkspaceInner() {
           create={() => setModal(activeModules ? "create" : "settings")}
           restore={async (object) => {
             if (await patch(object, { restore: true })) {
-              setObjects((items) => items.filter((o) => o.id !== object.id));
+              await loadObjects("trash");
               flash("Item restored");
             }
           }}
@@ -474,224 +487,80 @@ function WorkspaceInner() {
     </>
   );
 
+  const home = view === "all" && !pinnedOnly && !query;
+  const pinned = library.filter((o) => o.pinned && config?.modules[`${o.type}s` as "files" | "snippets" | "links"]);
+  const fileBytes = library.reduce((sum, o) => sum + (o.sizeBytes || 0), 0);
+
   return (
     <div className={styles.app}>
-      <a className="skip-link" href="#collection">
-        Skip to items
-      </a>
+      <a className="skip-link" href="#collection">Skip to items</a>
 
-      <header className={styles.topbar}>
+      <aside className={styles.sidebar}>
         <button className={styles.logo} onClick={() => navigate("all")} aria-label="9t home">
-          <span className={styles.logoMark}>
-            <img src="/9t-mark.svg" alt="" aria-hidden="true" />
-          </span>
-          <span className={styles.logoText}>
-            <b>9t</b>
-            <span>Your workspace</span>
-          </span>
+          <img src="/9t-mark.svg" alt="9t" />
+          <span>your little cloud<span className={styles.brandDot}>.</span></span>
         </button>
-
-        <label className={styles.search}>
-          <Search />
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find something…"
-            aria-label="Search items"
-          />
-          {query ? (
-            <button className={styles.searchClear} onClick={() => setQuery("")} aria-label="Clear search">
-              <X />
-            </button>
-          ) : (
-            <kbd>/</kbd>
-          )}
-        </label>
-
-        <div className={styles.actions}>
-          <button
-            className={styles.iconBtn}
-            aria-label="Commands (Ctrl K)"
-            title="Commands · Ctrl K"
-            onClick={() => setModal("commands")}
-          >
-            <Command />
-          </button>
-          <button
-            className={styles.iconBtn}
-            aria-label="Toggle theme"
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-          >
-            {resolvedTheme === "dark" ? <Sun /> : <Moon />}
-          </button>
-          <button
-            className={styles.avatar}
-            aria-label="Workspace settings"
-            onClick={() => setModal("settings")}
-          >
-            {(username || "P")[0].toUpperCase()}
-          </button>
-        </div>
-      </header>
-
-
-      <main className={styles.main}>
-        <div className={styles.hero}>
-          <div>
-            <h1>{pinnedOnly ? "Your essentials." : view === "all" && !query ? "Everything, right here." : query ? "Find your things." : `${title}.`}</h1>
-            <p>
-              {view === "all" && !pinnedOnly && !query
-                ? "A little space for your files, thoughts and links."
-                : view === "trash"
-                  ? `Deleted items stay here for ${config?.trashRetentionDays || 7} days.`
-                  : view === "shares"
-                    ? "Manage the links you’ve shared."
-                    : pinnedOnly
-                      ? "The things you reach for most."
-                      : view === "board"
-                        ? "Drag it around. Make it yours."
-                        : query
-                          ? `Results for “${query}”.`
-                          : "Less hunting. More finding."}
-            </p>
-          </div>
-          <button
-            className={styles.addBtn}
-            onClick={() => setModal(activeModules ? "create" : "settings")}
-          >
-            <Plus />
-            {activeModules ? "Add something" : "Enable modules"}
-          </button>
-        </div>
-
-        {view === "all" && !pinnedOnly && !query && config && (
-          <QuickAdd
-            config={config}
-            saved={async () => {
-              await loadObjects(view);
-            }}
-            notify={flash}
-          />
-        )}
-
-      <nav className={styles.tabsBar} aria-label="Workspace views">
-        {tabs
-          .filter((t) => t.show)
-          .map((t) => {
+        <div className={styles.workspaceLabel}><span className={styles.workspaceInitial}>{(username || "P")[0].toUpperCase()}</span><div>{username ? `${username}’s workspace` : "Personal workspace"}<small>Personal · Just you</small></div><ChevronRight /></div>
+        <span className={styles.navLabel}>WORKSPACE</span>
+        <nav className={styles.navigation} aria-label="Workspace views">
+          {tabs.filter((t) => t.show).map((t) => {
             const Icon = navIcons[t.id as keyof typeof navIcons];
-            const active = view === t.id && !pinnedOnly;
-            return (
-              <button
-                key={t.id}
-                className={`${styles.tab} ${active ? styles.tabActive : ""}`}
-                aria-pressed={active}
-                onClick={() => navigate(t.id)}
-              >
-                <Icon />
-                {t.label}
-              </button>
-            );
+            return <button key={t.id} className={styles.navItem} aria-pressed={view === t.id && !pinnedOnly} onClick={() => navigate(t.id)}><Icon /><span>{t.label}</span>{typeof t.count === "number" && <small>{t.count}</small>}</button>;
           })}
-        <button
-          className={`${styles.tab} ${styles.secondaryTab} ${pinnedOnly ? styles.tabActive : ""}`}
-          aria-pressed={pinnedOnly}
-          onClick={() => navigate("all", true)}
-        >
-          <Pin />
-          Pinned
-        </button>
-        <button
-          className={`${styles.tab} ${styles.secondaryTab} ${view === "shares" ? styles.tabActive : ""}`}
-          aria-pressed={view === "shares"}
-          onClick={() => navigate("shares")}
-        >
-          <Share2 />
-          Shared
-        </button>
-        <button
-          className={`${styles.tab} ${styles.secondaryTab} ${view === "trash" ? styles.tabActive : ""}`}
-          aria-pressed={view === "trash"}
-          onClick={() => navigate("trash")}
-        >
-          <Trash2 />
-          Trash
-        </button>
-      </nav>
+          <div className={styles.navDivider} />
+          <button className={styles.navItem} aria-pressed={pinnedOnly} onClick={() => navigate("all", true)}><Pin /><span>Pinned</span>{pinned.length > 0 && <small>{pinned.length}</small>}</button>
+          <button className={styles.navItem} aria-pressed={view === "shares"} onClick={() => navigate("shares")}><Share2 /><span>Shared links</span>{shares.length > 0 && <small>{shares.length}</small>}</button>
+          <button className={styles.navItem} aria-pressed={view === "trash"} onClick={() => navigate("trash")}><Trash2 /><span>Trash</span></button>
+        </nav>
+        <div className={styles.sidebarBottom}>
+          <Link className={styles.navItem} href="/devices"><Smartphone /><span>Your devices</span><ArrowUpRight /></Link>
+          <button className={styles.navItem} onClick={() => setModal("settings")}><Settings2 /><span>Settings</span></button>
+          <div className={styles.serverCard}><span><HardDrive /> Your space. Your server.</span><p>{formatBytes(fileBytes)} in files <span>·</span> {counts.all} items</p><small><ShieldCheck /> Privately stored</small></div>
+          <button className={styles.profile} onClick={() => setModal("settings")} aria-label="Workspace settings"><span className={styles.avatar}>{(username || "P")[0].toUpperCase()}</span><span>{username || "Personal workspace"}<small>Make yourself at home</small></span><Settings2 /></button>
+        </div>
+      </aside>
 
-        <section aria-label="Your items">
-          <div className={styles.sectionHead}>
-            <h2 id="collection" tabIndex={-1}>
-              {query ? "Matches" : view === "all" && !pinnedOnly ? "Your items" : title}
-              <span className={styles.count}>{view === "shares" ? shares.length : visible.length}</span>
-            </h2>
-            <div className={styles.controls}>
-              {view !== "shares" && view !== "board" && (
-                <>
-                  <label className={styles.sort}>
-                    <ArrowDownUp />
-                    <select
-                      aria-label="Sort items"
-                      value={sort}
-                      onChange={(e) => setSort(e.target.value as "recent" | "name")}
-                    >
-                      <option value="recent">Recent</option>
-                      <option value="name">A–Z</option>
-                    </select>
-                  </label>
-                  <div className={styles.layoutSwitch} role="group" aria-label="Layout">
-                    <button
-                      aria-label="Grid view"
-                      aria-pressed={layout === "grid"}
-                      onClick={() => changeLayout("grid")}
-                    >
-                      <LayoutGrid />
-                    </button>
-                    <button
-                      aria-label="List view"
-                      aria-pressed={layout === "list"}
-                      onClick={() => changeLayout("list")}
-                    >
-                      <List />
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+      <div className={styles.canvas}>
+        <header className={styles.topbar}>
+          <button className={styles.mobileLogo} onClick={() => navigate("all")} aria-label="9t home"><img src="/9t-mark.svg" alt="9t" /></button>
+          <div className={styles.breadcrumb}><LayoutGrid /><span>Personal</span><ChevronRight /><b>{title}</b></div>
+          <label className={styles.search}>
+            <Search /><input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your workspace…" aria-label="Search items" />
+            {query ? <button className={styles.searchClear} onClick={() => setQuery("")} aria-label="Clear search"><X /></button> : <kbd>/</kbd>}
+          </label>
+          <div className={styles.actions}>
+            <button className={styles.iconBtn} aria-label="Commands (Ctrl K)" title="Commands · Ctrl K" onClick={() => setModal("commands")}><Command /></button>
+            <button className={styles.iconBtn} aria-label="Toggle theme" title="Toggle theme" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>{resolvedTheme === "dark" ? <Sun /> : <Moon />}</button>
           </div>
-          {collection}
-        </section>
+        </header>
 
-        <footer className={styles.footer}>
-          <span>Your space. Your server.</span>
-          <span>9t</span>
-        </footer>
-      </main>
+        <main className={styles.main}>
+          <div className={styles.hero}>
+            <div><div className={styles.eyebrow}>{home ? "A PLACE FOR YOUR EVERYDAY" : "YOUR PERSONAL SPACE"}</div><h1>{query ? "Find your things" : title}<span className={styles.titleDot}>.</span></h1><p>{query ? `Results for “${query}”` : home ? "A little less scattered. A little more together." : pinnedOnly ? "The things you reach for, always within reach." : view === "trash" ? `Deleted items stay here for ${config?.trashRetentionDays ?? 7} days.` : view === "shares" ? "A handoff to someone else. Still in your control." : view === "board" ? "A space to arrange your thoughts. Make it yours." : "Everything you saved, right where you left it."}</p></div>
+            <button className={styles.addBtn} onClick={() => setModal(activeModules ? "create" : "settings")}><Plus />{activeModules ? "New item" : "Enable modules"}<kbd>N</kbd></button>
+          </div>
+
+          {home && config && <QuickAdd config={config} saved={async () => { await loadObjects(view); }} notify={flash} />}
+
+          {home && pinned.length > 0 && !loadingObjects && <section className={styles.pinnedSection} aria-label="Pinned items"><div className={styles.sectionHead}><h2><Pin />Within reach<span className={styles.count}>{pinned.length}</span></h2><button className={styles.textButton} onClick={() => navigate("all", true)}>View pinned <ArrowUpRight /></button></div><PinnedItems objects={pinned} open={setSelected} /></section>}
+
+          <nav className={styles.mobileTabs} aria-label="Filter items">{tabs.filter((t) => t.show).map((t) => <button key={t.id} aria-pressed={view === t.id && !pinnedOnly} onClick={() => navigate(t.id)}>{t.label}{typeof t.count === "number" && <small>{t.count}</small>}</button>)}<button aria-pressed={view === "trash"} onClick={() => navigate("trash")}><Trash2 />Trash</button></nav>
+
+          <section className={styles.collectionSection} aria-label="Your items">
+            <div className={styles.sectionHead}><h2 id="collection" tabIndex={-1}>{query ? "Search results" : home ? "All items" : title}<span className={styles.count}>{view === "shares" ? shares.length : visible.length}</span></h2><div className={styles.controls}>{view !== "shares" && view !== "board" && <><label className={styles.sort}><ArrowDownUp /><select aria-label="Sort items" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")}><option value="recent">Last updated</option><option value="name">Name A–Z</option></select></label><div className={styles.layoutSwitch} role="group" aria-label="Layout"><button aria-label="List view" aria-pressed={layout === "list"} onClick={() => changeLayout("list")}><List /></button><button aria-label="Grid view" aria-pressed={layout === "grid"} onClick={() => changeLayout("grid")}><LayoutGrid /></button></div></>}</div></div>
+            {collection}
+          </section>
+
+          <footer className={styles.footer}><span><ShieldCheck />A small corner of the internet, just for you.</span><button onClick={() => setModal("commands")}>Keyboard shortcuts <kbd>⌘ K</kbd></button></footer>
+        </main>
+      </div>
 
       <nav className={styles.dock} aria-label="Mobile navigation">
-        <button data-active={view === "all" && !pinnedOnly} onClick={() => navigate("all")}>
-          <LayoutGrid />
-          <span>Home</span>
-        </button>
-        <button data-active={pinnedOnly} onClick={() => navigate("all", true)}>
-          <Pin />
-          <span>Pinned</span>
-        </button>
-        <button
-          className={styles.dockAdd}
-          aria-label="Add something"
-          onClick={() => setModal(activeModules ? "create" : "settings")}
-        >
-          <Plus />
-        </button>
-        <button data-active={view === "shares"} onClick={() => navigate("shares")}>
-          <Share2 />
-          <span>Shared</span>
-        </button>
-        <button data-active={view === "trash"} onClick={() => navigate("trash")}>
-          <Trash2 />
-          <span>Trash</span>
-        </button>
+        <button data-active={view === "all" && !pinnedOnly} onClick={() => navigate("all")}><LayoutGrid /><span>Workspace</span></button>
+        <button data-active={pinnedOnly} onClick={() => navigate("all", true)}><Pin /><span>Pinned</span></button>
+        <button className={styles.dockAdd} aria-label="New item" onClick={() => setModal(activeModules ? "create" : "settings")}><Plus /></button>
+        <button data-active={view === "shares"} onClick={() => navigate("shares")}><Share2 /><span>Shared</span></button>
+        <button onClick={() => setModal("settings")}><Settings2 /><span>Settings</span></button>
       </nav>
 
       {selected && (
