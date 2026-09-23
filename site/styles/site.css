@@ -260,15 +260,45 @@ html[data-theme="dark"] .doc-callout.warn .doc-callout-icon { background: #4a2b3
 .menubtn { display: none; }
 
 /* pagefind */
-.searchbox { margin-left: 4px; }
-.searchbox input {
-  background: var(--paper); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 10px;
-  font-size: 13px; height: 40px; padding: 0 12px; width: 180px;
+.searchbox { margin-left: 4px; display: inline-flex; }
+/* pagefind — themed through its own variables + targeted overrides */
+.pagefind-ui {
+  --pagefind-ui-scale: 0.9;
+  --pagefind-ui-primary: var(--blue-ink);
+  --pagefind-ui-text: var(--ink);
+  --pagefind-ui-background: var(--paper);
+  --pagefind-ui-border: var(--line);
+  --pagefind-ui-tag: var(--soft);
+  --pagefind-ui-border-width: 1px;
+  --pagefind-ui-border-radius: 10px;
+  --pagefind-ui-font: inherit;
 }
+.pagefind-ui__search-input {
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px !important;
+  font-family: inherit !important;
+  height: 38px !important;
+  padding: 0 12px !important;
+  width: 190px !important;
+  font-size: 13px !important;
+}
+.pagefind-ui__search-input::placeholder { color: var(--muted) !important; opacity: 1 !important; }
+.pagefind-ui__search-clear { background: transparent !important; color: var(--muted) !important; }
 .pagefind-ui__results-area { z-index: 80; }
+.pagefind-ui__results { background: var(--paper) !important; border-color: var(--line) !important; }
 .pagefind-ui__result { background: var(--paper) !important; border-color: var(--line) !important; }
 .pagefind-ui__result-title, .pagefind-ui__result-link { color: var(--ink) !important; }
+.pagefind-ui__result-link:hover { color: var(--blue-ink) !important; }
+.pagefind-ui__result-excerpt { color: var(--muted) !important; }
+.pagefind-ui__result-excerpt mark { background: var(--blue-soft) !important; color: var(--blue-ink) !important; }
+.pagefind-ui__message { color: var(--muted) !important; }
+.pagefind-ui__button {
+  background: var(--paper) !important; color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+}
+.pagefind-ui__button:hover { border-color: var(--blue) !important; color: var(--blue-ink) !important; }
 
 @media (max-width: 1100px) {
   .docs { grid-template-columns: 230px minmax(0, 1fr); }
