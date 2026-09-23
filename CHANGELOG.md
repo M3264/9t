@@ -13,6 +13,14 @@ Git history.
   checkout; systemd unit quoting fixed (`WorkingDirectory` unquoted).
 - `./9t update` auto-stashes regenerable build churn instead of refusing.
 
+## 0.6.3
+
+- Android Inbox deletions and Clear local history stay hidden after sync. Only
+  item identity is retained locally to prevent the server copy returning.
+- Files sent from the phone sync into the workspace without automatically
+  downloading a second copy. A manual Download a copy action remains available.
+- Guard the live notification's generated-replies setting on older Android.
+
 ## 0.6.2
 
 - Android Inbox refresh: compact header, clearer saved-item list, readable file

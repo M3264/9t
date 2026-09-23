@@ -81,7 +81,8 @@ final class SyncEngine {
           try {
             created = java.time.Instant.parse(o.getString("createdAt")).toEpochMilli();
           } catch (Exception ignored) {}
-          if (isNew && created > notifiedUpTo) {
+          if (isNew && created > notifiedUpTo
+              && !db.find(o.getString("id")).optBoolean("sentFromPhone")) {
             fresh++;
             freshName = o.optString("name", "New item");
             if (created > freshMax) freshMax = created;
@@ -200,7 +201,7 @@ final class SyncEngine {
             () -> {
               try (LocalStore db = new LocalStore(c)) {
                 JSONObject item = db.find(id);
-                if (item == null) return;
+                if (item == null || "hidden".equals(item.optString("status"))) return;
                 if (item.optString("content").length() > 100000) {
                   p.p
                       .edit()
@@ -255,6 +256,7 @@ final class SyncEngine {
                 .put("mimeType", file.optString("mime", "application/octet-stream"))
                 .put("sizeBytes", size));
     if (init.optBoolean("done", false)) {
+      db.fileUploaded(init.getString("id"), file, size);
       db.fileSent(id);
       return;
     }
@@ -282,13 +284,14 @@ final class SyncEngine {
         db.fileProgress(id, offset);
       }
     }
-    net.call(
+    JSONObject completed = net.call(
         new JSONObject()
             .put("action", "sendFileDone")
             .put("transferId", id)
             .put("name", file.getString("name"))
             .put("mimeType", file.optString("mime", "application/octet-stream"))
             .put("sizeBytes", size));
+    db.fileUploaded(completed.getString("id"), file, size);
     db.fileSent(id);
     new Prefs(c).p.edit().putLong("lastUploadAt", System.currentTimeMillis()).apply();
   }

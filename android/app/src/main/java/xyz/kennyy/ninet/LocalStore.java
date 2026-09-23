@@ -73,18 +73,34 @@ final class LocalStore extends SQLiteOpenHelper {
   boolean discover(JSONObject o, long since) throws Exception {
     String id = o.getString("id"), rev = o.getString("updatedAt");
     JSONObject old = find(id);
-    if (old != null && rev.equals(old.optString("revision"))) return false;
+    if (old != null && "hidden".equals(old.optString("status"))
+        && old.optString("createdAt").isEmpty()) {
+      // An upload can be hidden before its first metadata sync. Bind the marker
+      // to the server creation time so a later reuse of this ID is still visible.
+      ContentValues marker = new ContentValues();
+      marker.put("metadata", new JSONObject().put("id", id)
+          .put("createdAt", o.getString("createdAt")).toString());
+      marker.put("revision", rev);
+      getWritableDatabase().update("inbox", marker, "server=? AND id=?", idArgs(id));
+      return false;
+    }
+    boolean sameObject = old != null && o.getString("createdAt").equals(old.optString("createdAt"));
+    if (sameObject && "hidden".equals(old.optString("status"))) return false;
+    if (sameObject && rev.equals(old.optString("revision"))) return false;
+    boolean sentFromPhone = old != null && old.optBoolean("sentFromPhone")
+        && (sameObject || old.optString("createdAt").isEmpty());
+    if (sentFromPhone) o.put("sentFromPhone", true);
     ContentValues v = new ContentValues();
     v.put("server", srv);
     v.put("id", id);
     v.put("revision", rev);
     v.put("metadata", o.toString());
     boolean before = java.time.Instant.parse(o.getString("createdAt")).toEpochMilli() < since;
-    v.put("status", before ? "available" : "pending");
+    v.put("status", sentFromPhone || before ? "available" : "pending");
+    if (sentFromPhone && old.optString("status").equals("pending"))
+      v.put("status", "pending");
     // Already downloaded files need no new copy for rename/pin-only edits.
-    if (old != null
-        && o.getString("type").equals("file")
-        && !old.optString("status").equals("available")) {
+    if (sameObject && o.getString("type").equals("file")) {
       v.put("status", old.optString("status"));
       if (old.has("uri")) v.put("uri", old.optString("uri"));
     }
@@ -100,7 +116,8 @@ final class LocalStore extends SQLiteOpenHelper {
   }
 
   List<JSONObject> items(String where) throws Exception {
-    String selection = where == null ? "server=?" : "(server=?) AND (" + where + ")";
+    String selection = where == null ? "server=? AND status!='hidden'"
+        : "(server=? AND status!='hidden') AND (" + where + ")";
     List<JSONObject> list = new ArrayList<>();
     try (Cursor c =
         getReadableDatabase().query("inbox", null, selection, new String[] {srv}, null, null, "pinned DESC, revision DESC")) {
@@ -131,12 +148,22 @@ final class LocalStore extends SQLiteOpenHelper {
     getWritableDatabase().update("inbox", v, "server=? AND id=?", idArgs(id));
   }
 
-  void remove(String id) {
-    getWritableDatabase().delete("inbox", "server=? AND id=?", idArgs(id));
+  void remove(String id) throws Exception {
+    JSONObject old = find(id);
+    if (old == null) return;
+    // Keep only the identity needed to prevent the server copy returning on sync.
+    JSONObject marker = new JSONObject().put("id", id).put("createdAt", old.optString("createdAt"));
+    ContentValues v = new ContentValues();
+    v.put("metadata", marker.toString());
+    v.put("status", "hidden");
+    v.putNull("uri");
+    v.putNull("content");
+    v.putNull("error");
+    getWritableDatabase().update("inbox", v, "server=? AND id=?", idArgs(id));
   }
 
-  void clearInbox() {
-    getWritableDatabase().delete("inbox", "server=?", new String[] {srv});
+  void clearInbox() throws Exception {
+    for (JSONObject item : items(null)) remove(item.getString("id"));
   }
 
   String enqueue(String content) {
@@ -225,6 +252,29 @@ final class LocalStore extends SQLiteOpenHelper {
 
   void fileSent(String id) {
     getWritableDatabase().delete("outfiles", "server=? AND id=?", idArgs(id));
+  }
+
+  void fileUploaded(String objectId, JSONObject file, long size) throws Exception {
+    JSONObject old = find(objectId);
+    if (old != null && "hidden".equals(old.optString("status"))) return;
+    JSONObject metadata = old != null ? old : new JSONObject()
+        .put("id", objectId)
+        .put("type", "file")
+        .put("name", file.getString("name"))
+        .put("mimeType", file.optString("mime", "application/octet-stream"))
+        .put("sizeBytes", size)
+        .put("createdAt", "")
+        .put("updatedAt", "");
+    metadata.put("sentFromPhone", true);
+    ContentValues v = new ContentValues();
+    v.put("server", srv);
+    v.put("id", objectId);
+    v.put("revision", old == null ? "" : old.optString("revision"));
+    v.put("metadata", metadata.toString());
+    v.put("status", old != null && "saved".equals(old.optString("status")) ? "saved" : "available");
+    if (old != null && old.has("uri")) v.put("uri", old.optString("uri"));
+    if (old != null) v.put("pinned", old.optBoolean("pinned") ? 1 : 0);
+    getWritableDatabase().insertWithOnConflict("inbox", null, v, SQLiteDatabase.CONFLICT_REPLACE);
   }
 
   void clear() {

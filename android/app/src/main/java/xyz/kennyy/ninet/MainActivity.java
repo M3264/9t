@@ -1241,10 +1241,13 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
         cp.setMargins(0, dp(7), 0, dp(7));
         inboxItems.addView(card, cp);
+        boolean sentFile = item.optBoolean("sentFromPhone")
+            && item.optString("status").equals("available")
+            && item.optString("type").equals("file");
         TextView kind = text(
                 item.getString("type").toUpperCase(Locale.ROOT)
                     + " · "
-                    + item.getString("status").toUpperCase(),
+                    + (sentFile ? "ON SERVER" : item.getString("status").toUpperCase()),
                 11,
                 accentInk);
         kind.setTypeface(boldFont);
@@ -1319,7 +1322,7 @@ public final class MainActivity extends Activity {
         String label =
             saved
                 ? (item.optString("type").equals("file") ? "Open file" : "View & copy")
-                : "Receive this item";
+                : sentFile ? "Download a copy" : "Receive this item";
         Button itemAction = secondary(
                 label,
                 () -> {
@@ -1362,6 +1365,8 @@ public final class MainActivity extends Activity {
                   .setPositiveButton("Delete", (d, w) -> {
                     try (LocalStore writable = new LocalStore(this)) {
                       writable.remove(item.optString("id"));
+                    } catch (Exception e) {
+                      toast("Could not delete this item");
                     }
                     renderInboxItems();
                   })
@@ -1405,6 +1410,8 @@ public final class MainActivity extends Activity {
                         .setPositiveButton("Clear", (d, w) -> {
                           try (LocalStore writable = new LocalStore(this)) {
                             writable.clearInbox();
+                          } catch (Exception e) {
+                            toast("Could not clear local history");
                           }
                           render();
                         })
