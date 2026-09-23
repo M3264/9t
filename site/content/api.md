@@ -8,6 +8,16 @@ order: 6
 
 One API serves the dashboard, the CLI, and the Android client — no parallel logic paths. Authenticated routes take a session cookie (browser) or a CLI bearer token (`Authorization: Bearer …`). There is one owner; there are no user-scoped routes.
 
+<Diagram
+  rows={[
+    { from: "Dashboard", label: "session cookie", to: "9t API" },
+    { from: "CLI", label: "bearer token", to: "9t API" },
+    { from: "Android", label: "AES-256-GCM", to: "9t API" },
+    { from: "9t API", label: "atomic writes", to: "JSON / Postgres" },
+  ]}
+  caption="Three clients, one API, one store. Routes never know which backend is active."
+/>
+
 ## Objects
 
 ```text

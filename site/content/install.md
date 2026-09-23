@@ -19,6 +19,12 @@ Choose **LAN** if your phone will connect through Wi-Fi or a hotspot. Keep the p
 
 The initial download/build needs internet access. After installation, a running LAN server can exchange data with the Android client without internet access.
 
+<Callout type="warn">
+
+**Windows/WSL:** complete the [network guide's forwarding steps](/docs/network/) *before* using the address on your phone. An address that works on the Windows laptop may be private to WSL.
+
+</Callout>
+
 ## Docker (alternative)
 
 Requires Docker Engine with Compose v2:

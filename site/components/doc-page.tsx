@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import type { Metadata } from "next";
 import { tocOf } from "../lib/docs";
+import { mdxComponents } from "./mdx";
 import { DocsChrome } from "./docs-chrome";
 
 // NOTE: site header/footer come from app/docs/layout.tsx.
@@ -23,6 +24,7 @@ export async function DocRoute({ slug }: { slug: string }) {
     <DocsChrome slug={slug} toc={tocOf(content)}>
       <MDXRemote
         source={content}
+        components={mdxComponents}
         options={{ mdxOptions: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug] } }}
       />
     </DocsChrome>

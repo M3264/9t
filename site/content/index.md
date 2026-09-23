@@ -6,81 +6,110 @@ order: 0
 
 # Documentation
 
-Start with install, then pair your phone. Pick a card.
+9t is a quiet, self-hosted workspace for moving the things you need between your devices — files, snippets, links, handoffs, phone sync. One server, one owner, your infrastructure.
 
-<div className="cards two">
+<CardGroup cols={2}>
 
-<div className="card">
+<Card title="Install 9t" href="/docs/install/">
 
-<span className="k">START</span>
+Three commands, then a wizard. Local, LAN, or public behind your proxy.
 
-### [Install](/docs/install/)
+</Card>
 
-The 3-line setup, local / LAN / public modes, Docker, updates, recovery.
+<Card title="Pair your phone" href="/docs/android/">
 
-</div>
+APK install, 5-digit approval, background receiving that survives Doze.
 
-<div className="card">
+</Card>
 
-<span className="k">GUIDES</span>
+<Card title="Fix the network" href="/docs/network/">
 
-### [Android](/docs/android/)
+The right address for your phone, WSL forwarding, hotspots.
 
-APK install, 5-digit pairing, screens, background receiving that survives Doze.
+</Card>
 
-</div>
-
-<div className="card">
-
-<span className="k">GUIDES</span>
-
-### [Network](/docs/network/)
-
-The right address for your phone, WSL forwarding, hotspots, fix-it-in-order table.
-
-</div>
-
-<div className="card">
-
-<span className="k">GUIDES</span>
-
-### [Sharing](/docs/sharing/)
+<Card title="Share with control" href="/docs/sharing/">
 
 Expiring links, passwords, access counts, revocation, QR handoff.
 
-</div>
+</Card>
 
-<div className="card">
+</CardGroup>
 
-<span className="k">REFERENCE</span>
+## How it fits together
 
-### [Operations](/docs/operations/)
+<Diagram
+  rows={[
+    { from: "You", label: "paste / drop / push", to: "9t inbox" },
+    { from: "9t inbox", label: "classify", to: "snippet · file · link" },
+    { from: "Your server", label: "LAN-first · encrypted", to: "Android app" },
+    { from: "Any item", label: "expiry + password", to: "public link" },
+  ]}
+  caption="Everything flows through your instance. Nothing touches a third party."
+/>
+
+## What 9t promises
+
+<AccordionGroup>
+
+<Accordion title="One inbox, not three apps">
+
+Paste text, links, screenshots, and files into the same capture flow. The inbox classifies it — you never pick a type first.
+
+</Accordion>
+
+<Accordion title="Your server, your storage">
+
+Data stays in storage you choose, with opaque file keys and atomic writes. No third-party workspace in the middle.
+
+</Accordion>
+
+<Accordion title="LAN-first handoff">
+
+The Android client prefers the local network, falls back to the internet route, and reconnects in the background.
+
+</Accordion>
+
+<Accordion title="Share with control">
+
+Expiring, optional-password public handoffs with access counts and revocation. Nothing shared stays shared by accident.
+
+</Accordion>
+
+<Accordion title="Private by default">
+
+Auth is mandatory in every mode. No public-without-auth state can exist — setup refuses to create one.
+
+</Accordion>
+
+</AccordionGroup>
+
+## Go deeper
+
+<CardGroup cols={2}>
+
+<Card title="Operations" href="/docs/operations/">
 
 Backups, full CLI reference, systemd service, safe updates.
 
-</div>
+</Card>
 
-<div className="card">
-
-<span className="k">REFERENCE</span>
-
-### [API](/docs/api/)
+<Card title="API" href="/docs/api/">
 
 The HTTP API behind the dashboard, CLI, and Android client.
 
-</div>
+</Card>
 
-</div>
-
-<div className="card">
-
-<span className="k">REFERENCE</span>
-
-### [Principles](/docs/principles/)
+<Card title="Principles" href="/docs/principles/">
 
 What 9t is, what it refuses to become, and the roadmap.
 
-</div>
+</Card>
 
-> The markdown originals live in the repo under [`docs/`](https://github.com/M3264/9t/tree/main/docs).
-> Found a mistake? Open a pull request — docs fixes are the easiest first contribution.
+</CardGroup>
+
+<Callout>
+
+The markdown originals live in the repo under [`docs/`](https://github.com/M3264/9t/tree/main/docs). Found a mistake? Open a pull request — docs fixes are the easiest first contribution.
+
+</Callout>

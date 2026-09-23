@@ -26,6 +26,7 @@ export function SiteHeader({ section }: { section?: "docs" }) {
           <b>9t</b>
           <small>SELF-HOSTED WORKSPACE</small>
         </span>
+        {section === "docs" && <span className="docs-badge">Docs</span>}
       </Link>
       <nav className="topnav" aria-label="Main navigation">
         <Link href="/docs/" aria-current={section === "docs" ? "page" : undefined}>
@@ -33,6 +34,7 @@ export function SiteHeader({ section }: { section?: "docs" }) {
         </Link>
         <Link href="/docs/android/">Android</Link>
         <Link href="/docs/install/">Install</Link>
+        <a href="https://github.com/M3264/9t">GitHub</a>
         {section === "docs" && <SearchBox />}
         <button id="site-theme-btn" className="iconbtn" aria-label="Toggle theme" title="Toggle theme">
           ◐

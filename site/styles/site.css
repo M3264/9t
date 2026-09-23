@@ -8,6 +8,11 @@
 .brand img { width: 44px; height: 34px; object-fit: contain; }
 .brand b { font-size: 18px; letter-spacing: -0.05em; }
 .brand small { display: block; font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+.docs-badge {
+  font: 700 11px var(--mono); letter-spacing: 0.08em;
+  color: var(--blue-ink); background: var(--blue-soft);
+  border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+}
 .topnav { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 .topnav > a:not(.primarybtn) {
   padding: 10px 12px; border-radius: 10px; font-size: 13.5px; color: var(--muted);
@@ -176,6 +181,69 @@ html[data-theme="dark"] .prose pre { background: #121016; }
 .docs-toc a { color: var(--muted); text-decoration: none; line-height: 1.45; display: block; }
 .docs-toc a:hover { color: var(--ink); }
 .docs-toc a[aria-current="true"] { color: var(--blue-ink); font-weight: 700; }
+/* rich docs primitives: cards, accordions, callouts, diagrams */
+.doc-cards { display: grid; grid-template-columns: repeat(var(--doc-card-cols, 2), 1fr); gap: 12px; margin: 16px 0; }
+.doc-card {
+  position: relative; display: block; background: var(--paper);
+  border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px 44px 16px 16px;
+  text-decoration: none;
+}
+.doc-card:hover { border-color: var(--blue); }
+.doc-card strong { display: block; font-size: 14px; letter-spacing: -0.01em; margin-bottom: 4px; }
+.doc-card-body { display: block; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.doc-card-body p { margin: 0; font-size: 13px; }
+.doc-card-body code { font-size: 11.5px; }
+.doc-card-go {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 18px;
+}
+.doc-card:hover .doc-card-go { color: var(--blue-ink); transform: translate(2px, -50%); }
+.doc-accordions { display: grid; gap: 8px; margin: 16px 0; }
+.doc-accordion {
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+.doc-accordion summary {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 12px 14px; font-size: 14px; font-weight: 700; list-style: none;
+}
+.doc-accordion summary::-webkit-details-marker { display: none; }
+.doc-accordion summary:hover { color: var(--blue-ink); }
+.doc-accordion-caret { color: var(--muted); font-size: 18px; line-height: 1; transition: transform 0.15s ease; }
+.doc-accordion[open] .doc-accordion-caret { transform: rotate(90deg); color: var(--blue-ink); }
+.doc-accordion-body { padding: 0 14px 14px 36px; font-size: 13.5px; color: var(--ink-soft); }
+.doc-accordion-body p { margin: 0 0 8px; font-size: 13.5px; }
+.doc-callout {
+  display: flex; gap: 12px; background: var(--paper);
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 14px 16px; margin: 16px 0; font-size: 13.5px;
+}
+.doc-callout-icon {
+  width: 26px; height: 26px; flex-shrink: 0; display: grid; place-items: center;
+  border-radius: 50%; background: var(--blue-soft); color: var(--blue-ink);
+  font: 700 13px var(--mono); font-style: normal;
+}
+.doc-callout.warn .doc-callout-icon { background: #f6e3e5; color: var(--danger); }
+html[data-theme="dark"] .doc-callout.warn .doc-callout-icon { background: #4a2b30; }
+.doc-callout p { margin: 0 0 8px; font-size: 13.5px; }
+.doc-callout p:last-child { margin-bottom: 0; }
+.doc-diagram { margin: 16px 0; display: grid; gap: 6px; }
+.doc-diagram-row { display: flex; align-items: stretch; }
+.doc-diagram-node {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 14px; font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.doc-diagram-arrow {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 11.5px; color: var(--muted); padding: 0 10px; min-width: 0;
+  background-image: linear-gradient(to right, var(--line) 45%, transparent 45%);
+  background-size: 8px 1px; background-repeat: repeat-x; background-position: center;
+}
+.doc-diagram-arrow em { font-style: normal; background: var(--bg); padding: 0 8px; font-family: var(--mono); font-size: 11px; }
+.doc-diagram-caption { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+@media (max-width: 700px) {
+  .doc-cards { grid-template-columns: 1fr; }
+  .doc-diagram-node { padding: 6px 10px; font-size: 12px; }
+}
 .pager a {
   flex: 1; background: var(--paper); border: 1px solid var(--line);
   border-radius: var(--r-sm); padding: 12px 14px; font-size: 13px; font-weight: 700;
