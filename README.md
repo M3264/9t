@@ -164,7 +164,6 @@ android/              Android client
 deploy/               Nginx (nginx/), systemd (systemd/), Docker (docker/)
 db/migrations/        PostgreSQL migration target
 docs/                 Whitepaper, installation, network, Android, site ops
-docs/archive/         Historical handoffs and plans
 site/                 Public landing + docs for 9t.kennyy.tech (static)
 tests/                Node test suites + install smoke test
 ```
@@ -190,7 +189,6 @@ Full documentation lives at **<https://9t.kennyy.tech/docs>** (source: [`site/do
 - [Network troubleshooting](./docs/network-troubleshooting.md) — LAN, WSL, hotspots, and reverse proxies
 - [Android client](./docs/android.md) — pairing, background receiving, and releases
 - [Site operations](./docs/site.md) — publishing 9t.kennyy.tech
-- [TODO](./docs/archive/TODO.md) — planned work, including multi-user ownership and S3 storage
 
 9t is currently designed for a single owner. PostgreSQL, multi-user ownership, automated exposure switching, and S3 storage remain on the roadmap.
 

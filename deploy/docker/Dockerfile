@@ -8,7 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY . .
 ENV NODE_ENV=production
-# Webpack build matches the low-memory VPS practice (see docs/archive/HANDOFF.md);
+# Webpack build matches the low-memory VPS practice;
 # Turbopack needs more RAM than small hosts reliably have.
 RUN npm run build -- --webpack
 RUN npm prune --omit=dev

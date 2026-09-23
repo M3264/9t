@@ -19,7 +19,7 @@ acknowledgement within a week.
 
 ## Scope notes
 
-- 9t has not had an external security review (see `docs/archive/TODO.md`).
-  Avoid strong security claims when describing it.
+- 9t has not had an external security review. Avoid strong security claims
+  when describing it.
 - Client-side encryption is long-term work; server operators can read
   stored objects today. Self-host accordingly.

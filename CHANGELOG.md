@@ -1,14 +1,14 @@
 # Changelog
 
-Follows the `main` branch. Older per-release notes live in
-[`docs/archive/HANDOFF.md`](./docs/archive/HANDOFF.md).
+Follows the `main` branch. Earlier development notes remain available in
+Git history.
 
 ## Unreleased
 
 - Static landing + full docs site for 9t.kennyy.tech (`site/`, nginx vhost,
   `scripts/publish-site.mjs`).
-- Repo restructure: `deploy/docker/`, `scripts/cli/`, `db/migrations/`,
-  `docs/archive/`; `next-env.d.ts` untracked.
+- Repo restructure: `deploy/docker/`, `scripts/cli/`, `db/migrations/`;
+  `next-env.d.ts` untracked.
 - `./9t setup --service` installs the systemd boot service on an existing
   checkout; systemd unit quoting fixed (`WorkingDirectory` unquoted).
 - `./9t update` auto-stashes regenerable build churn instead of refusing.
