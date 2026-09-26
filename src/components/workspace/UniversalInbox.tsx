@@ -12,6 +12,7 @@ import {
 import { ApiError, workspaceApi as api } from "../../lib/client/workspace";
 import type { WorkspaceConfig } from "../../types/workspace";
 import styles from "./Capture.module.css";
+import Markdown from "./Markdown";
 
 export default function UniversalInbox({
   config,
@@ -23,6 +24,8 @@ export default function UniversalInbox({
   notify: (message: string) => void;
 }) {
   const [value, setValue] = useState("");
+  const [markdown, setMarkdown] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [lifetime, setLifetime] = useState("forever");
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -42,7 +45,7 @@ export default function UniversalInbox({
   const addText = async () => {
     if (!value.trim() || inFlight.current) return;
     const url = parseUrl(value);
-    const type = url && config.modules.links ? "link" : "snippet";
+    const type = !markdown && url && config.modules.links ? "link" : "snippet";
     if (type === "snippet" && !config.modules.snippets) {
       setError(
         "Enter an http or https link. Snippets are disabled in this workspace.",
@@ -65,10 +68,11 @@ export default function UniversalInbox({
       if (type === "link") form.set("url", url!.toString());
       else {
         form.set("content", value.trim());
-        form.set("language", "text");
+        form.set("language", markdown ? "markdown" : "text");
       }
       await api("/api/objects", { method: "POST", body: form });
       setValue("");
+      setPreview(false);
       await saved();
       notify(
         type === "link"
@@ -165,8 +169,14 @@ export default function UniversalInbox({
                 void addText();
               }}
             >
+              <div className={styles.editorModes}>
+                {config.modules.snippets && <label><input type="checkbox" checked={markdown} onChange={(e) => { setMarkdown(e.target.checked); setPreview(false); }} /> Markdown</label>}
+                {markdown && <button type="button" disabled={!value.trim()} onClick={() => setPreview(!preview)}>{preview ? "Edit" : "Preview"}</button>}
+              </div>
+              {preview && markdown && <div className={styles.preview}><Markdown source={value} /></div>}
               <textarea
                 className={styles.textarea}
+                hidden={preview && markdown}
                 aria-label="Text or link to save"
                 value={value}
                 maxLength={500000}

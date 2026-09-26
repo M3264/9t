@@ -35,6 +35,7 @@ import {
 } from "../../lib/client/workspace";
 import { expiryFromLifetime } from "../../lib/shared/lifetimes";
 import styles from "./Dialogs.module.css";
+import Markdown from "./Markdown";
 
 function useDialogFocus(
   ref: React.RefObject<HTMLElement | null>,
@@ -156,6 +157,7 @@ function Modal({
 
 export function Inspector({
   object,
+  sections,
   close,
   save,
   share,
@@ -163,6 +165,7 @@ export function Inspector({
   remove,
 }: {
   object: Obj;
+  sections: string[];
   close: () => void;
   save: (body: Record<string, unknown>) => void | Promise<void>;
   share: () => void;
@@ -171,6 +174,9 @@ export function Inspector({
 }) {
   const [name, setName] = useState(object.name);
   const [content, setContent] = useState(object.content || "");
+  const [language, setLanguage] = useState(object.language || "text");
+  const [preview, setPreview] = useState(false);
+  const [section, setSection] = useState(object.section || "");
   const [url, setUrl] = useState(object.url || "");
   const [lifetime, setLifetime] = useState(
     object.expiresAt ? "keep" : "forever",
@@ -220,15 +226,20 @@ export function Inspector({
             onChange={(e) => setName(e.target.value)}
           />
         </label>
+        <label className={styles.field}>
+          SECTION
+          <input value={section} list="inspector-sections" maxLength={80} placeholder="Unfiled" onChange={(e) => setSection(e.target.value)} />
+          <datalist id="inspector-sections">{sections.map((name) => <option key={name} value={name} />)}</datalist>
+        </label>
         {object.type === "snippet" && (
-          <label className={styles.field}>
-            CONTENT
-            <textarea
-              rows={15}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
-          </label>
+          <div className={styles.field}>
+            <div className={styles.editorHead}>
+              <span>CONTENT</span>
+              <label className={styles.markdownSwitch}><input type="checkbox" checked={language === "markdown"} onChange={(e) => { setLanguage(e.target.checked ? "markdown" : "text"); setPreview(false); }} /> Markdown</label>
+              {language === "markdown" && <button type="button" onClick={() => setPreview(!preview)}>{preview ? "Edit" : "Preview"}</button>}
+            </div>
+            {preview && language === "markdown" ? <div className={styles.preview}><Markdown source={content} /></div> : <textarea rows={15} value={content} onChange={(e) => setContent(e.target.value)} />}
+          </div>
         )}
         {object.type === "link" && (
           <label className={styles.field}>
@@ -314,9 +325,9 @@ export function Inspector({
             setSaving(true);
             setError("");
             try {
-              const body: Record<string, unknown> = { name: name.trim() };
+              const body: Record<string, unknown> = { name: name.trim(), section: section.trim() };
               if (expiry !== undefined) body.expiresAt = expiry;
-              if (object.type === "snippet") body.content = content;
+              if (object.type === "snippet") { body.content = content; body.language = language; }
               if (object.type === "link") body.url = url;
               await save(body);
             } catch (err) {
@@ -338,10 +349,14 @@ export function Inspector({
 
 export function CreateDialog({
   config,
+  section,
+  sections,
   close,
   saved,
 }: {
   config: Config;
+  section?: string;
+  sections: string[];
   close: () => void;
   saved: () => void;
 }) {
@@ -349,6 +364,9 @@ export function CreateDialog({
     .filter(([key, value]) => value && key !== "board")
     .map(([key]) => key.slice(0, -1)) as ObjectType[];
   const [type, setType] = useState<ObjectType>(types[0] || "snippet");
+  const [language, setLanguage] = useState("text");
+  const [content, setContent] = useState("");
+  const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -396,12 +414,18 @@ export function CreateDialog({
             placeholder="Something you will recognize"
           />
         </label>
+        <label>
+          SECTION
+          <input name="section" list="existing-sections" defaultValue={section || ""} maxLength={80} placeholder="Unfiled, or name a new section" />
+          <datalist id="existing-sections">{sections.map((name) => <option key={name} value={name} />)}</datalist>
+        </label>
         {type === "snippet" && (
           <>
             <label>
               LANGUAGE
-              <select name="language">
-                <option>text</option>
+              <select name="language" value={language} onChange={(e) => { setLanguage(e.target.value); setPreview(false); }}>
+                <option value="text">Plain text</option>
+                <option value="markdown">Markdown</option>
                 <option>javascript</option>
                 <option>typescript</option>
                 <option>python</option>
@@ -411,15 +435,19 @@ export function CreateDialog({
                 <option>sql</option>
               </select>
             </label>
-            <label>
-              CONTENT
+            <div className={styles.full}>
+              <div className={styles.editorHead}><span>CONTENT</span>{language === "markdown" && <button type="button" disabled={!content.trim()} onClick={() => setPreview(!preview)}>{preview ? "Edit" : "Preview"}</button>}</div>
+              {preview && language === "markdown" && <div className={styles.preview}><Markdown source={content} /></div>}
               <textarea
                 name="content"
                 rows={9}
                 required
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                hidden={preview && language === "markdown"}
                 placeholder="Paste code, a command, note, or configuration…"
               />
-            </label>
+            </div>
           </>
         )}
         {type === "link" && (

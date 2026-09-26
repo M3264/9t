@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { authenticated } from "@/lib/server/auth";
 import { readData } from "@/lib/server/db";
+import Markdown from "@/components/workspace/Markdown";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,9 @@ export default async function ObjectPage({
         <div className="object-copy">
           <small>{object.type}</small>
           <h1>{object.name}</h1>
-          {object.type === "snippet" && <pre>{object.content}</pre>}
+          {object.type === "snippet" && (object.language === "markdown"
+            ? <Markdown source={object.content || ""} />
+            : <pre>{object.content}</pre>)}
           {object.type === "link" && (
             <a
               className="handoff-action"

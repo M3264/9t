@@ -33,12 +33,15 @@ export async function POST(req: Request) {
   const type = String(form.get("type") || "");
   const name = String(form.get("name") || "").trim();
   const lifetime = String(form.get("lifetime") || "forever");
+  const section = String(form.get("section") || "").trim();
 
   if (!name || name.length > MAX_NAME_LEN || !["snippet", "file", "link"].includes(type))
     return Response.json(
       { error: "A valid type and name are required." },
       { status: 400 },
     );
+  if (section.length > 80)
+    return Response.json({ error: "Section names must be 80 characters or less." }, { status: 400 });
 
   const expiresAt = expiryFromLifetime(lifetime);
 
@@ -71,6 +74,7 @@ export async function POST(req: Request) {
       await addObject({
         type: "file",
         name,
+        section: section || undefined,
         mimeType: file.type || "application/octet-stream",
         sizeBytes: file.size,
         storageKey,
@@ -91,7 +95,9 @@ export async function POST(req: Request) {
       return Response.json({ error: "Enter a valid URL." }, { status: 400 });
     }
     return Response.json(
-      await addObject({ type: "link", name, url: link, expiresAt }),
+      await addObject({
+        type: "link", name, section: section || undefined, url: link, expiresAt,
+      }),
     );
   }
   const content = String(form.get("content") || "");
@@ -101,6 +107,7 @@ export async function POST(req: Request) {
     await addObject({
       type: "snippet",
       name,
+      section: section || undefined,
       content,
       language: String(form.get("language") || "text").slice(0, 32),
       expiresAt,

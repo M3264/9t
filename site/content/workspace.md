@@ -19,6 +19,8 @@ Use **Quick capture** at the top of the workspace:
 
 Quick capture names a snippet from its first line and a link from its hostname. Use **New item** when you want to set a name, language, or item type yourself. You can also choose how long the item stays: **Forever**, **1 hour**, **1 day**, or **7 days**. Your server's upload limit applies to files.
 
+Turn on **Markdown** in Quick capture for a formatted note. Use **Preview** to check it before saving. In **New item**, choose Markdown as the snippet language; you can also turn Markdown on or off when editing a snippet. Plain text and code snippets stay as they are unless you change them.
+
 <Callout>
 
 Saving an item keeps it on your 9t server. It does not publish the item or automatically share it with anyone.
@@ -28,6 +30,8 @@ Saving an item keeps it on your 9t server. It does not publish the item or autom
 ## Find and organize it
 
 The sidebar separates **All items**, **Snippets**, **Files**, **Links**, **Pinned**, **Shared links**, and **Trash**. The type views and Board appear only when their modules are enabled. On a phone-sized screen, the bottom bar and the scrollable filter row provide the same main views.
+
+To organize items into sections, enter a section name when creating an item, or open an existing item and edit its **Section** field. Existing section names are suggested as you type. Sections appear in the sidebar and mobile filter row; **Unfiled** shows items without one. A section disappears when it has no items.
 
 Search looks through item names, snippet text, and saved URLs **within the current view**. If a search in Files finds nothing, switch to All items and try again. Use the list/grid control and sort menu to change how the current collection appears.
 

@@ -10,7 +10,12 @@ public final class BootReceiver extends BroadcastReceiver {
     Prefs p = new Prefs(c);
     // elapsedRealtime restarts at boot, so a saved session deadline is meaningless now.
     if (booted) p.p.edit().remove("liveDeadline").apply();
-    if (p.paired() && p.p.getBoolean("enabled", true)) SyncJob.schedule(c);
+    if (p.paired() && p.p.getBoolean("enabled", true)) {
+      SyncJob.schedule(c);
+      if (!LiveSession.deviceConnection(
+          p.p.getString("mode", "auto"), p.p.getString("lan", "")))
+        BootSyncJob.schedule(c);
+    }
     // Connected-device receiving is permitted at boot; cloud dataSync is not.
     if (LiveSession.restoreAtBoot(
         p.paired(),

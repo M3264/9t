@@ -59,6 +59,7 @@ export async function PATCH(
     if (!o) return;
     found = true;
     if (typeof body.pinned === "boolean") o.pinned = body.pinned;
+    if (typeof body.section === "string") o.section = body.section || undefined;
     if (body.restore) o.deletedAt = undefined;
     if (typeof body.name === "string" && body.name.trim())
       o.name = body.name.trim().slice(0, 200);

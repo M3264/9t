@@ -30,6 +30,7 @@ import {
   LayoutGrid,
   Code2,
   FileText,
+  Folder,
   Link2,
   Layers,
   Pin,
@@ -99,6 +100,7 @@ function WorkspaceInner() {
   const [library, setLibrary] = useState<Obj[]>([]);
   const [shares, setShares] = useState<Share[]>([]);
   const [view, setView] = useState<View>("all");
+  const [sectionFilter, setSectionFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const [layout, setLayout] = useState<"grid" | "list">("list");
@@ -119,6 +121,7 @@ function WorkspaceInner() {
   const [selected, setSelected] = useState<Obj | null>(null);
   const navigate = (next: View, pinned = false) => {
     setView(next);
+    setSectionFilter(null);
     setPinnedOnly(pinned);
     setQuery("");
     setSelected(null);
@@ -293,6 +296,7 @@ function WorkspaceInner() {
         )
           return false;
         if (pinnedOnly && !o.pinned) return false;
+        if (sectionFilter !== null && (o.section || "") !== sectionFilter) return false;
         if (
           view !== "all" &&
           view !== "board" &&
@@ -310,7 +314,18 @@ function WorkspaceInner() {
           ? a.name.localeCompare(b.name)
           : +new Date(b.updatedAt) - +new Date(a.updatedAt),
       );
-  }, [objects, view, query, pinnedOnly, sort, config]);
+  }, [objects, view, query, pinnedOnly, sectionFilter, sort, config]);
+
+  const sections = useMemo(() =>
+    [...new Set(library.filter((o) => !o.deletedAt && o.section).map((o) => o.section!))]
+      .sort((a, b) => a.localeCompare(b)), [library]);
+  const openSection = (name: string) => {
+    setView("all");
+    setPinnedOnly(false);
+    setSectionFilter(name);
+    setQuery("");
+    setSelected(null);
+  };
 
   const counts = useMemo(() => {
     const active = library.filter(
@@ -417,7 +432,7 @@ function WorkspaceInner() {
     link: Link2,
     board: Layers,
   };
-  const title = pinnedOnly
+  const title = sectionFilter !== null ? (sectionFilter || "Unfiled") : pinnedOnly
     ? "Pinned"
     : view === "all"
       ? "Workspace"
@@ -487,7 +502,7 @@ function WorkspaceInner() {
     </>
   );
 
-  const home = view === "all" && !pinnedOnly && !query;
+  const home = view === "all" && !pinnedOnly && !query && sectionFilter === null;
   const pinned = library.filter((o) => o.pinned && config?.modules[`${o.type}s` as "files" | "snippets" | "links"]);
   const fileBytes = library.reduce((sum, o) => sum + (o.sizeBytes || 0), 0);
 
@@ -505,8 +520,12 @@ function WorkspaceInner() {
         <nav className={styles.navigation} aria-label="Workspace views">
           {tabs.filter((t) => t.show).map((t) => {
             const Icon = navIcons[t.id as keyof typeof navIcons];
-            return <button key={t.id} className={styles.navItem} aria-pressed={view === t.id && !pinnedOnly} onClick={() => navigate(t.id)}><Icon /><span>{t.label}</span>{typeof t.count === "number" && <small>{t.count}</small>}</button>;
+            return <button key={t.id} className={styles.navItem} aria-pressed={view === t.id && !pinnedOnly && sectionFilter === null} onClick={() => navigate(t.id)}><Icon /><span>{t.label}</span>{typeof t.count === "number" && <small>{t.count}</small>}</button>;
           })}
+          <div className={styles.navDivider} />
+          <span className={styles.navLabel}>SECTIONS</span>
+          <button className={styles.navItem} aria-pressed={sectionFilter === ""} onClick={() => openSection("")}><Folder /><span>Unfiled</span></button>
+          {sections.map((name) => <button key={name} className={styles.navItem} aria-pressed={sectionFilter === name} onClick={() => openSection(name)}><Folder /><span>{name}</span></button>)}
           <div className={styles.navDivider} />
           <button className={styles.navItem} aria-pressed={pinnedOnly} onClick={() => navigate("all", true)}><Pin /><span>Pinned</span>{pinned.length > 0 && <small>{pinned.length}</small>}</button>
           <button className={styles.navItem} aria-pressed={view === "shares"} onClick={() => navigate("shares")}><Share2 /><span>Shared links</span>{shares.length > 0 && <small>{shares.length}</small>}</button>
@@ -544,7 +563,7 @@ function WorkspaceInner() {
 
           {home && pinned.length > 0 && !loadingObjects && <section className={styles.pinnedSection} aria-label="Pinned items"><div className={styles.sectionHead}><h2><Pin />Within reach<span className={styles.count}>{pinned.length}</span></h2><button className={styles.textButton} onClick={() => navigate("all", true)}>View pinned <ArrowUpRight /></button></div><PinnedItems objects={pinned} open={setSelected} /></section>}
 
-          <nav className={styles.mobileTabs} aria-label="Filter items">{tabs.filter((t) => t.show).map((t) => <button key={t.id} aria-pressed={view === t.id && !pinnedOnly} onClick={() => navigate(t.id)}>{t.label}{typeof t.count === "number" && <small>{t.count}</small>}</button>)}<button aria-pressed={view === "trash"} onClick={() => navigate("trash")}><Trash2 />Trash</button></nav>
+          <nav className={styles.mobileTabs} aria-label="Filter items">{tabs.filter((t) => t.show).map((t) => <button key={t.id} aria-pressed={view === t.id && !pinnedOnly && sectionFilter === null} onClick={() => navigate(t.id)}>{t.label}{typeof t.count === "number" && <small>{t.count}</small>}</button>)}<button aria-pressed={sectionFilter === ""} onClick={() => openSection("")}><Folder />Unfiled</button>{sections.map((name) => <button key={name} aria-pressed={sectionFilter === name} onClick={() => openSection(name)}><Folder />{name}</button>)}<button aria-pressed={view === "trash"} onClick={() => navigate("trash")}><Trash2 />Trash</button></nav>
 
           <section className={styles.collectionSection} aria-label="Your items">
             <div className={styles.sectionHead}><h2 id="collection" tabIndex={-1}>{query ? "Search results" : home ? "All items" : title}<span className={styles.count}>{view === "shares" ? shares.length : visible.length}</span></h2><div className={styles.controls}>{view !== "shares" && view !== "board" && <><label className={styles.sort}><ArrowDownUp /><select aria-label="Sort items" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")}><option value="recent">Last updated</option><option value="name">Name A–Z</option></select></label><div className={styles.layoutSwitch} role="group" aria-label="Layout"><button aria-label="List view" aria-pressed={layout === "list"} onClick={() => changeLayout("list")}><List /></button><button aria-label="Grid view" aria-pressed={layout === "grid"} onClick={() => changeLayout("grid")}><LayoutGrid /></button></div></>}</div></div>
@@ -556,7 +575,7 @@ function WorkspaceInner() {
       </div>
 
       <nav className={styles.dock} aria-label="Mobile navigation">
-        <button data-active={view === "all" && !pinnedOnly} onClick={() => navigate("all")}><LayoutGrid /><span>Workspace</span></button>
+        <button data-active={view === "all" && !pinnedOnly && sectionFilter === null} onClick={() => navigate("all")}><LayoutGrid /><span>Workspace</span></button>
         <button data-active={pinnedOnly} onClick={() => navigate("all", true)}><Pin /><span>Pinned</span></button>
         <button className={styles.dockAdd} aria-label="New item" onClick={() => setModal(activeModules ? "create" : "settings")}><Plus /></button>
         <button data-active={view === "shares"} onClick={() => navigate("shares")}><Share2 /><span>Shared</span></button>
@@ -567,6 +586,7 @@ function WorkspaceInner() {
         <Inspector
           key={selected.id}
           object={selected}
+          sections={sections}
           close={() => setSelected(null)}
           save={async (body) => {
             if (!(await patch(selected, body)))
@@ -581,6 +601,8 @@ function WorkspaceInner() {
       {modal === "create" && config && (
         <Create
           config={config}
+          section={sectionFilter || undefined}
+          sections={sections}
           close={() => setModal(null)}
           saved={async () => {
             setModal(null);

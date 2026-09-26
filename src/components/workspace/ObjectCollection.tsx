@@ -170,6 +170,7 @@ export function ObjectList({
                       ? `${bytes(o.sizeBytes)} · ${o.mimeType || "File"}`
                       : `${o.content?.split("\n").length || 0} lines · ${o.language || "Plain text"}`}
                 </p>
+                {o.section && <small className={styles.sectionTag}><FolderOpen />{o.section}</small>}
               </div>
               <span className={styles.rowType} data-t={o.type}>{o.type === "snippet" ? "Snippet" : o.type === "link" ? "Link" : "File"}</span>
               <div className={styles.foot}>

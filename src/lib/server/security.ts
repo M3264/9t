@@ -161,6 +161,7 @@ export const objectPatchSchema = z
     name: z.string().min(1).max(MAX_NAME_LEN).optional(),
     content: z.string().max(MAX_CONTENT_LEN).optional(),
     language: z.string().max(32).optional(),
+    section: z.string().trim().max(80).optional(),
     url: z.string().max(2048).optional(),
     expiresAt: z.string().nullable().optional(),
     board: z

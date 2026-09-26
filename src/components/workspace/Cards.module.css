@@ -80,3 +80,4 @@
 .shareCard code { background: var(--badge-bg); color: var(--badge-fg); border-radius: 8px; padding: 5px 9px; font: 11px var(--mono); }
 
 .grid > li { min-width: 0; }
+.sectionTag{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:10px;margin-top:4px}.sectionTag svg{width:11px;height:11px}

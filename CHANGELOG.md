@@ -13,6 +13,13 @@ Git history.
   checkout; systemd unit quoting fixed (`WorkingDirectory` unquoted).
 - `./9t update` auto-stashes regenerable build churn instead of refusing.
 
+## 0.6.5
+
+- Snippets can be saved as Markdown and switched between editing and preview.
+- Items can be assigned to named sections and filtered by section.
+- Android queues a catch-up sync at boot for cloud connections; LAN receiving
+  continues to resume automatically.
+
 ## 0.6.3
 
 - Android Inbox deletions and Clear local history stay hidden after sync. Only

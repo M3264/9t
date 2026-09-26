@@ -64,6 +64,7 @@ async function readAll(client: PoolClient): Promise<Data> {
       id: r.id,
       type: r.type,
       name: r.name,
+      ...(r.section ? { section: r.section } : {}),
       pinned: r.pinned,
       createdAt: iso(r.created_at),
       updatedAt: iso(r.updated_at),
@@ -235,16 +236,17 @@ async function writeKeyed<V>(
 
 async function writeObject(client: PoolClient, o: NineTObject) {
   await client.query(
-    `INSERT INTO objects (id, type, name, pinned, expires_at, deleted_at, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO objects (id, type, name, section, pinned, expires_at, deleted_at, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (id) DO UPDATE SET
-       type = EXCLUDED.type, name = EXCLUDED.name, pinned = EXCLUDED.pinned,
+       type = EXCLUDED.type, name = EXCLUDED.name, section = EXCLUDED.section, pinned = EXCLUDED.pinned,
        expires_at = EXCLUDED.expires_at, deleted_at = EXCLUDED.deleted_at,
        created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`,
     [
       o.id,
       o.type,
       o.name,
+      o.section ?? null,
       o.pinned,
       o.expiresAt ?? null,
       o.deletedAt ?? null,

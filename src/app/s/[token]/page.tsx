@@ -6,6 +6,7 @@ import { createHash } from "crypto";
 import QRCode from "qrcode";
 import { mutate, readData } from "@/lib/server/db";
 import Unlock from "./unlock";
+import Markdown from "@/components/workspace/Markdown";
 
 export const dynamic = "force-dynamic";
 
@@ -75,9 +76,9 @@ export default async function Handoff({
         <p>TRANSMISSION / {object.type.toUpperCase()}</p>
         <h1>{object.name}</h1>
         {object.type === "snippet" && (
-          <pre>
-            <code>{object.content}</code>
-          </pre>
+          object.language === "markdown"
+            ? <Markdown source={object.content || ""} />
+            : <pre><code>{object.content}</code></pre>
         )}
         {object.type === "link" && (
           <a

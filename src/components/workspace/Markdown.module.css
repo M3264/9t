@@ -1,0 +1,14 @@
+.markdown{font:inherit;line-height:1.65;overflow-wrap:anywhere}
+.markdown>*:first-child{margin-top:0}.markdown>*:last-child{margin-bottom:0}
+.markdown h1,.markdown h2,.markdown h3{line-height:1.25;margin:1.2em 0 .5em;letter-spacing:-.02em}
+.markdown h1{font-size:1.65em}.markdown h2{font-size:1.35em}.markdown h3{font-size:1.15em}
+.markdown p,.markdown ul,.markdown ol,.markdown blockquote,.markdown pre,.markdown table{margin:.75em 0}
+.markdown ul,.markdown ol{padding-left:1.5em}.markdown li+li{margin-top:.25em}
+.markdown a{color:var(--blue-ink);text-decoration:underline;text-underline-offset:2px}
+.markdown blockquote{border-left:3px solid var(--line);padding-left:1em;color:var(--muted)}
+.markdown code{font: .9em/1.5 var(--mono);background:var(--soft);border-radius:3px;padding:.1em .25em}
+.markdown pre{overflow:auto;border:1px solid var(--line);border-radius:7px;background:var(--soft);padding:1em}
+.markdown pre code{background:transparent;padding:0}
+.markdown table{display:block;overflow-x:auto;border-collapse:collapse}
+.markdown th,.markdown td{border:1px solid var(--line);padding:.35em .6em;text-align:left}
+.markdown img{max-width:100%;height:auto}

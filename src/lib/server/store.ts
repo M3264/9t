@@ -9,6 +9,7 @@ export type NineTObject = {
   name: string;
   content?: string;
   language?: string;
+  section?: string;
   url?: string;
   mimeType?: string;
   sizeBytes?: number;
