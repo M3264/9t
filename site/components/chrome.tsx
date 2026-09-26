@@ -61,7 +61,7 @@ export function SiteFooter() {
         <Link href="/docs/">Docs</Link>
         <a href="https://github.com/M3264/9t">GitHub</a>
         <a href="https://github.com/M3264/9t/releases">Releases</a>
-        <a href="https://github.com/M3264/9t/releases/download/v0.6.3/9t-android-0.6.3.apk">APK</a>
+        <a href="https://github.com/M3264/9t/releases/download/v0.6.4/9t-android-0.6.4.apk">APK</a>
       </nav>
       <p>Self-hosted files, snippets, and links · GPL-3.0.</p>
     </footer>

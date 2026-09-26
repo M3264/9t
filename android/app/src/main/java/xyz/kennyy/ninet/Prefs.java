@@ -15,6 +15,37 @@ final class Prefs {
   Prefs(Context c) {
     context = c.getApplicationContext();
     p = c.getSharedPreferences("9t", Context.MODE_PRIVATE);
+    migratePublicHost();
+  }
+
+  private void migratePublicHost() {
+    synchronized (Prefs.class) {
+      if (p.getBoolean("migrated99tHost", false)) return;
+      final String oldUrl = "https://9t.kennyy.xyz";
+      final String newUrl = "https://99t.kennyy.tech";
+      SharedPreferences.Editor edit = p.edit();
+      if (oldUrl.equals(p.getString("public", ""))) edit.putString("public", newUrl);
+      boolean profilesReady = true;
+      try {
+        JSONObject all = servers();
+        boolean changed = false;
+        java.util.Iterator<String> ids = all.keys();
+        while (ids.hasNext()) {
+          JSONObject profile = all.getJSONObject(ids.next());
+          if (!oldUrl.equals(profile.optString("public", ""))) continue;
+          profile.put("public", newUrl);
+          if ("9t.kennyy.xyz".equals(profile.optString("name", "")))
+            profile.put("name", "99t.kennyy.tech");
+          changed = true;
+        }
+        if (changed) edit.putString("servers", all.toString());
+      } catch (Exception error) {
+        profilesReady = false;
+        android.util.Log.w("9t", "Could not migrate saved server profiles", error);
+      }
+      if (profilesReady) edit.putBoolean("migrated99tHost", true);
+      if (!edit.commit()) android.util.Log.w("9t", "Could not save new server address");
+    }
   }
 
   boolean paired() {

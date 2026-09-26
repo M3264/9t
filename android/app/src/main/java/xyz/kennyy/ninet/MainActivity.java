@@ -789,7 +789,7 @@ public final class MainActivity extends Activity {
               }
             }));
     body.addView(
-        button("Open 9t pairing page", () -> openExternal("https://9t.kennyy.xyz/devices")));
+        button("Open 9t pairing page", () -> openExternal("https://99t.kennyy.tech/devices")));
     if (pairingNew) {
       body.addView(
           secondary(
